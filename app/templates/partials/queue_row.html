@@ -1,0 +1,110 @@
+<div class="queue-row {{ row.booking.status.value }}{% if row.is_late %} late{% endif %}">
+  <div class="token">{{ row.label }}</div>
+  <div class="row-meta">
+    <div class="name">
+      {{ row.patient.name }}
+      {% if row.booking.party_size > 1 %}
+        <span class="muted" style="font-weight: 400; font-size: 12px">
+          · party of {{ row.booking.party_size }}
+        </span>
+      {% endif %}
+    </div>
+    <div class="sub">
+      <span>{{ row.booking.slot_time | fmt_time }}</span>
+      {% if row.booking.reason %}
+        · <span>{{ row.booking.reason }}</span>
+      {% endif %}
+      {% if row.is_late %}
+        · <span class="pill warning"><i class="ti ti-clock-exclamation"></i> Late</span>
+      {% endif %}
+    </div>
+    {% if row.sub_tokens %}
+      <div class="sub" style="margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px">
+        {% for s in row.sub_tokens %}
+          {% if s.status.value == "cancelled" %}
+            <span class="pill neutral" style="text-decoration: line-through">
+              T{{ row.booking.token }}.{{ s.suffix }} · {{ s.name }}
+            </span>
+          {% elif s.status.value == "done" %}
+            <span class="pill success">
+              <i class="ti ti-check"></i> T{{ row.booking.token }}.{{ s.suffix }} · {{ s.name }}
+            </span>
+          {% elif s.status.value == "in_consult" %}
+            <span class="pill info">
+              <i class="ti ti-stethoscope"></i> T{{ row.booking.token }}.{{ s.suffix }} · {{ s.name }}
+            </span>
+          {% else %}
+            <span class="pill neutral"
+                  title="Click ✕ to cancel"
+                  style="display: inline-flex; align-items: center; gap: 4px">
+              T{{ row.booking.token }}.{{ s.suffix }} · {{ s.name }}
+              <button class="btn ghost"
+                      hx-post="/queue/sub-tokens/{{ s.id }}/cancel"
+                      hx-target="#board" hx-swap="innerHTML"
+                      hx-confirm="Cancel sub-token T{{ row.booking.token }}.{{ s.suffix }} ({{ s.name }})?"
+                      style="padding: 0 4px; min-height: auto">
+                <i class="ti ti-x" style="font-size: 12px"></i>
+              </button>
+            </span>
+          {% endif %}
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+  <div class="row" style="gap: 6px; align-items: center">
+    {% if board_closed %}<span class="pill neutral">{{ row.booking.status.value | replace('_', ' ') }}</span>{% else %}
+    {% if row.booking.status.value == "booked" %}
+      <details class="sub-add" style="position: relative">
+        <summary class="btn ghost" title="{{ t('queue.add_family') }}">
+          <i class="ti ti-user-plus"></i>
+        </summary>
+        <form class="card"
+              style="position: absolute; right: 0; top: 100%; z-index: 10; min-width: 260px; margin-top: 4px"
+              hx-post="/queue/{{ row.booking.id }}/sub-tokens"
+              hx-target="#board" hx-swap="innerHTML"
+              hx-on::after-request="if(event.detail.successful) this.reset()">
+          <div class="field" style="margin-bottom: 6px">
+            <label>Family member name</label>
+            <input name="name" required maxlength="80" autofocus />
+          </div>
+          <div class="field" style="margin-bottom: 6px">
+            <label>Reason (optional)</label>
+            <input name="reason" maxlength="200" />
+          </div>
+          <button class="btn primary" type="submit" style="width: 100%">
+            <i class="ti ti-plus"></i> Add
+          </button>
+        </form>
+      </details>
+      <button class="btn"
+              hx-post="/queue/{{ row.booking.id }}/check-in"
+              hx-target="#board" hx-swap="innerHTML">
+        <i class="ti ti-check"></i> {{ t("queue.check_in") }}
+      </button>
+    {% elif row.booking.status.value == "checked_in" %}
+      <span class="pill success"><i class="ti ti-circle-check-filled"></i> {{ t("queue.checked_in") }}</span>
+    {% elif row.booking.status.value == "done" %}
+      {% if row.is_undoable %}
+        <button class="btn"
+                hx-post="/queue/{{ row.booking.id }}/undo-done"
+                hx-target="#board" hx-swap="innerHTML"
+                style="background: var(--bg-warning); color: var(--text-warning-deep); border-color: var(--border-warning)">
+          <i class="ti ti-arrow-back-up"></i> {{ t("queue.undo") }}
+        </button>
+      {% else %}
+        <span class="pill success"><i class="ti ti-circle-check-filled"></i> {{ t("queue.done") }}</span>
+      {% endif %}
+    {% elif row.booking.status.value == "no_show" %}
+      <span class="pill danger"><i class="ti ti-user-x"></i> {{ t("queue.no_show") }}</span>
+      <button class="btn"
+              hx-post="/queue/{{ row.booking.id }}/restore"
+              hx-target="#board" hx-swap="innerHTML"
+              title="{{ t('queue.restore') }}">
+        <i class="ti ti-rotate-clockwise-2"></i> {{ t("queue.restore") }}
+      </button>
+    {% elif row.booking.status.value == "cancelled" %}
+      <span class="pill neutral">{{ t("queue.cancelled") }}</span>
+    {% endif %}
+    {% endif %}
+  </div>
+</div>

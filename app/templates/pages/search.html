@@ -1,0 +1,31 @@
+{% extends "layouts/app.html" %}
+{% block title %}Search · Baari{% endblock %}
+
+{% block content %}
+<div style="max-width: 720px; margin: 0 auto">
+  <h2 style="margin: 0 0 14px">Search bookings</h2>
+
+  <div class="card">
+    <div class="field" style="margin-bottom: 0">
+      <input type="search" name="q" placeholder="Name, mobile, last-4 digits, or token (e.g. T5)"
+             value="{{ q or '' }}"
+             hx-get="/search/results"
+             hx-trigger="keyup changed delay:200ms, search"
+             hx-target="#search-results"
+             hx-swap="innerHTML"
+             hx-indicator=".search-spinner"
+             autocomplete="off"
+             autofocus />
+      <span class="hint">Live search. Try a name in English or हिन्दी.</span>
+    </div>
+  </div>
+
+  <div class="search-spinner muted htmx-indicator" style="text-align: center; padding: 12px">
+    <i class="ti ti-loader-2"></i> Searching…
+  </div>
+
+  <div id="search-results" style="margin-top: 14px">
+    {% include "partials/search_results.html" %}
+  </div>
+</div>
+{% endblock %}

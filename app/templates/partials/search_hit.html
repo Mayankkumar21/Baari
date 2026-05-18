@@ -1,0 +1,20 @@
+<a href="/bookings/{{ hit.booking.id }}"
+   style="display: grid; grid-template-columns: 56px 1fr auto; gap: 12px; align-items: center;
+          padding: 8px 10px; border-radius: var(--radius-md); text-decoration: none; color: inherit">
+  <div class="token">T{{ hit.booking.token }}</div>
+  <div class="row-meta">
+    <div class="name">{{ hit.patient.name }}</div>
+    <div class="sub">
+      <span>{{ hit.patient.mobile }}</span>
+      · <span>{{ hit.booking.slot_time | fmt_datetime }}</span>
+      {% if hit.booking.reason %} · <span>{{ hit.booking.reason }}</span>{% endif %}
+    </div>
+  </div>
+  <span class="pill
+    {% if hit.booking.status.value in ('done',) %}success
+    {% elif hit.booking.status.value in ('no_show', 'cancelled') %}danger
+    {% elif hit.booking.status.value == 'in_consult' %}info
+    {% else %}neutral{% endif %}">
+    {{ hit.booking.status.value | replace('_', ' ') }}
+  </span>
+</a>

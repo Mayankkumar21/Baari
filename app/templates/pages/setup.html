@@ -1,0 +1,87 @@
+{% extends "layouts/base.html" %}
+{% block title %}Set up your clinic · Baari{% endblock %}
+
+{% block body %}
+<div style="min-height: 100vh; background: var(--bg-canvas); padding: 32px 16px">
+  <div style="max-width: 720px; margin: 0 auto">
+    <div class="row" style="gap: 10px; margin-bottom: 18px">
+      <div style="width: 36px; height: 36px; border-radius: 8px; background: var(--accent-blue); color: #fff;
+                  display: grid; place-items: center; font-weight: 700">B</div>
+      <div>
+        <div style="font-weight: 600; font-size: 18px">Welcome to Baari</div>
+        <div class="muted" style="font-size: 13px">Let's set up your clinic — this takes about a minute.</div>
+      </div>
+    </div>
+
+    {% if error %}
+      <div class="pill danger" style="margin-bottom: 12px; padding: 8px 14px">
+        <i class="ti ti-alert-circle"></i> {{ error }}
+      </div>
+    {% endif %}
+
+    <form method="post" action="/setup" class="card">
+      <div class="card-title" style="margin-bottom: 10px">1 · Clinic name</div>
+      <div class="field">
+        <input name="name" required maxlength="120" autofocus
+               value="{{ clinic.name }}" placeholder="e.g. Sharma Homeopathy" />
+      </div>
+
+      <div class="card-title" style="margin: 18px 0 10px">2 · Slot &amp; no-show rules</div>
+      <div class="row" style="gap: 12px">
+        <div class="field" style="flex: 1">
+          <label>Slot length (min)</label>
+          <input name="slot_length_min" type="number" min="10" max="60" required
+                 value="{{ clinic.slot_length_min or 20 }}" />
+          <span class="hint">How long each patient block is.</span>
+        </div>
+        <div class="field" style="flex: 1">
+          <label>No-show after (min)</label>
+          <input name="no_show_threshold_min" type="number" min="10" max="180" required
+                 value="{{ clinic.no_show_threshold_min or 45 }}" />
+          <span class="hint">Auto-marks a patient no-show after this many minutes past slot.</span>
+        </div>
+      </div>
+
+      <div class="card-title" style="margin: 18px 0 10px">3 · Clinic hours</div>
+      <div class="row" style="gap: 12px">
+        <div class="field" style="flex: 1">
+          <label>Morning start</label>
+          <input name="morning_start" placeholder="10:00"
+                 value="{{ hours.morning.start if hours.morning else '10:00' }}" />
+        </div>
+        <div class="field" style="flex: 1">
+          <label>Morning end</label>
+          <input name="morning_end" placeholder="13:00"
+                 value="{{ hours.morning.end if hours.morning else '13:00' }}" />
+        </div>
+      </div>
+      <div class="row" style="gap: 12px">
+        <div class="field" style="flex: 1">
+          <label>Evening start</label>
+          <input name="evening_start" placeholder="17:00"
+                 value="{{ hours.evening.start if hours.evening else '17:00' }}" />
+        </div>
+        <div class="field" style="flex: 1">
+          <label>Evening end</label>
+          <input name="evening_end" placeholder="21:00"
+                 value="{{ hours.evening.end if hours.evening else '21:00' }}" />
+        </div>
+      </div>
+      <span class="hint">Leave a shift blank if you don't run it. You can change all of this later in Settings.</span>
+
+      <div class="card-title" style="margin: 18px 0 10px">4 · Next steps</div>
+      <ul class="muted" style="font-size: 13px; padding-left: 18px; line-height: 1.7">
+        <li>Add a receptionist account from Settings once you're in.</li>
+        <li>Approve your WhatsApp templates with the MSG91 dashboard.</li>
+        <li>Start booking patients from the Queue page.</li>
+      </ul>
+
+      <div class="row" style="justify-content: flex-end; margin-top: 14px">
+        <button class="btn primary lg" type="submit">
+          <i class="ti ti-check"></i> Save &amp; open queue
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

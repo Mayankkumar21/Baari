@@ -1,0 +1,52 @@
+{% extends "layouts/base.html" %}
+{% block title %}Sign in · Baari{% endblock %}
+
+{% block body %}
+<div class="auth-page">
+  <form class="auth-card" method="post" action="/login">
+    <h1>{{ t("login.title") }}</h1>
+    <p class="tagline">{{ t("login.tagline") }}</p>
+
+    {% if error %}
+      <div class="pill danger" style="margin-bottom: 12px">
+        <i class="ti ti-alert-circle"></i> {{ error }}
+      </div>
+    {% endif %}
+
+    <div class="field">
+      <label for="mobile">{{ t("login.mobile") }}</label>
+      <input id="mobile" name="mobile" type="tel" autocomplete="username"
+             inputmode="numeric" placeholder="98xxxxxxxx" required
+             value="{{ mobile or '' }}" autofocus />
+      <span class="hint">10-digit Indian mobile (with or without +91).</span>
+    </div>
+
+    <div class="field">
+      <label for="password">{{ t("login.password") }}</label>
+      <input id="password" name="password" type="password"
+             autocomplete="current-password" required />
+    </div>
+
+    <input type="hidden" name="next" value="{{ next }}" />
+
+    <button class="btn primary lg" type="submit" style="width: 100%; justify-content: center">
+      <i class="ti ti-login-2"></i> {{ t("login.submit") }}
+    </button>
+
+    <p class="hint" style="margin-top: 16px; text-align: center">
+      {{ t("login.forgot") }}
+    </p>
+
+  </form>
+  <div class="row" style="justify-content: center; margin-top: 14px">
+    <form method="post" action="/lang" style="display: inline">
+      <input type="hidden" name="lang" value="en" /><input type="hidden" name="next" value="/login" />
+      <button class="btn ghost" type="submit" style="font-size: 12px">English</button>
+    </form>
+    <form method="post" action="/lang" style="display: inline">
+      <input type="hidden" name="lang" value="hi" /><input type="hidden" name="next" value="/login" />
+      <button class="btn ghost" type="submit" style="font-size: 12px">हिंदी</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

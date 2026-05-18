@@ -1,0 +1,174 @@
+{% set board_closed = board.is_closed %}
+{% if board_closed and board.summary %}
+  {% set s = board.summary %}
+  <div class="card" style="background: var(--bg-info); border-color: var(--border-info); margin-bottom: 14px">
+    <div class="row" style="justify-content: space-between">
+      <div>
+        <div class="card-title" style="color: var(--text-info-deep)">Day closed</div>
+        <div style="font-size: 13px; color: var(--text-info-deep)">
+          Closed {{ s.closed_at | fmt_datetime }}. Dashboard is read-only.
+        </div>
+      </div>
+      <i class="ti ti-moon-filled" style="font-size: 28px; color: var(--text-info-deep)"></i>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px">
+      <div><div class="muted" style="font-size: 11px">Total</div><div style="font-weight: 600">{{ s.total_bookings }}</div></div>
+      <div><div class="muted" style="font-size: 11px">Completed</div><div style="font-weight: 600">{{ s.completed }}</div></div>
+      <div><div class="muted" style="font-size: 11px">No-shows</div><div style="font-weight: 600">{{ s.no_shows }}</div></div>
+      <div><div class="muted" style="font-size: 11px">Cancelled</div><div style="font-weight: 600">{{ s.cancellations }}</div></div>
+      {% if s.avg_wait_seconds is not none %}
+        <div><div class="muted" style="font-size: 11px">Avg wait</div><div style="font-weight: 600">{{ (s.avg_wait_seconds / 60) | round(0, 'floor') | int }}m</div></div>
+      {% endif %}
+      {% if s.avg_consult_seconds is not none %}
+        <div><div class="muted" style="font-size: 11px">Avg consult</div><div style="font-weight: 600">{{ (s.avg_consult_seconds / 60) | round(0, 'floor') | int }}m</div></div>
+      {% endif %}
+      {% if s.peak_hour is not none %}
+        <div><div class="muted" style="font-size: 11px">Peak hour</div><div style="font-weight: 600">{{ '%02d' % s.peak_hour }}:00</div></div>
+      {% endif %}
+      {% if s.last_consult_at %}
+        <div><div class="muted" style="font-size: 11px">Last consult</div><div style="font-weight: 600">{{ s.last_consult_at | fmt_time }}</div></div>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+
+<div class="counters">
+  <div class="counter">
+    <div class="label">{{ t("counter.booked") }}</div>
+    <div class="value">{{ board.counters.booked }}</div>
+  </div>
+  <div class="counter">
+    <div class="label">{{ t("counter.waiting") }}</div>
+    <div class="value">{{ board.counters.waiting }}</div>
+  </div>
+  <div class="counter">
+    <div class="label">{{ t("counter.done") }}</div>
+    <div class="value">{{ board.counters.done }}</div>
+  </div>
+  <div class="counter">
+    <div class="label">{{ t("counter.no_show") }}</div>
+    <div class="value">{{ board.counters.no_show }}</div>
+  </div>
+</div>
+
+<div class="queue-grid">
+  <section class="card">
+    <div class="card-header">
+      <div class="card-title">{{ t("queue.waiting") }}</div>
+      <div class="muted">{{ board.waiting | length }}</div>
+    </div>
+
+    {% if board.waiting %}
+      {% for row in board.waiting %}
+        {% include "partials/queue_row.html" %}
+      {% endfor %}
+    {% else %}
+      <div class="empty">
+        <i class="ti ti-coffee" style="font-size: 24px"></i>
+        <div style="margin-top: 6px">{{ t("queue.empty_waiting") }}</div>
+      </div>
+    {% endif %}
+  </section>
+
+  <section class="col" style="gap: 14px">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">{{ t("queue.now_consulting") }}</div>
+      </div>
+
+      {% if board.now_consulting %}
+        {% set nc = board.now_consulting %}
+        <div class="now-card">
+          <div class="row" style="justify-content: space-between; align-items: flex-start">
+            <div>
+              <div class="muted" style="font-size: 12px">{{ t("queue.token") }}</div>
+              <div class="token-big">{{ nc.label }}</div>
+            </div>
+            <span class="pill info"><i class="ti ti-stethoscope"></i> {{ t("queue.in_consult") }}</span>
+          </div>
+          <div>
+            <div class="patient-name">{{ nc.patient_name }}</div>
+            {% if nc.reason %}<div class="reason">{{ nc.reason }}</div>{% endif %}
+          </div>
+
+          {% if nc.pending_subs %}
+            <div class="muted" style="font-size: 12px; margin-top: 6px">
+              Next in this family:
+            </div>
+            <div class="row" style="flex-wrap: wrap; gap: 6px">
+              {% for sub in nc.pending_subs %}
+                <span class="pill neutral">{{ sub.label }} · {{ sub.sub_token.name }}</span>
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          {% if not board_closed %}
+          <div class="row" style="margin-top: auto; gap: 8px">
+            {% if nc.sub_token %}
+              <button class="btn success lg"
+                      hx-post="/queue/sub-tokens/{{ nc.sub_token.id }}/done"
+                      hx-target="#board" hx-swap="innerHTML">
+                <i class="ti ti-check"></i> {{ t("queue.mark_done") }}
+              </button>
+            {% else %}
+              <button class="btn success lg"
+                      hx-post="/queue/{{ nc.booking.id }}/done"
+                      hx-target="#board" hx-swap="innerHTML">
+                <i class="ti ti-check"></i> {{ t("queue.mark_done") }}
+              </button>
+            {% endif %}
+
+            <details style="margin-left: auto" class="sub-add">
+              <summary class="btn ghost">
+                <i class="ti ti-user-plus"></i> {{ t("queue.add_family") }}
+              </summary>
+              <form class="card" style="margin-top: 8px; padding: 12px; min-width: 280px"
+                    hx-post="/queue/{{ nc.booking.id }}/sub-tokens"
+                    hx-target="#board" hx-swap="innerHTML"
+                    hx-on::after-request="if(event.detail.successful) this.reset()">
+                <div class="field" style="margin-bottom: 8px">
+                  <label>Name</label>
+                  <input name="name" required maxlength="80" autofocus />
+                </div>
+                <div class="field" style="margin-bottom: 8px">
+                  <label>Reason (optional)</label>
+                  <input name="reason" maxlength="200" />
+                </div>
+                <button class="btn primary" type="submit">
+                  <i class="ti ti-plus"></i> Add T{{ nc.booking.token }}.x
+                </button>
+              </form>
+            </details>
+          </div>
+          {% endif %}
+        </div>
+      {% else %}
+        <div class="empty">
+          <i class="ti ti-user-off" style="font-size: 24px"></i>
+          <div style="margin-top: 6px">{{ t("queue.idle") }}</div>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">{{ t("queue.done_today") }}</div>
+        <div class="muted">{{ board.done | length }}</div>
+      </div>
+      {% if board.done %}
+        {% for row in board.done[:6] %}
+          {% include "partials/queue_row.html" %}
+        {% endfor %}
+        {% if board.done | length > 6 %}
+          <div class="muted" style="margin-top: 8px; font-size: 12px">
+            +{{ board.done | length - 6 }} earlier
+          </div>
+        {% endif %}
+      {% else %}
+        <div class="empty" style="padding: 18px">
+          <div class="muted">No consults completed yet.</div>
+        </div>
+      {% endif %}
+    </div>
+  </section>
+</div>

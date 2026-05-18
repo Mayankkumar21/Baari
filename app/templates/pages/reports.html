@@ -1,0 +1,52 @@
+{% extends "layouts/app.html" %}
+{% block title %}Reports · Baari{% endblock %}
+
+{% block content %}
+<div style="max-width: 980px; margin: 0 auto">
+  <h2 style="margin: 0 0 14px">Reports</h2>
+
+  {% if not days %}
+    <div class="empty">
+      <i class="ti ti-chart-bar-off" style="font-size: 24px"></i>
+      <div style="margin-top: 6px">No completed days yet — reports appear after the day is closed.</div>
+    </div>
+  {% else %}
+    <div class="card" style="padding: 0; overflow: hidden">
+      {% for card in days %}
+        <a href="/reports/{{ card.summary.date.isoformat() }}"
+           style="display: grid; grid-template-columns: 1fr repeat(5, auto); gap: 16px;
+                  padding: 14px 16px; align-items: center; text-decoration: none; color: inherit;
+                  border-bottom: 0.5px solid var(--border-tertiary)">
+          <div>
+            <div style="font-weight: 600">{{ card.summary.date.strftime('%a, %d %b %Y') }}</div>
+            {% if card.summary.closed_at %}
+              <div class="muted" style="font-size: 12px">Closed {{ card.summary.closed_at | fmt_time }}</div>
+            {% endif %}
+          </div>
+          <div style="text-align: center; min-width: 64px">
+            <div class="muted" style="font-size: 11px">Done</div>
+            <div style="font-weight: 600">{{ card.summary.completed }}</div>
+          </div>
+          <div style="text-align: center; min-width: 64px">
+            <div class="muted" style="font-size: 11px">No-show</div>
+            <div style="font-weight: 600">{{ card.summary.no_shows }}</div>
+          </div>
+          <div style="text-align: center; min-width: 80px">
+            <div class="muted" style="font-size: 11px">Avg wait</div>
+            <div style="font-weight: 600">
+              {% if card.summary.avg_wait_seconds is not none %}
+                {{ (card.summary.avg_wait_seconds / 60) | round(0, 'floor') | int }}m
+              {% else %}—{% endif %}
+            </div>
+          </div>
+          <div style="text-align: center; min-width: 80px">
+            <div class="muted" style="font-size: 11px">Completion</div>
+            <div style="font-weight: 600">{{ card.completion_pct }}%</div>
+          </div>
+          <i class="ti ti-chevron-right muted"></i>
+        </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

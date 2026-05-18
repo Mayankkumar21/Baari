@@ -1,0 +1,87 @@
+{% extends "layouts/app.html" %}
+{% block title %}New booking · Baari{% endblock %}
+
+{% block content %}
+<div class="row" style="justify-content: space-between; margin-bottom: 14px">
+  <h2 style="margin: 0">New booking</h2>
+  <a class="btn ghost" href="/queue"><i class="ti ti-x"></i> Cancel</a>
+</div>
+
+<form method="post" action="/bookings" class="card" style="max-width: 640px">
+  {% if error %}
+    <div class="pill danger" style="margin-bottom: 12px">
+      <i class="ti ti-alert-circle"></i> {{ error }}
+    </div>
+  {% endif %}
+
+  <div class="field">
+    <label for="name">Patient name</label>
+    <input id="name" name="name" required maxlength="80"
+           value="{{ form.name or '' }}" autofocus />
+    <span class="hint">English or हिन्दी, max 80 characters.</span>
+  </div>
+
+  <div class="row" style="gap: 12px; align-items: flex-start">
+    <div class="field" style="flex: 1">
+      <label for="mobile">Mobile (WhatsApp)</label>
+      <input id="mobile" name="mobile" type="tel" inputmode="numeric"
+             required value="{{ form.mobile or '' }}" placeholder="98xxxxxxxx" />
+    </div>
+    <div class="field" style="flex: 1">
+      <label for="slot_time">Slot</label>
+      <select id="slot_time" name="slot_time" required>
+        {% if not slots %}
+          <option value="">No slots available today</option>
+        {% else %}
+          {% for s in slots %}
+            <option value="{{ s.isoformat() }}"
+                    {% if form.slot_time == s.isoformat() %}selected{% endif %}>
+              {{ s | fmt_time }}
+            </option>
+          {% endfor %}
+        {% endif %}
+      </select>
+    </div>
+  </div>
+
+  <div class="row" style="gap: 12px; align-items: flex-start">
+    <div class="field" style="flex: 1">
+      <label for="is_new">Patient type</label>
+      <select id="is_new" name="is_new">
+        <option value="new" {% if form.is_new == 'new' or not form.is_new %}selected{% endif %}>New</option>
+        <option value="returning" {% if form.is_new == 'returning' %}selected{% endif %}>Returning</option>
+      </select>
+    </div>
+    <div class="field" style="flex: 1">
+      <label for="party_size">Expected party size</label>
+      <select id="party_size" name="party_size">
+        {% for n in [1, 2, 3, 4, 5] %}
+          <option value="{{ n }}" {% if (form.party_size or 1) == n %}selected{% endif %}>{{ n }}</option>
+        {% endfor %}
+      </select>
+      <span class="hint">Add family sub-tokens later from the queue.</span>
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="reason">Reason for visit</label>
+    <textarea id="reason" name="reason" maxlength="200" rows="2"
+              placeholder="Optional · max 200 characters">{{ form.reason or '' }}</textarea>
+  </div>
+
+  <div class="field">
+    <label class="row" style="cursor: pointer">
+      <input type="checkbox" name="whatsapp_opt_out" value="1"
+             {% if form.whatsapp_opt_out %}checked{% endif %} />
+      <span>No WhatsApp — suppress all notifications for this patient.</span>
+    </label>
+  </div>
+
+  <div class="row" style="justify-content: flex-end; gap: 8px; margin-top: 8px">
+    <a class="btn ghost" href="/queue">Cancel</a>
+    <button class="btn primary" type="submit" {% if not slots %}disabled{% endif %}>
+      <i class="ti ti-check"></i> Create booking
+    </button>
+  </div>
+</form>
+{% endblock %}

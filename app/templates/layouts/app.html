@@ -1,0 +1,50 @@
+{% extends "layouts/base.html" %}
+
+{% block body %}
+<div class="shell">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">B</div>
+      <div>Baari · ClinicQueue</div>
+    </div>
+    <nav>
+      <a href="/queue" class="{% if active == 'queue' %}active{% endif %}">
+        <i class="ti ti-list-numbers"></i> {{ t("nav.queue") }}
+      </a>
+      <a href="/search" class="{% if active == 'search' %}active{% endif %}">
+        <i class="ti ti-search"></i> {{ t("nav.search") }}
+      </a>
+      {% if current_user and current_user.role.value == "doctor" %}
+        <a href="/reports" class="{% if active == 'reports' %}active{% endif %}">
+          <i class="ti ti-chart-bar"></i> {{ t("nav.reports") }}
+        </a>
+        <a href="/settings" class="{% if active == 'settings' %}active{% endif %}">
+          <i class="ti ti-settings"></i> {{ t("nav.settings") }}
+        </a>
+      {% endif %}
+    </nav>
+    <div class="user-chip">
+      <form method="post" action="/lang" style="display: inline">
+        <input type="hidden" name="next" value="{{ request.url.path }}" />
+        <input type="hidden" name="lang" value="{{ 'hi' if lang == 'en' else 'en' }}" />
+        <button class="btn ghost" type="submit" title="Switch language">
+          {{ 'हिंदी' if lang == 'en' else 'English' }}
+        </button>
+      </form>
+      {% if current_user %}
+        <i class="ti ti-user-circle"></i>
+        <span>{{ current_user.name }} · {{ current_user.role.value }}</span>
+        <form method="post" action="/logout" style="display:inline">
+          <button class="btn ghost" type="submit" title="{{ t('nav.logout') }}">
+            <i class="ti ti-logout"></i>
+          </button>
+        </form>
+      {% endif %}
+    </div>
+  </header>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</div>
+{% endblock %}

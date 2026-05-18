@@ -1,0 +1,33 @@
+{% extends "layouts/app.html" %}
+{% block title %}Queue · Baari{% endblock %}
+
+{% block content %}
+<div class="row" style="justify-content: space-between; margin-bottom: 14px">
+  <div>
+    <div class="muted" style="font-size: 12px">{{ board.generated_at | fmt_datetime }} · IST</div>
+    <h2 style="margin: 2px 0 0">{{ t("queue.title") }}</h2>
+  </div>
+  <div class="row">
+    {% if not board.is_closed %}
+      <a class="btn primary" href="/bookings/new">
+        <i class="ti ti-plus"></i> {{ t("queue.new_booking") }}
+      </a>
+      {% if current_user.role.value == "doctor" %}
+        <form method="post" action="/queue/close-day" style="display: inline"
+              onsubmit="return confirm('{{ t("queue.close_day") }}?')">
+          <button class="btn" type="submit">
+            <i class="ti ti-moon"></i> {{ t("queue.close_day") }}
+          </button>
+        </form>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+
+<div id="board"
+     hx-get="/queue/board"
+     hx-trigger="every 10s"
+     hx-swap="innerHTML">
+  {% include "partials/queue_board.html" %}
+</div>
+{% endblock %}

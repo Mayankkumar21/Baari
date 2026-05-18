@@ -1,0 +1,87 @@
+{% extends "layouts/app.html" %}
+{% block title %}{{ vm.summary.date.strftime('%d %b %Y') }} · Reports · Baari{% endblock %}
+
+{% block content %}
+<div style="max-width: 980px; margin: 0 auto">
+  <a href="/reports" class="muted" style="font-size: 13px">
+    <i class="ti ti-arrow-left"></i> All reports
+  </a>
+  <h2 style="margin: 4px 0 14px">{{ vm.summary.date.strftime('%A, %d %b %Y') }}</h2>
+
+  <div class="card">
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px">
+      <div><div class="muted" style="font-size: 11px">Total bookings</div><div style="font-size: 22px; font-weight: 700">{{ vm.summary.total_bookings }}</div></div>
+      <div><div class="muted" style="font-size: 11px">Completed</div><div style="font-size: 22px; font-weight: 700">{{ vm.summary.completed }}</div></div>
+      <div><div class="muted" style="font-size: 11px">No-shows</div><div style="font-size: 22px; font-weight: 700">{{ vm.summary.no_shows }}</div></div>
+      <div><div class="muted" style="font-size: 11px">Cancelled</div><div style="font-size: 22px; font-weight: 700">{{ vm.summary.cancellations }}</div></div>
+      {% if vm.summary.avg_wait_seconds is not none %}
+        <div><div class="muted" style="font-size: 11px">Avg wait</div><div style="font-size: 18px; font-weight: 600">{{ (vm.summary.avg_wait_seconds / 60) | round(0, 'floor') | int }} min</div></div>
+      {% endif %}
+      {% if vm.summary.avg_consult_seconds is not none %}
+        <div><div class="muted" style="font-size: 11px">Avg consult</div><div style="font-size: 18px; font-weight: 600">{{ (vm.summary.avg_consult_seconds / 60) | round(0, 'floor') | int }} min</div></div>
+      {% endif %}
+      {% if vm.summary.first_consult_at %}
+        <div><div class="muted" style="font-size: 11px">First consult</div><div style="font-size: 18px; font-weight: 600">{{ vm.summary.first_consult_at | fmt_time }}</div></div>
+      {% endif %}
+      {% if vm.summary.last_consult_at %}
+        <div><div class="muted" style="font-size: 11px">Last consult</div><div style="font-size: 18px; font-weight: 600">{{ vm.summary.last_consult_at | fmt_time }}</div></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card" style="margin-top: 14px">
+    <div class="card-header"><div class="card-title">Hourly consults</div></div>
+    {% if vm.peak_count == 0 %}
+      <div class="muted">No completed consults to chart.</div>
+    {% else %}
+      <div style="display: flex; align-items: flex-end; gap: 6px; height: 140px; padding: 8px 0">
+        {% for bin in vm.hourly %}
+          {% set h_pct = (bin.consults / vm.peak_count * 100) if vm.peak_count else 0 %}
+          <div style="flex: 1; text-align: center; display: flex; flex-direction: column; justify-content: flex-end; height: 100%">
+            <div style="background: var(--accent-blue); border-radius: 4px 4px 0 0;
+                        height: {{ h_pct }}%; min-height: 2px;
+                        position: relative">
+              {% if bin.consults %}
+                <span style="position: absolute; top: -16px; left: 0; right: 0; font-size: 11px; color: var(--text-secondary)">
+                  {{ bin.consults }}
+                </span>
+              {% endif %}
+            </div>
+            <div class="muted" style="font-size: 10px; margin-top: 4px">{{ '%02d' % bin.hour }}</div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="card" style="margin-top: 14px">
+    <div class="card-header"><div class="card-title">Patient timeline</div></div>
+    {% if not vm.timeline %}
+      <div class="muted">No bookings recorded.</div>
+    {% else %}
+      <div style="display: grid; gap: 6px">
+        {% for row in vm.timeline %}
+          <div class="queue-row {{ row.booking.status.value }}">
+            <div class="token">T{{ row.booking.token }}</div>
+            <div class="row-meta">
+              <div class="name">{{ row.patient.name }}</div>
+              <div class="sub">
+                <span>Slot {{ row.booking.slot_time | fmt_time }}</span>
+                {% if row.booking.started_at %} · <span>Seen {{ row.booking.started_at | fmt_time }}</span>{% endif %}
+                {% if row.booking.completed_at %} · <span>Done {{ row.booking.completed_at | fmt_time }}</span>{% endif %}
+                {% if row.booking.reason %} · <span>{{ row.booking.reason }}</span>{% endif %}
+              </div>
+            </div>
+            <span class="pill
+              {% if row.booking.status.value == 'done' %}success
+              {% elif row.booking.status.value in ('no_show', 'cancelled') %}danger
+              {% else %}neutral{% endif %}">
+              {{ row.booking.status.value | replace('_', ' ') }}
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

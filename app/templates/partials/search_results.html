@@ -1,0 +1,29 @@
+{% if not q %}
+  <div class="empty muted">Type to start searching.</div>
+{% elif not hits %}
+  <div class="empty">
+    <i class="ti ti-search-off" style="font-size: 22px"></i>
+    <div style="margin-top: 6px">No bookings match “{{ q }}”.</div>
+  </div>
+{% else %}
+  {% set today_hits = hits | selectattr("is_today") | list %}
+  {% set past_hits  = hits | rejectattr("is_today") | list %}
+
+  {% if today_hits %}
+    <div class="card-title" style="margin-bottom: 6px">Today</div>
+    <div class="card" style="padding: 6px">
+      {% for hit in today_hits %}
+        {% include "partials/search_hit.html" %}
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if past_hits %}
+    <div class="card-title" style="margin: 14px 0 6px">Past</div>
+    <div class="card" style="padding: 6px">
+      {% for hit in past_hits %}
+        {% include "partials/search_hit.html" %}
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endif %}
