@@ -5,7 +5,7 @@
   <header class="topbar">
     <div class="brand">
       <div class="brand-mark">B</div>
-      <div>Baari · ClinicQueue</div>
+      <div>Baari</div>
     </div>
     <nav>
       <a href="/queue" class="{% if active == 'queue' %}active{% endif %}">
@@ -24,6 +24,13 @@
       {% endif %}
     </nav>
     <div class="user-chip">
+      <form method="post" action="/theme" style="display: inline">
+        <input type="hidden" name="next" value="{{ request.url.path }}" />
+        <input type="hidden" name="theme" value="{{ 'light' if theme == 'dark' else 'dark' }}" />
+        <button class="btn ghost" type="submit" title="Toggle theme">
+          {% if theme == 'dark' %}<i class="ti ti-sun"></i>{% else %}<i class="ti ti-moon-stars"></i>{% endif %}
+        </button>
+      </form>
       <form method="post" action="/lang" style="display: inline">
         <input type="hidden" name="next" value="{{ request.url.path }}" />
         <input type="hidden" name="lang" value="{{ 'hi' if lang == 'en' else 'en' }}" />

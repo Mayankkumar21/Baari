@@ -1,8 +1,9 @@
-from datetime import date, datetime
+from datetime import date as _Date
+from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from sqlalchemy import JSON, Column, UniqueConstraint
+from sqlalchemy import JSON, Column, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import INET
 from sqlmodel import Field, SQLModel
 
@@ -10,8 +11,17 @@ from app.time_utils import now_utc
 
 
 class UserRole(str, Enum):
-    doctor = "doctor"
-    receptionist = "receptionist"
+    doctor = "doctor"          # vendor-agnostic: tenant admin (vocab varies per type)
+    receptionist = "receptionist"  # vendor-agnostic: staff
+
+
+class TenantType(str, Enum):
+    clinic = "clinic"
+    salon = "salon"
+    spa = "spa"
+    dental = "dental"
+    vet = "vet"
+    other = "other"
 
 
 class BookingStatus(str, Enum):
@@ -49,10 +59,17 @@ class NotificationStatus(str, Enum):
 
 
 class Clinic(SQLModel, table=True):
+    """Tenant workspace. Named `clinics` for historical reasons — represents any vendor
+    (clinic, salon, spa, …) routed via `tenant_type`."""
     __tablename__ = "clinics"
 
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(max_length=120)
+    # Stored as the enum's string value so existing rows backfill cleanly via server_default
+    tenant_type: str = Field(
+        default=TenantType.clinic.value,
+        sa_column=Column(String(20), nullable=False, server_default=TenantType.clinic.value),
+    )
     mobile: Optional[str] = Field(default=None, max_length=15)
     address: Optional[str] = Field(default=None, max_length=300)
     slot_length_min: int = Field(default=20)
@@ -102,7 +119,7 @@ class Booking(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     clinic_id: int = Field(foreign_key="clinics.id", index=True, nullable=False)
     patient_id: int = Field(foreign_key="patients.id", nullable=False)
-    date: date = Field(index=True, nullable=False)
+    date: _Date = Field(index=True, nullable=False)
     token: int = Field(nullable=False)
     slot_time: datetime = Field(nullable=False, index=True)
     reason: Optional[str] = Field(default=None, max_length=200)
@@ -176,7 +193,7 @@ class DailySummary(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     clinic_id: int = Field(foreign_key="clinics.id", index=True, nullable=False)
-    date: date = Field(nullable=False, index=True)
+    date: _Date = Field(nullable=False, index=True)
     total_bookings: int = 0
     completed: int = 0
     no_shows: int = 0

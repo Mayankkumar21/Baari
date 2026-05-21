@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Form, HTTPException, Request
@@ -86,6 +86,8 @@ def post_reschedule(
         parsed = datetime.fromisoformat(new_slot_time)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid slot time")
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(UTC).replace(tzinfo=None)
     booking = db.get(Booking, booking_id)
     if not booking or booking.clinic_id != user.clinic_id:
         raise HTTPException(status_code=404, detail="Booking not found")

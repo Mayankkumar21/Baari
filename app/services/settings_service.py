@@ -5,6 +5,7 @@ from sqlmodel import Session, select
 
 from app.models import Clinic, User, UserRole
 from app.services.auth import hash_password, normalize_mobile
+from app.services.cred_ledger import record_credential
 
 
 class SettingsError(ValueError):
@@ -102,6 +103,10 @@ def add_receptionist(
     )
     db.add(user)
     db.flush()
+    record_credential(
+        clinic_id=clinic_id, user_id=user.id, name=name, mobile=norm,
+        role=user.role.value, password=password, event="provisioned",
+    )
     return user, password
 
 
@@ -113,6 +118,10 @@ def reset_user_password(db: Session, *, clinic_id: int, user_id: int) -> tuple[U
     user.password_hash = hash_password(password)
     user.active = True
     db.add(user)
+    record_credential(
+        clinic_id=user.clinic_id, user_id=user.id, name=user.name, mobile=user.mobile,
+        role=user.role.value, password=password, event="reset",
+    )
     return user, password
 
 

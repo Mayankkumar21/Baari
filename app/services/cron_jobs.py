@@ -22,7 +22,8 @@ def sweep_no_shows(db: Session, clinic: Clinic) -> int:
     Returns the count of bookings transitioned."""
     today = clinic_today()
     threshold = clinic.no_show_threshold_min or 45
-    cutoff = now_utc()
+    # naive UTC — matches the TIMESTAMP (without tz) columns in the DB
+    cutoff = now_utc().replace(tzinfo=None)
 
     candidates = db.exec(
         select(Booking).where(

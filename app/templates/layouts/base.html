@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="en"{% if theme %} data-theme="{{ theme }}"{% endif %}>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{% block title %}Baari · ClinicQueue{% endblock %}</title>
+  <title>{% block title %}Baari{% endblock %}</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -15,6 +15,16 @@
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   <script src="https://unpkg.com/htmx.org@2.0.4/dist/ext/response-targets.js"></script>
   <script defer src="https://unpkg.com/alpinejs@3.14.7/dist/cdn.min.js"></script>
+  <script>
+    // Give HTMX a brief swap/settle window so our CSS transitions actually paint.
+    // (Defaults are 0/20ms, so .htmx-swapping never gets a chance to render.)
+    window.addEventListener('DOMContentLoaded', () => {
+      if (window.htmx) {
+        htmx.config.defaultSwapDelay = 90;
+        htmx.config.defaultSettleDelay = 60;
+      }
+    });
+  </script>
 </head>
 <body hx-ext="response-targets">
   <div class="reconnect-banner" id="reconnect-banner">

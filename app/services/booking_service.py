@@ -1,4 +1,4 @@
-from datetime import date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import func
@@ -25,7 +25,13 @@ def _clinic_hours(clinic: Clinic) -> dict:
 
 
 def available_slots(clinic: Clinic, on: date, taken: set[datetime]) -> list[datetime]:
-    """Return all future slot times today within clinic hours that aren't booked."""
+    """Return future, untaken slot times today (returned as aware-IST for display).
+
+    `taken` is a set of naive-UTC datetimes from the DB. We convert each cursor to
+    naive UTC for the membership check, but the slot list itself returns aware-IST
+    values so the template's isoformat preserves IST and round-trips back through
+    the form correctly.
+    """
     tz = ZoneInfo(get_settings().clinic_tz)
     slot_len = clinic.slot_length_min or 20
     now = to_clinic_tz(now_utc())
@@ -38,7 +44,8 @@ def available_slots(clinic: Clinic, on: date, taken: set[datetime]) -> list[date
         cursor = datetime.combine(on, time(start_h, start_m), tzinfo=tz)
         end = datetime.combine(on, time(end_h, end_m), tzinfo=tz)
         while cursor < end:
-            if cursor >= now - timedelta(minutes=5) and cursor not in taken:
+            cursor_utc_naive = cursor.astimezone(UTC).replace(tzinfo=None)
+            if cursor >= now - timedelta(minutes=5) and cursor_utc_naive not in taken:
                 slots.append(cursor)
             cursor += timedelta(minutes=slot_len)
     return slots

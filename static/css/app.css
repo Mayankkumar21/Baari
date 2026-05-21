@@ -1,4 +1,6 @@
+/* ─── Light theme (default) ───────────────────────────────────────────── */
 :root {
+  color-scheme: light;
   --bg-canvas: #f5f3ec;
   --bg-primary: #ffffff;
   --bg-secondary: #f1efe8;
@@ -27,6 +29,73 @@
   --radius-lg: 12px;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+/* ─── Dark theme ──────────────────────────────────────────────────────────
+   Warm-dark palette to preserve the brand's warm feel. Status colors use
+   tinted backgrounds at low luminance with brightened foregrounds so they
+   stay legible without losing semantic identity. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-canvas: #16140f;
+  --bg-primary: #1e1c17;
+  --bg-secondary: #26231c;
+  --bg-info: #102538;
+  --bg-success: #182a0d;
+  --bg-warning: #38280f;
+  --bg-danger: #361717;
+  --text-primary: #ece9df;
+  --text-secondary: #a6a397;
+  --text-tertiary: #76736a;
+  --text-info: #9bc7f3;
+  --text-info-deep: #cfe3f9;
+  --text-success: #c6e092;
+  --text-success-deep: #dfeec2;
+  --text-warning: #efc56f;
+  --text-warning-deep: #f7e1ad;
+  --text-danger: #f29393;
+  --border-tertiary: rgba(255, 255, 255, 0.08);
+  --border-secondary: rgba(255, 255, 255, 0.16);
+  --border-info: #4b8fd6;
+  --border-success: #6ea03a;
+  --border-warning: #c08530;
+  --border-danger: #c25a5a;
+  --accent-blue: #6ba8ef;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.55);
+}
+
+/* Auto-follow OS preference when no explicit choice is set */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --bg-canvas: #16140f;
+    --bg-primary: #1e1c17;
+    --bg-secondary: #26231c;
+    --bg-info: #102538;
+    --bg-success: #182a0d;
+    --bg-warning: #38280f;
+    --bg-danger: #361717;
+    --text-primary: #ece9df;
+    --text-secondary: #a6a397;
+    --text-tertiary: #76736a;
+    --text-info: #9bc7f3;
+    --text-info-deep: #cfe3f9;
+    --text-success: #c6e092;
+    --text-success-deep: #dfeec2;
+    --text-warning: #efc56f;
+    --text-warning-deep: #f7e1ad;
+    --text-danger: #f29393;
+    --border-tertiary: rgba(255, 255, 255, 0.08);
+    --border-secondary: rgba(255, 255, 255, 0.16);
+    --border-info: #4b8fd6;
+    --border-success: #6ea03a;
+    --border-warning: #c08530;
+    --border-danger: #c25a5a;
+    --accent-blue: #6ba8ef;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+    --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.55);
+  }
 }
 
 * { box-sizing: border-box; }
@@ -101,18 +170,82 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; width: 100%; 
   color: var(--text-primary);
   font-weight: 500;
   min-height: 36px;
-  transition: background 80ms ease;
+  position: relative;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  will-change: transform;
+  transition:
+    transform 80ms cubic-bezier(0.2, 0, 0, 1),
+    background 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease,
+    opacity 140ms ease;
 }
-.btn:hover { background: var(--bg-secondary); }
+.btn:hover:not(:disabled):not(.htmx-request) {
+  background: var(--bg-secondary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+.btn:active:not(:disabled):not(.htmx-request) {
+  transform: translateY(0) scale(0.97);
+  transition-duration: 50ms;
+  box-shadow: none;
+}
+.btn:focus-visible {
+  outline: 2px solid var(--border-info);
+  outline-offset: 2px;
+}
 .btn.primary { background: var(--accent-blue); color: #fff; border-color: var(--accent-blue); }
-.btn.primary:hover { background: #134c83; }
+.btn.primary:hover:not(:disabled):not(.htmx-request) {
+  background: var(--accent-blue);
+  filter: brightness(1.08);
+  box-shadow: 0 4px 12px -2px color-mix(in srgb, var(--accent-blue) 50%, transparent);
+}
 .btn.success { background: #5b9d20; color: #fff; border-color: #4f881b; }
-.btn.success:hover { background: #4f881b; }
+.btn.success:hover:not(:disabled):not(.htmx-request) {
+  background: #5b9d20;
+  filter: brightness(1.08);
+  box-shadow: 0 4px 12px -2px rgba(91, 157, 32, 0.45);
+}
 .btn.danger  { background: var(--bg-danger); color: var(--text-danger); border-color: var(--border-danger); }
+.btn.danger:hover:not(:disabled):not(.htmx-request) {
+  background: var(--bg-danger);
+  filter: brightness(0.97);
+  border-color: var(--text-danger);
+}
 .btn.ghost   { background: transparent; border-color: transparent; color: var(--text-secondary); }
-.btn.ghost:hover { background: var(--bg-secondary); color: var(--text-primary); }
+.btn.ghost:hover:not(:disabled):not(.htmx-request) {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  box-shadow: none;
+}
 .btn.lg { padding: 12px 22px; font-size: 15px; min-height: 44px; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* In-flight HTMX state: lock the button, hide its content, spin in its place. */
+.btn.htmx-request {
+  pointer-events: none;
+  cursor: progress;
+  color: transparent !important;
+}
+.btn.htmx-request > * { visibility: hidden; }
+.btn.htmx-request::after {
+  content: "";
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 14px; height: 14px;
+  margin: -7px 0 0 -7px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  color: var(--text-primary);
+  animation: baari-spin 600ms linear infinite;
+  visibility: visible;
+}
+.btn.primary.htmx-request::after,
+.btn.success.htmx-request::after { color: #fff; }
+@keyframes baari-spin { to { transform: rotate(360deg); } }
 
 /* Inputs */
 .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
@@ -269,6 +402,72 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; width: 100%; 
 .htmx-indicator { opacity: 0; transition: opacity 120ms ease; }
 .htmx-request .htmx-indicator,
 .htmx-request.htmx-indicator { opacity: 1; }
+
+/* HTMX swap transitions — fade the board out while a request is in flight,
+   then fade-in the newly-swapped content. Snappy enough to feel responsive
+   (~120ms) without making the screen feel sluggish. */
+#board {
+  transition: opacity 120ms ease, filter 120ms ease;
+}
+#board.htmx-request {
+  opacity: 0.55;
+  filter: blur(0.3px);
+}
+.htmx-swapping { opacity: 0; transition: opacity 80ms ease; }
+.htmx-settling { opacity: 0; }
+.htmx-added    { opacity: 0; animation: baari-fade-in 180ms ease forwards; }
+@keyframes baari-fade-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Queue rows — soft fade when freshly inserted via HTMX swap */
+.queue-row {
+  transition: background 160ms ease, border-color 160ms ease, transform 120ms ease;
+}
+.queue-row:hover { transform: translateX(1px); }
+
+/* Cards — subtle press feedback when used as a link (search hits etc.) */
+a.queue-row, .card a {
+  transition: transform 100ms ease, background 140ms ease;
+}
+a.queue-row:active { transform: scale(0.995); }
+
+/* Pills — fade in when state changes */
+.pill {
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+
+/* Toasts — slide in from the right */
+.toast {
+  animation: baari-toast-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes baari-toast-in {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Token chip pulse when it changes (e.g. now-consulting card updates) */
+.now-card .token-big {
+  transition: color 200ms ease;
+}
+
+/* Inputs — softer focus animation */
+.field input, .field select, .field textarea {
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--border-info) 25%, transparent);
+}
+
+/* Respect reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
 
 /* Disclosure (details/summary) used for inline sub-token forms */
 details > summary { list-style: none; cursor: pointer; }

@@ -1,17 +1,41 @@
-# Baari — ClinicQueue
+# Baari
 
-A queue-management dashboard for single-doctor homeopathy clinics in India.
+Queue and booking management for appointment-based businesses — clinics, salons,
+and similar verticals where customers wait for a sequential service. SaaS-first;
+each vendor signs up to their own isolated workspace.
 FastAPI + HTMX + Postgres, deployed serverlessly on Vercel.
 
-See `PRD-ClinicQueue.md` (in the source folder) for the full product spec, and
-`/Users/mayankkumar/.claude/plans/go-through-each-file-happy-kay.md` for the tech-stack rationale.
+See the source folder's PRD for the original product spec (originally written
+for single-doctor homeopathy clinics — multi-vertical generalisation is in progress).
+
+## Run it with one click (for testers — no coding needed)
+
+The only prerequisite is **Docker Desktop** (free): <https://www.docker.com/products/docker-desktop>.
+Install it once, then:
+
+- **macOS** — double-click **`start-baari.command`** in Finder.
+- **Windows** — double-click **`start-baari.bat`**.
+
+The first launch downloads everything and takes ~1 minute; after that it starts in
+seconds. The app opens in your browser automatically at <http://localhost:8000>.
+A Postgres database is bundled inside Docker — there is nothing to configure.
+
+On the landing page, click **Create your dashboard**, pick a business type, and you're in.
+
+**To stop:** close the terminal window that opened.
+**To reset all test data and start fresh:** run `docker compose down -v` in the project
+folder (or just ask a developer).
+
+> macOS may warn that the file is from an unidentified developer the first time.
+> Right-click the file → **Open** → **Open** to allow it (one-time).
 
 ## Stack
 
 - **Backend**: FastAPI (Python 3.12), SQLModel ORM, Alembic migrations
 - **Frontend**: HTMX 2 + Alpine.js + hand-rolled CSS with the mockup design tokens
 - **Database**: Postgres (Neon recommended — Singapore region for India latency)
-- **Auth**: Self-hosted (bcrypt + JWT cookie). Credentials provisioned out-of-band via `scripts/create_user.py`.
+- **Auth**: Self-hosted (bcrypt + JWT cookie). Two paths — self-serve at `/signup` (most users) or out-of-band via `scripts/create_user.py` (operator override).
+- **Multi-tenant**: every vendor signs up to their own isolated workspace. Tenant type (`clinic`, `salon`, `spa`, `dental`, `vet`, `other`) drives UI vocabulary via [`app/vocab.py`](app/vocab.py).
 - **Notifications**: WhatsApp only, via MSG91 (not yet wired)
 - **Hosting**: Vercel serverless (`api/index.py` is the entrypoint)
 
@@ -46,7 +70,20 @@ python scripts/create_user.py \
 uvicorn api.index:app --reload --port 8000
 ```
 
-Open <http://localhost:8000> → redirects to `/login`. Use the mobile + password from the seed script.
+Open <http://localhost:8000> → **landing page**.
+- New vendors click **Create your dashboard** → `/signup` → submit → auto-logged in → land on the `/setup` wizard.
+- Existing vendors click **Sign in** → `/login` → land on their queue.
+
+`scripts/create_user.py` is still available for operator-side provisioning when needed (e.g. internal demo accounts).
+
+## After pulling a schema change
+
+```bash
+alembic revision --autogenerate -m "<short message>"
+alembic upgrade head
+```
+
+When upgrading from the pre-multi-tenant build, the `tenant_type` column on `clinics` is added with `server_default='clinic'` so existing rows backfill cleanly.
 
 ## Project layout
 

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Form, HTTPException, Request
@@ -74,6 +74,12 @@ def submit_booking(
 
     if not parsed_slot:
         return _render_form(request, db, user, clinic, form_values, "Pick a valid slot time.")
+
+    # Form sends aware-IST slot. Normalize to naive UTC for storage so it lines
+    # up with every other datetime column (now_utc() also writes naive UTC once
+    # the DB strips tzinfo on a TIMESTAMP-without-tz column).
+    if parsed_slot.tzinfo is not None:
+        parsed_slot = parsed_slot.astimezone(UTC).replace(tzinfo=None)
 
     try:
         booking = create_booking(

@@ -14,14 +14,16 @@ from app.routes import (
     search,
     setup as setup_routes,
     settings as settings_routes,
+    signup as signup_routes,
 )
 
 STATIC_DIR = Path(__file__).parent.parent / "static"
 
-app = FastAPI(title="Baari — ClinicQueue", docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(title="Baari", docs_url=None, redoc_url=None, openapi_url=None)
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
+app.include_router(signup_routes.router)  # owns "/" landing + /signup
 app.include_router(auth.router)
 app.include_router(queue.router)
 app.include_router(booking.router)
@@ -37,11 +39,6 @@ async def _redirect_to_login(request: Request, exc: AuthRequired) -> RedirectRes
     next_url = request.url.path
     target = "/login" if next_url in ("/", "/login") else f"/login?next={next_url}"
     return RedirectResponse(url=target, status_code=303)
-
-
-@app.get("/")
-def root() -> RedirectResponse:
-    return RedirectResponse(url="/queue", status_code=302)
 
 
 @app.get("/healthz")

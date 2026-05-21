@@ -1,0 +1,146 @@
+{% extends "layouts/base.html" %}
+{% block title %}Create your Baari dashboard{% endblock %}
+
+{% block body %}
+<style>
+  .signup-page {
+    min-height: 100vh; background: var(--bg-canvas);
+    display: grid; place-items: center;
+    padding: 32px 16px;
+  }
+  .signup-card {
+    width: min(560px, 100%);
+    background: var(--bg-primary);
+    border: 0.5px solid var(--border-tertiary);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    box-shadow: var(--shadow-md);
+  }
+  .signup-card h1 { margin: 0 0 4px; font-size: 26px; letter-spacing: -0.01em; }
+  .signup-card .lead { color: var(--text-secondary); margin: 0 0 22px; font-size: 14px; }
+  .type-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+    margin-bottom: 14px;
+  }
+  @media (max-width: 540px) { .type-grid { grid-template-columns: repeat(2, 1fr); } }
+  .type-grid label {
+    display: block; cursor: pointer;
+    padding: 10px 12px;
+    border: 1px solid var(--border-tertiary);
+    border-radius: var(--radius-md);
+    background: var(--bg-primary);
+    text-align: center;
+    transition: all 80ms ease;
+  }
+  .type-grid label:hover { background: var(--bg-secondary); }
+  .type-grid input { display: none; }
+  .type-grid input:checked + .type-content {
+    color: var(--text-info-deep);
+  }
+  .type-grid label:has(input:checked) {
+    border-color: var(--border-info);
+    background: var(--bg-info);
+  }
+  .type-grid .ti { font-size: 22px; color: var(--accent-blue); }
+  .type-grid .name { font-weight: 600; font-size: 13px; margin-top: 4px; }
+
+  .topbar-mini {
+    max-width: 1180px; margin: 0 auto;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 20px 32px;
+  }
+  .topbar-mini .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+  .topbar-mini .brand-mark { width: 28px; height: 28px; border-radius: 6px; background: var(--accent-blue); color: #fff; display: grid; place-items: center; font-weight: 700; }
+</style>
+
+<div class="topbar-mini">
+  <a href="/" class="brand" style="color: inherit; text-decoration: none">
+    <div class="brand-mark">B</div>
+    Baari
+  </a>
+  <div class="row" style="gap: 6px">
+    <form method="post" action="/theme" style="display: inline">
+      <input type="hidden" name="next" value="/signup" />
+      <input type="hidden" name="theme" value="{{ 'light' if theme == 'dark' else 'dark' }}" />
+      <button class="btn ghost" type="submit" title="Toggle theme">
+        {% if theme == 'dark' %}<i class="ti ti-sun"></i>{% else %}<i class="ti ti-moon-stars"></i>{% endif %}
+      </button>
+    </form>
+    <a href="/login" style="color: var(--text-secondary); font-weight: 500">Sign in</a>
+  </div>
+</div>
+
+<div class="signup-page">
+  <form class="signup-card" method="post" action="/signup">
+    <h1>Create your dashboard</h1>
+    <p class="lead">One minute. No card. Your workspace is ready the moment you submit.</p>
+
+    {% if error %}
+      <div class="pill danger" style="margin-bottom: 16px; padding: 8px 14px">
+        <i class="ti ti-alert-circle"></i> {{ error }}
+      </div>
+    {% endif %}
+
+    <div class="field">
+      <label>What kind of business?</label>
+      {% set icons = {'clinic': 'stethoscope', 'dental': 'tooth', 'salon': 'scissors',
+                     'spa': 'flower', 'vet': 'paw', 'other': 'building-store'} %}
+      <div class="type-grid">
+        {% for ttype, label, desc in tenant_types %}
+          <label title="{{ desc }}">
+            <input type="radio" name="tenant_type" value="{{ ttype.value }}"
+                   {% if form.tenant_type == ttype.value %}checked{% endif %} required />
+            <div class="type-content">
+              <i class="ti ti-{{ icons.get(ttype.value, 'building-store') }}"></i>
+              <div class="name">{{ label }}</div>
+            </div>
+          </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="business_name">Business name</label>
+      <input id="business_name" name="business_name" required maxlength="120"
+             value="{{ form.business_name or '' }}"
+             placeholder="e.g. Sharma Homeopathy, Bliss Salon" autofocus />
+    </div>
+
+    <div class="row" style="gap: 12px; align-items: flex-start">
+      <div class="field" style="flex: 1">
+        <label for="admin_name">Your name</label>
+        <input id="admin_name" name="admin_name" required maxlength="80"
+               value="{{ form.admin_name or '' }}" placeholder="Dr. Sharma" />
+      </div>
+      <div class="field" style="flex: 1">
+        <label for="admin_mobile">Mobile (WhatsApp)</label>
+        <input id="admin_mobile" name="admin_mobile" type="tel" inputmode="numeric"
+               required value="{{ form.admin_mobile or '' }}" placeholder="98xxxxxxxx" />
+        <span class="hint">You'll sign in with this number.</span>
+      </div>
+    </div>
+
+    <div class="row" style="gap: 12px; align-items: flex-start">
+      <div class="field" style="flex: 1">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" required minlength="8"
+               autocomplete="new-password" />
+        <span class="hint">At least 8 characters.</span>
+      </div>
+      <div class="field" style="flex: 1">
+        <label for="password_confirm">Confirm password</label>
+        <input id="password_confirm" name="password_confirm" type="password" required minlength="8"
+               autocomplete="new-password" />
+      </div>
+    </div>
+
+    <button class="btn primary lg" type="submit" style="width: 100%; justify-content: center; margin-top: 6px">
+      <i class="ti ti-arrow-right"></i> Create my dashboard
+    </button>
+
+    <p class="hint" style="margin-top: 14px; text-align: center">
+      By signing up you agree to receive WhatsApp/SMS messages related to your account.
+    </p>
+  </form>
+</div>
+{% endblock %}

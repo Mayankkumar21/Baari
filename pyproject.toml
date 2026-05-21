@@ -1,7 +1,7 @@
 [project]
 name = "baari"
 version = "0.1.0"
-description = "ClinicQueue — queue-management dashboard for single-doctor homeopathy clinics."
+description = "Baari — queue and booking management for appointment-based businesses."
 requires-python = ">=3.12"
 dependencies = [
     "fastapi==0.115.6",

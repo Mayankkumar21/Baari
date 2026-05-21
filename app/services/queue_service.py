@@ -210,7 +210,8 @@ def undo_done(db: Session, clinic_id: int, booking_id: int) -> Booking:
     booking = _load_booking(db, booking_id, clinic_id)
     if booking.status != BookingStatus.done:
         raise QueueActionError("This booking isn't in a done state.")
-    if not booking.completed_at or now_utc() - booking.completed_at > UNDO_WINDOW:
+    now_naive = now_utc().replace(tzinfo=None)
+    if not booking.completed_at or now_naive - booking.completed_at > UNDO_WINDOW:
         raise QueueActionError("Undo window has expired.")
     # Reverse any auto-promotions that happened after this completion
     current_booking = _current_in_consult_booking(db, clinic_id)
@@ -239,7 +240,9 @@ def undo_done(db: Session, clinic_id: int, booking_id: int) -> Booking:
 
 def build_board(db: Session, clinic_id: int) -> QueueBoardVM:
     today = clinic_today()
-    now = now_utc()
+    # DB columns are naive TIMESTAMP today; strip tz from `now` so comparisons match.
+    # TODO: migrate datetime columns to TIMESTAMPTZ and use aware throughout.
+    now = now_utc().replace(tzinfo=None)
 
     bookings = db.exec(
         select(Booking)

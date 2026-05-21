@@ -48,7 +48,7 @@ STRINGS: Final[dict[str, dict[str, str]]] = {
 
     # Login
     "login.title":     {"en": "Sign in",        "hi": "लॉग इन"},
-    "login.tagline":   {"en": "Baari · ClinicQueue", "hi": "बाड़ी · क्लीनिक क्यू"},
+    "login.tagline":   {"en": "Baari", "hi": "बाड़ी"},
     "login.mobile":    {"en": "Mobile number",  "hi": "मोबाइल नंबर"},
     "login.password":  {"en": "Password",       "hi": "पासवर्ड"},
     "login.submit":    {"en": "Sign in",        "hi": "लॉग इन"},

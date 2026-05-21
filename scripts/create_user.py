@@ -23,6 +23,7 @@ from sqlmodel import Session, select  # noqa: E402
 from app.db import engine  # noqa: E402
 from app.models import Clinic, User, UserRole  # noqa: E402
 from app.services.auth import hash_password, normalize_mobile  # noqa: E402
+from app.services.cred_ledger import record_credential  # noqa: E402
 
 
 def random_password(n: int = 12) -> str:
@@ -58,6 +59,10 @@ def main() -> int:
             user.active = True
             db.add(user)
             db.commit()
+            record_credential(
+                clinic_id=user.clinic_id, user_id=user.id, name=user.name, mobile=user.mobile,
+                role=user.role.value, password=password, event="reset",
+            )
             print(f"Password reset for {user.name} ({user.mobile}).")
             print(f"New password: {password}")
             return 0
@@ -98,6 +103,10 @@ def main() -> int:
         db.add(user)
         db.commit()
         db.refresh(user)
+        record_credential(
+            clinic_id=clinic.id, user_id=user.id, name=user.name, mobile=user.mobile,
+            role=user.role.value, password=password, event="provisioned",
+        )
         print(f"Created {user.role.value} '{user.name}' (mobile={user.mobile}) in clinic {clinic.id}.")
         print(f"Password: {password}")
         return 0

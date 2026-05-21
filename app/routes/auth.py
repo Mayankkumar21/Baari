@@ -93,3 +93,29 @@ def set_lang(
         path="/",
     )
     return resp
+
+
+@router.post("/theme")
+def set_theme(
+    request: Request,
+    theme: Annotated[str, Form()],
+    next: Annotated[str, Form()] = "/queue",
+):
+    from app.templating import THEME_COOKIE, normalize_theme
+    safe_next = next if next.startswith("/") else "/queue"
+    resp = RedirectResponse(url=safe_next, status_code=303)
+    normalized = normalize_theme(theme)
+    if normalized:
+        resp.set_cookie(
+            key=THEME_COOKIE,
+            value=normalized,
+            max_age=60 * 60 * 24 * 365,
+            httponly=False,
+            secure=get_settings().app_env != "dev",
+            samesite="lax",
+            path="/",
+        )
+    else:
+        # Empty/auto: clear the cookie, fall back to OS preference
+        resp.delete_cookie(THEME_COOKIE, path="/")
+    return resp

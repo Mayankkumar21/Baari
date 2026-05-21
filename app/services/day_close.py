@@ -71,7 +71,7 @@ def close_day(db: Session, clinic_id: int, on: date | None = None) -> DailySumma
     """Idempotent: re-running on a closed day refreshes the summary stats but
     won't sweep additional patients (none are eligible by then)."""
     on = on or clinic_today()
-    cutoff = now_utc()
+    cutoff = now_utc().replace(tzinfo=None)
 
     # Sweep any still-active bookings to no_show
     candidates = db.exec(

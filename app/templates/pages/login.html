@@ -38,7 +38,7 @@
     </p>
 
   </form>
-  <div class="row" style="justify-content: center; margin-top: 14px">
+  <div class="row" style="justify-content: center; margin-top: 14px; gap: 4px">
     <form method="post" action="/lang" style="display: inline">
       <input type="hidden" name="lang" value="en" /><input type="hidden" name="next" value="/login" />
       <button class="btn ghost" type="submit" style="font-size: 12px">English</button>
@@ -46,6 +46,14 @@
     <form method="post" action="/lang" style="display: inline">
       <input type="hidden" name="lang" value="hi" /><input type="hidden" name="next" value="/login" />
       <button class="btn ghost" type="submit" style="font-size: 12px">हिंदी</button>
+    </form>
+    <span class="muted">·</span>
+    <form method="post" action="/theme" style="display: inline">
+      <input type="hidden" name="theme" value="{{ 'light' if theme == 'dark' else 'dark' }}" />
+      <input type="hidden" name="next" value="/login" />
+      <button class="btn ghost" type="submit" style="font-size: 12px" title="Toggle theme">
+        {% if theme == 'dark' %}<i class="ti ti-sun"></i>{% else %}<i class="ti ti-moon-stars"></i>{% endif %}
+      </button>
     </form>
   </div>
 </div>
