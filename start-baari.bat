@@ -23,10 +23,13 @@ if errorlevel 1 (
   exit /b 1
 )
 
-REM Open the browser automatically after a short delay
-start "" cmd /c "timeout /t 18 /nobreak >nul && start http://localhost:8000"
+REM Open the browser only once the server actually responds (handles the slow
+REM first build). Polls /healthz every 2s for up to ~5 minutes, then opens.
+start "" powershell -NoProfile -WindowStyle Hidden -Command ^
+  "$ErrorActionPreference='SilentlyContinue'; for($i=0;$i -lt 150;$i++){ try{ if((Invoke-WebRequest 'http://localhost:8000/healthz' -UseBasicParsing -TimeoutSec 2).StatusCode -eq 200){ Start-Process 'http://localhost:8000'; break } }catch{}; Start-Sleep -Seconds 2 }"
 
-echo Starting Baari... the app will open in your browser automatically.
+echo Starting Baari... the app will open in your browser automatically
+echo once it is ready (the first run takes about a minute).
 echo To stop Baari later: close this window.
 echo.
 docker compose up --build
