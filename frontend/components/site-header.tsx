@@ -3,7 +3,6 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://baariprod.vercel.app";
 
 export function SiteHeader() {
   return (
@@ -19,7 +18,7 @@ export function SiteHeader() {
         <div className="flex items-center gap-2">
           <ThemeToggle />
           <Button variant="ghost" asChild>
-            <Link href={`${BACKEND_URL}/login`}>Sign in</Link>
+            <Link href="/login">Sign in</Link>
           </Button>
         </div>
       </div>

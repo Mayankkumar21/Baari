@@ -12,7 +12,6 @@ import {
 
 import { Tooth } from "@/components/icons/tooth";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://baariprod.vercel.app";
 
 type Vertical = {
   key: string;
@@ -52,7 +51,7 @@ export function Verticals() {
             }}
           >
             <Link
-              href={`${BACKEND_URL}/signup?type=${key}`}
+              href={`/signup?type=${key}`}
               title={description}
               className="group block h-full rounded-xl border border-border bg-card/70 p-4 text-center backdrop-blur transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:bg-card hover:shadow-lg hover:shadow-primary/10"
             >

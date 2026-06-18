@@ -6,7 +6,6 @@ import { ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://baariprod.vercel.app";
 
 export function CtaClosing() {
   return (
@@ -29,7 +28,7 @@ export function CtaClosing() {
         </p>
         <div className="relative mt-8">
           <Button variant="glow" size="xl" asChild>
-            <Link href={`${BACKEND_URL}/signup`}>
+            <Link href={`/signup`}>
               Start for free <ArrowRight className="size-5" />
             </Link>
           </Button>
