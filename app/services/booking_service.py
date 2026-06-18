@@ -43,6 +43,10 @@ def available_slots(clinic: Clinic, on: date, taken: set[datetime]) -> list[date
         end_h, end_m = (int(x) for x in block["end"].split(":"))
         cursor = datetime.combine(on, time(start_h, start_m), tzinfo=tz)
         end = datetime.combine(on, time(end_h, end_m), tzinfo=tz)
+        # Shift that crosses midnight (e.g. 17:00 → 02:00) — the end time
+        # belongs to the next calendar day. Roll it forward so the loop runs.
+        if end <= cursor:
+            end += timedelta(days=1)
         while cursor < end:
             cursor_utc_naive = cursor.astimezone(UTC).replace(tzinfo=None)
             if cursor >= now - timedelta(minutes=5) and cursor_utc_naive not in taken:
@@ -115,8 +119,10 @@ def reschedule_booking(
         BookingStatus.in_consult,
     ):
         raise BookingError(f"Cannot reschedule a {booking.status.value} booking.")
-    if new_slot_time.date() != booking.date:
-        raise BookingError("Reschedule must stay on the same day.")
+    # Accept slots on the operational day OR the next calendar day (for shifts
+    # that cross midnight — e.g. 17:00 IST start, 02:00 IST end).
+    if new_slot_time.date() not in (booking.date, booking.date + timedelta(days=1)):
+        raise BookingError("Reschedule must stay on the same operational day.")
     if new_slot_time == booking.slot_time:
         raise BookingError("Pick a different slot.")
     taken = get_taken_slots(db, clinic_id, booking.date)
@@ -177,8 +183,10 @@ def create_booking(
     taken = get_taken_slots(db, clinic.id, on)
     if slot_time in taken:
         raise BookingError("That slot was just taken. Please pick another.")
-    if slot_time.date() != on:
-        raise BookingError("Bookings can only be made for today.")
+    # Allow today OR tomorrow (for shifts that cross midnight). The booking
+    # still belongs to `on` — that's how it groups under today's queue.
+    if slot_time.date() not in (on, on + timedelta(days=1)):
+        raise BookingError("Bookings can only be made for today's operational shift.")
 
     patient = upsert_patient(
         db, clinic.id, name=name, mobile=norm, is_new=is_new, whatsapp_opt_out=whatsapp_opt_out
