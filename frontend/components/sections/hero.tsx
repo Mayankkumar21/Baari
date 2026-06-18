@@ -62,7 +62,7 @@ export function Hero() {
         >
           <Button variant="glow" size="xl" asChild>
             <Link href={`${BACKEND_URL}/signup`}>
-              Create your dashboard <ArrowRight className="size-5" />
+              Start for free <ArrowRight className="size-5" />
             </Link>
           </Button>
           <Button variant="outline" size="xl" asChild>

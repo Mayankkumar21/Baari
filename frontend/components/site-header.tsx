@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -21,11 +20,6 @@ export function SiteHeader() {
           <ThemeToggle />
           <Button variant="ghost" asChild>
             <Link href={`${BACKEND_URL}/login`}>Sign in</Link>
-          </Button>
-          <Button variant="glow" asChild>
-            <Link href={`${BACKEND_URL}/signup`}>
-              Start free <ArrowRight className="size-4" />
-            </Link>
           </Button>
         </div>
       </div>
