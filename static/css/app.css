@@ -1,21 +1,22 @@
 /* ─── Light theme (default) ───────────────────────────────────────────────
    Modern aesthetic: clean off-white canvas, deep neutral text, indigo
-   accent. Mirrors the Next.js landing's design tokens so the dashboard
-   feels like a continuation of the marketing page. */
+   accent. Indigo HSL values mirror frontend/app/globals.css EXACTLY so
+   the dashboard and the marketing landing share the same brand purple.
+   Don't drift one without drifting the other. */
 :root {
   color-scheme: light;
   --bg-canvas: #fcfcfc;
   --bg-primary: #ffffff;
   --bg-secondary: #f4f4f5;
-  --bg-info: #eeeefb;
+  --bg-info: hsl(245 65% 96%);             /* violet-indigo tint */
   --bg-success: #ecfdf3;
   --bg-warning: #fff8eb;
   --bg-danger: #fef2f2;
   --text-primary: #101013;
   --text-secondary: #5b5b66;
   --text-tertiary: #8c8c96;
-  --text-info: #4338ca;
-  --text-info-deep: #312e81;
+  --text-info: hsl(245 65% 45%);           /* deep indigo on light bg */
+  --text-info-deep: hsl(245 65% 32%);
   --text-success: #166534;
   --text-success-deep: #14532d;
   --text-warning: #92400e;
@@ -23,11 +24,11 @@
   --text-danger: #991b1b;
   --border-tertiary: rgba(0, 0, 0, 0.08);
   --border-secondary: rgba(0, 0, 0, 0.14);
-  --border-info: #6366f1;
+  --border-info: hsl(245 65% 56%);         /* matches --accent-blue */
   --border-success: #34d399;
   --border-warning: #f59e0b;
   --border-danger: #ef4444;
-  --accent-blue: #6366f1;          /* renamed semantically but kept as the same var name to avoid churn */
+  --accent-blue: hsl(245 65% 56%);         /* THE brand indigo — same as Next.js primary */
   --radius-md: 8px;
   --radius-lg: 12px;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
@@ -35,23 +36,22 @@
 }
 
 /* ─── Dark theme ──────────────────────────────────────────────────────────
-   Near-pure black canvas with a vibrant indigo accent — matches the
-   Next.js landing exactly. Status colors keep semantic identity via
-   tinted backgrounds at low luminance + brightened foregrounds. */
+   Near-pure black canvas with a vibrant violet-indigo accent — matches
+   the Next.js landing's hsl(245 80% 66%) primary exactly. */
 :root[data-theme="dark"] {
   color-scheme: dark;
   --bg-canvas: #08080b;
   --bg-primary: #0f0f12;
   --bg-secondary: #1d1d22;
-  --bg-info: #1a1a35;
+  --bg-info: hsl(245 45% 14%);             /* deep violet-indigo tint */
   --bg-success: #06281c;
   --bg-warning: #33240a;
   --bg-danger: #361616;
   --text-primary: #fafafa;
   --text-secondary: #a4a4ad;
   --text-tertiary: #71717a;
-  --text-info: #a5b4fc;
-  --text-info-deep: #c7d2fe;
+  --text-info: hsl(245 90% 82%);           /* bright indigo on dark bg */
+  --text-info-deep: hsl(245 95% 90%);
   --text-success: #6ee7b7;
   --text-success-deep: #a7f3d0;
   --text-warning: #fcd34d;
@@ -59,11 +59,11 @@
   --text-danger: #fca5a5;
   --border-tertiary: rgba(255, 255, 255, 0.08);
   --border-secondary: rgba(255, 255, 255, 0.16);
-  --border-info: #8b8cf6;
+  --border-info: hsl(245 80% 66%);         /* matches --accent-blue */
   --border-success: #10b981;
   --border-warning: #d97706;
   --border-danger: #ef4444;
-  --accent-blue: #8b8cf6;
+  --accent-blue: hsl(245 80% 66%);         /* THE brand indigo — same as Next.js dark primary */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.6);
 }
@@ -75,15 +75,15 @@
     --bg-canvas: #08080b;
     --bg-primary: #0f0f12;
     --bg-secondary: #1d1d22;
-    --bg-info: #1a1a35;
+    --bg-info: hsl(245 45% 14%);
     --bg-success: #06281c;
     --bg-warning: #33240a;
     --bg-danger: #361616;
     --text-primary: #fafafa;
     --text-secondary: #a4a4ad;
     --text-tertiary: #71717a;
-    --text-info: #a5b4fc;
-    --text-info-deep: #c7d2fe;
+    --text-info: hsl(245 90% 82%);
+    --text-info-deep: hsl(245 95% 90%);
     --text-success: #6ee7b7;
     --text-success-deep: #a7f3d0;
     --text-warning: #fcd34d;
@@ -91,11 +91,11 @@
     --text-danger: #fca5a5;
     --border-tertiary: rgba(255, 255, 255, 0.08);
     --border-secondary: rgba(255, 255, 255, 0.16);
-    --border-info: #8b8cf6;
+    --border-info: hsl(245 80% 66%);
     --border-success: #10b981;
     --border-warning: #d97706;
     --border-danger: #ef4444;
-    --accent-blue: #8b8cf6;
+    --accent-blue: hsl(245 80% 66%);
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
     --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.55);
   }
