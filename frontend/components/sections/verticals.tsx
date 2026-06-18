@@ -4,13 +4,13 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import {
   Stethoscope,
-  Bone,
   Scissors,
   Flower,
   PawPrint,
   Store,
-  type LucideIcon,
 } from "lucide-react";
+
+import { Tooth } from "@/components/icons/tooth";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://baariprod.vercel.app";
 
@@ -18,14 +18,12 @@ type Vertical = {
   key: string;
   label: string;
   description: string;
-  icon: LucideIcon;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
 };
 
-// `Bone` is the closest Lucide glyph to a tooth — readable at small size.
-// Swap to a custom SVG later if we want a true tooth icon.
 const VERTICALS: Vertical[] = [
   { key: "clinic", label: "Clinic", description: "Homeopathy, GP, paediatrics, physio.", icon: Stethoscope },
-  { key: "dental", label: "Dental", description: "Dentist, orthodontist.", icon: Bone },
+  { key: "dental", label: "Dental", description: "Dentist, orthodontist.", icon: Tooth },
   { key: "salon",  label: "Salon",  description: "Hair, beauty, nails, barbershop.", icon: Scissors },
   { key: "spa",    label: "Spa",    description: "Massage, wellness, day spa.", icon: Flower },
   { key: "vet",    label: "Vet",    description: "Veterinary clinic.", icon: PawPrint },
