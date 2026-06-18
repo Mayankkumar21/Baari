@@ -9,6 +9,7 @@ from sqlmodel import Session, select
 from app.models import Booking, BookingStatus, Clinic, Patient
 from app.services.day_close import close_day, get_summary
 from app.services.notifications import notify_no_show
+from app.services.rate_limit import gc_old_buckets
 from app.time_utils import clinic_today, now_utc, to_clinic_tz
 
 
@@ -67,11 +68,12 @@ def maybe_auto_close(db: Session, clinic: Clinic) -> bool:
 
 def run_tick(db: Session) -> dict[str, int]:
     """Run every-5-min jobs across every clinic. Returns a summary."""
-    summary = {"clinics": 0, "no_shows": 0, "auto_closed": 0}
+    summary = {"clinics": 0, "no_shows": 0, "auto_closed": 0, "rate_limit_gc": 0}
     for clinic in db.exec(select(Clinic)).all():
         summary["clinics"] += 1
         summary["no_shows"] += sweep_no_shows(db, clinic)
         if maybe_auto_close(db, clinic):
             summary["auto_closed"] += 1
+    summary["rate_limit_gc"] = gc_old_buckets(db)
     db.commit()
     return summary

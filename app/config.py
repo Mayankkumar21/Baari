@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     msg91_whatsapp_integrated_number: str = ""
     msg91_whatsapp_namespace: str = ""
 
+    # Cloudflare Turnstile (optional bot defense). When both are empty, the
+    # widget is hidden and verification is skipped — same dev-mode pattern as MSG91.
+    turnstile_site_key: str = ""
+    turnstile_secret_key: str = ""
+
     app_env: str = "dev"
     clinic_tz: str = "Asia/Kolkata"
 

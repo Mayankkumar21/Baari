@@ -2,6 +2,9 @@
 {% block title %}Create your Baari dashboard{% endblock %}
 
 {% block body %}
+{% if turnstile_enabled %}
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+{% endif %}
 <style>
   .signup-page {
     min-height: 100vh; background: var(--bg-canvas);
@@ -123,16 +126,26 @@
     <div class="row" style="gap: 12px; align-items: flex-start">
       <div class="field" style="flex: 1">
         <label for="password">Password</label>
-        <input id="password" name="password" type="password" required minlength="8"
+        <input id="password" name="password" type="password" required minlength="8" maxlength="128"
                autocomplete="new-password" />
-        <span class="hint">At least 8 characters.</span>
+        <span class="hint">At least 8 characters, with letters and numbers.</span>
       </div>
       <div class="field" style="flex: 1">
         <label for="password_confirm">Confirm password</label>
-        <input id="password_confirm" name="password_confirm" type="password" required minlength="8"
+        <input id="password_confirm" name="password_confirm" type="password" required minlength="8" maxlength="128"
                autocomplete="new-password" />
       </div>
     </div>
+
+    {# Honeypot — hidden from humans (and assistive tech), bots fill it. #}
+    <div aria-hidden="true" style="position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden">
+      <label>Company<input type="text" name="company" tabindex="-1" autocomplete="off" /></label>
+    </div>
+
+    {% if turnstile_enabled %}
+      <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}"
+           style="margin: 14px 0; display: flex; justify-content: center"></div>
+    {% endif %}
 
     <button class="btn primary lg" type="submit" style="width: 100%; justify-content: center; margin-top: 6px">
       <i class="ti ti-arrow-right"></i> Create my dashboard

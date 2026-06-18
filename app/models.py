@@ -187,6 +187,17 @@ class AuditLog(SQLModel, table=True):
     created_at: datetime = Field(default_factory=now_utc, nullable=False, index=True)
 
 
+class RateLimitBucket(SQLModel, table=True):
+    """Fixed-window rate-limit counter. `bucket_key` looks like 'signup:1.2.3.4:5840'
+    where the trailing int is `epoch_seconds // window_seconds`. Old buckets are
+    GC'd by the cron tick."""
+    __tablename__ = "rate_limit_buckets"
+
+    bucket_key: str = Field(primary_key=True, max_length=180)
+    count: int = Field(default=0, nullable=False)
+    created_at: datetime = Field(default_factory=now_utc, nullable=False, index=True)
+
+
 class DailySummary(SQLModel, table=True):
     __tablename__ = "daily_summaries"
     __table_args__ = (UniqueConstraint("clinic_id", "date", name="uq_summary_clinic_date"),)
