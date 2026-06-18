@@ -1,0 +1,36 @@
+name: cron-tick
+
+# Hits Baari's /api/cron/tick endpoint every 5 minutes.
+# Replaces Vercel Cron (which on the Hobby plan is limited to daily schedules).
+#
+# Required GitHub repository secrets (Settings → Secrets and variables → Actions):
+#   APP_URL       e.g. https://baari-app.vercel.app  (no trailing slash)
+#   CRON_SECRET   identical to the CRON_SECRET env var set in Vercel
+#
+# Note: GitHub Actions scheduled workflows can be delayed by up to ~10 minutes
+# under load. Acceptable for no-show sweeps; end-of-day auto-close still fires
+# within its window.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: POST /api/cron/tick
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::error::APP_URL or CRON_SECRET secret is missing"
+            exit 1
+          fi
+          curl --fail --silent --show-error \
+            -X POST "$APP_URL/api/cron/tick" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            --max-time 30
