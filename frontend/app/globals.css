@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Baari design tokens ───────────────────────────────────────────
+   Mapped from the Python app's static/css/app.css so both UIs share
+   exactly the same palette. shadcn semantic names on the outside,
+   our warm-beige / warm-dark values on the inside.
+   Colors expressed as HSL channels (without hsl(...)) per shadcn convention. */
+
+@layer base {
+  :root {
+    /* Light theme — warm beige canvas, dark warm text */
+    --background: 47 27% 94%;            /* #f5f3ec */
+    --foreground: 60 5% 12%;             /* #1f1f1d */
+    --card: 0 0% 100%;                   /* #ffffff */
+    --card-foreground: 60 5% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 60 5% 12%;
+    --primary: 211 73% 37%;              /* #185fa5  (accent blue) */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 47 22% 92%;             /* #f1efe8 */
+    --secondary-foreground: 60 5% 12%;
+    --muted: 47 22% 92%;
+    --muted-foreground: 36 4% 37%;       /* #5f5e5a */
+    --accent: 211 73% 37%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 55% 49%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 60 4% 88%;
+    --input: 60 4% 88%;
+    --ring: 211 73% 37%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    /* Dark theme — warm-dark canvas, off-white text (preserves brand warmth) */
+    --background: 36 18% 8%;             /* #16140f */
+    --foreground: 42 23% 90%;            /* #ece9df */
+    --card: 36 14% 10%;                  /* #1e1c17 */
+    --card-foreground: 42 23% 90%;
+    --popover: 36 14% 10%;
+    --popover-foreground: 42 23% 90%;
+    --primary: 211 81% 68%;              /* #6ba8ef brightened for dark */
+    --primary-foreground: 36 18% 8%;
+    --secondary: 36 14% 13%;             /* #26231c */
+    --secondary-foreground: 42 23% 90%;
+    --muted: 36 14% 13%;
+    --muted-foreground: 36 6% 63%;       /* #a6a397 */
+    --accent: 36 14% 13%;
+    --accent-foreground: 42 23% 90%;
+    --destructive: 0 70% 78%;
+    --destructive-foreground: 36 18% 8%;
+    --border: 0 0% 100% / 0.10;
+    --input: 0 0% 100% / 0.16;
+    --ring: 211 81% 68%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html, body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "ss01", "cv11";
+  }
+  ::selection {
+    @apply bg-primary/30 text-foreground;
+  }
+}
+
+/* ─── Bespoke utilities for the landing ───────────────────────────── */
+
+@layer utilities {
+  /* Gradient text — used in the hero headline accent. */
+  .text-gradient {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--primary)) 0%,
+      hsl(var(--primary) / 0.7) 50%,
+      hsl(var(--primary)) 100%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: shimmer 8s ease-in-out infinite;
+  }
+
+  /* Soft halo behind the primary CTA. */
+  .glow-primary {
+    box-shadow:
+      0 0 0 1px hsl(var(--primary) / 0.4),
+      0 12px 36px -8px hsl(var(--primary) / 0.55),
+      0 4px 12px -4px hsl(var(--primary) / 0.4);
+  }
+
+  /* Subtle gradient orb in the hero background. */
+  .orb {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(80px);
+    opacity: 0.55;
+    pointer-events: none;
+  }
+
+  /* Glassmorphism card — used for the vertical chips and feature tiles. */
+  .glass {
+    background: hsl(var(--card) / 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--border));
+  }
+}
+
+@keyframes shimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
