@@ -147,7 +147,7 @@
   </section>
 
   <section class="verticals">
-    {% set icons = {'clinic': 'stethoscope', 'dental': 'tooth', 'salon': 'scissors',
+    {% set icons = {'clinic': 'stethoscope', 'dental': 'dental', 'salon': 'scissors',
                    'spa': 'flower', 'vet': 'paw', 'other': 'building-store'} %}
     {% for ttype, label, desc in tenant_types %}
       <a class="vertical-chip" href="/signup?type={{ ttype.value }}" title="{{ desc }}">
