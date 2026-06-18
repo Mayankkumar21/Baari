@@ -65,9 +65,6 @@ export function Hero() {
               Start for free <ArrowRight className="size-5" />
             </Link>
           </Button>
-          <Button variant="outline" size="xl" asChild>
-            <Link href={`${BACKEND_URL}/login`}>I already have one</Link>
-          </Button>
         </motion.div>
 
         <motion.p
