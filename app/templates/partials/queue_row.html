@@ -1,4 +1,5 @@
-<div class="queue-row {{ row.booking.status.value }}{% if row.is_late %} late{% endif %}">
+<div class="queue-row {{ row.booking.status.value }}{% if row.is_late %} late{% endif %}"
+     style="view-transition-name: row-{{ row.booking.id }}">
   <div class="token">{{ row.label }}</div>
   <div class="row-meta">
     <div class="name">

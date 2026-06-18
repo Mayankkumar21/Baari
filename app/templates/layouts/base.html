@@ -18,10 +18,13 @@
   <script>
     // Give HTMX a brief swap/settle window so our CSS transitions actually paint.
     // (Defaults are 0/20ms, so .htmx-swapping never gets a chance to render.)
+    // Also flip on global View Transitions API support so HTMX swaps cross-fade
+    // via document.startViewTransition() where the browser allows.
     window.addEventListener('DOMContentLoaded', () => {
       if (window.htmx) {
         htmx.config.defaultSwapDelay = 90;
         htmx.config.defaultSettleDelay = 60;
+        htmx.config.globalViewTransitions = true;
       }
     });
   </script>
