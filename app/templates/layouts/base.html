@@ -56,6 +56,30 @@
         if (last) setTimeout(() => last.remove(), 4000);
       }
     });
+
+    // Theme toggle — sync the form's submitted value and the icon to the
+    // CURRENTLY-RESOLVED theme, not just the cookie. The server can't know
+    // the OS preference, so when no cookie is set the form would otherwise
+    // post `dark` even though the user is already seeing dark via OS auto,
+    // making the first click a no-op.
+    function resolvedTheme() {
+      return document.documentElement.dataset.theme ||
+        (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    }
+    function syncThemeUI() {
+      const isDark = resolvedTheme() === 'dark';
+      document.querySelectorAll('form[action="/theme"]').forEach(form => {
+        const input = form.querySelector('input[name="theme"]');
+        if (input) input.value = isDark ? 'light' : 'dark';
+        const icon = form.querySelector('i.ti');
+        if (icon) {
+          icon.classList.remove('ti-sun', 'ti-moon-stars');
+          icon.classList.add(isDark ? 'ti-sun' : 'ti-moon-stars');
+        }
+      });
+    }
+    syncThemeUI();
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncThemeUI);
   </script>
 </body>
 </html>

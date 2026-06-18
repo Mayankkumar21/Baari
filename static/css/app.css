@@ -403,16 +403,11 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; width: 100%; 
 .htmx-request .htmx-indicator,
 .htmx-request.htmx-indicator { opacity: 1; }
 
-/* HTMX swap transitions — fade the board out while a request is in flight,
-   then fade-in the newly-swapped content. Snappy enough to feel responsive
-   (~120ms) without making the screen feel sluggish. */
-#board {
-  transition: opacity 120ms ease, filter 120ms ease;
-}
-#board.htmx-request {
-  opacity: 0.55;
-  filter: blur(0.3px);
-}
+/* HTMX swap transitions — fade-in newly swapped content only. We deliberately
+   do NOT dim the board during the 10s background poll: the htmx-request class
+   can stick on the polling source under some swap timings, leaving the board
+   permanently dimmed. Button-level spinners give all the in-flight feedback
+   users need for actions they triggered. */
 .htmx-swapping { opacity: 0; transition: opacity 80ms ease; }
 .htmx-settling { opacity: 0; }
 .htmx-added    { opacity: 0; animation: baari-fade-in 180ms ease forwards; }
