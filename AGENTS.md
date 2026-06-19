@@ -3,63 +3,66 @@
 Context for AI coding agents working on this repo. Read top-to-bottom once.
 Everything you need to make safe, in-style changes is here.
 
+> **2026-06-19 rewrite.** The shipped product is the **Next.js full-stack
+> app under `frontend/`**. The Python FastAPI tree at the repo root
+> (`app/`, `api/index.py`, `migrations/`) is **legacy — no longer
+> deployed and no longer maintained**. New work happens in `frontend/`.
+> The old code is kept around as a reference until it's cleaned out in a
+> dedicated commit. Don't touch the Python tree unless explicitly asked.
+
 ---
 
 ## 1. What Baari is
 
 A multi-tenant SaaS that replaces the **paper register** at the front desk
-of any appointment-based business — clinics (primary use case, all original
-PRD copy), salons, dental, spa, vet, etc. Each tenant signs up to their own
+of any appointment-based business — clinics, salons, dental practices,
+spas, vets, and a generic "other." Each tenant signs up to their own
 isolated workspace.
 
-**Core problem solved:** a receptionist running a 100-patient/day clinic
-keeps track of arrivals, tokens, family groups, no-shows, and WhatsApp
-notifications, all in real time on one screen. The doctor sees who's next
-and clicks "Mark done." No paper, no app installs.
+**Core problem solved:** a receptionist running a 100-customer/day clinic
+keeps track of arrivals, tokens, family groups, no-shows, and (optionally)
+WhatsApp notifications, all in real time on one screen. The doctor /
+stylist / therapist sees who's next and clicks "Mark done." No paper, no
+app installs, no per-seat licence.
 
 **Target market:** Tier 2/3 cities in India. Free during early access.
 
-**Original product spec:** `PRD-ClinicQueue.md` lives in the source folder
-(not in this repo) — has 70+ numbered requirements across booking, queue,
-check-in, notifications, family sub-tokens, no-show automation, day mgmt,
-reports, auth.
+**Live:** [`baari-tech.vercel.app`](https://baari-tech.vercel.app).
 
 ---
 
 ## 2. Architecture at a glance
 
 ```
-                  baari.in (future)        app.baari.in (future)
-                       │                            │
-            ┌──────────▼──────────┐      ┌─────────▼──────────┐
-            │  Next.js frontend   │      │  Python backend    │
-            │  (marketing only)   │      │  (the actual app)  │
-            │                     │      │                    │
-            │  baari-web-lac      │      │  baariprod         │
-            │  .vercel.app        │      │  .vercel.app       │
-            └─────────────────────┘      └───────────┬────────┘
-                                                     │
-                                          ┌──────────▼──────────┐
-                                          │  Neon Postgres      │
-                                          │  ap-southeast-1     │
-                                          └─────────────────────┘
-                                                     ▲
-                                          ┌──────────┴──────────┐
-                                          │  GitHub Actions     │
-                                          │  cron-tick / 5 min  │
-                                          └─────────────────────┘
+                                    baari-tech.vercel.app
+                                              │
+                                  ┌───────────▼───────────┐
+                                  │  Next.js 15.5 app     │
+                                  │  (App Router, React 19) │
+                                  │                       │
+                                  │  • marketing landing  │
+                                  │  • auth (JWT cookie)  │
+                                  │  • queue + booking    │
+                                  │  • search + reports   │
+                                  │  • settings           │
+                                  │  • /api/cron/tick     │
+                                  └───────────┬───────────┘
+                                              │ Drizzle ORM
+                                              │ postgres-js driver
+                                  ┌───────────▼───────────┐
+                                  │  Neon Postgres        │
+                                  │  ap-southeast-1       │
+                                  └───────────────────────┘
+                                              ▲
+                                  ┌───────────┴───────────┐
+                                  │  GitHub Actions       │
+                                  │  cron tick / 5 min    │
+                                  └───────────────────────┘
 ```
 
-**Two Vercel projects, one GitHub repo:**
-
-- **Python backend** at repo root — FastAPI + Jinja2 + HTMX. Serves
-  `/signup`, `/login`, `/queue`, `/settings`, `/reports`, `/api/cron/tick`,
-  etc. The actual product.
-- **Next.js frontend** under `frontend/` — marketing landing only. Has
-  buttons that link to the backend for signup/login. Zero app logic.
-
-Pushes that touch only `frontend/**` rebuild only Next.js. Pushes that
-touch `api/**` or `app/**` rebuild only Python. Independent deploys.
+**One Vercel project, one Next.js app, one DB.** Server components +
+server actions speak directly to Postgres via Drizzle. No separate API
+layer.
 
 ---
 
@@ -67,169 +70,204 @@ touch `api/**` or `app/**` rebuild only Python. Independent deploys.
 
 ```
 Baari/
-├── api/index.py                    # FastAPI app — Vercel Python entrypoint
-├── app/
-│   ├── config.py                   # Env-driven settings via pydantic-settings
-│   ├── db.py                       # SQLModel engine + per-request session
-│   ├── deps.py                     # Auth deps: current_user, DoctorUser, etc.
-│   ├── i18n.py                     # English + Hindi string tables
-│   ├── models.py                   # ALL DB tables (single file)
-│   ├── time_utils.py               # IST display helpers — storage is UTC
-│   ├── templating.py               # Jinja env with theme/lang/vocab processors
-│   ├── vocab.py                    # Per-tenant-type label vocabulary
-│   ├── routes/                     # FastAPI routers by domain
-│   │   ├── auth.py                 # /login /logout /lang /theme
-│   │   ├── signup.py               # / /signup (public)
-│   │   ├── setup.py                # /setup wizard
-│   │   ├── queue.py                # /queue + state-transition actions
-│   │   ├── booking.py              # /bookings/new /bookings
-│   │   ├── search.py               # /search /bookings/{id}
-│   │   ├── reports.py              # /reports /reports/{date}
-│   │   ├── settings.py             # /settings + user management
-│   │   └── cron.py                 # /api/cron/tick (Bearer-secret protected)
-│   ├── services/
-│   │   ├── auth.py                 # bcrypt + JWT helpers
-│   │   ├── queue_service.py        # Queue state machine + board VM
-│   │   ├── booking_service.py      # Slot allocation, token assignment
-│   │   ├── subtoken_service.py     # Family sub-token CRUD
-│   │   ├── search_service.py
-│   │   ├── reports_service.py
-│   │   ├── settings_service.py
-│   │   ├── signup_service.py       # Self-serve tenant creation
-│   │   ├── notifications.py        # MSG91 WhatsApp dispatch
-│   │   ├── cron_jobs.py            # No-show sweep + auto-close + GC
-│   │   ├── day_close.py            # End-of-day summary + lock
-│   │   ├── rate_limit.py           # DB-backed fixed-window limiter
-│   │   ├── turnstile.py            # Cloudflare bot verify
-│   │   └── cred_ledger.py          # ⚠ plaintext password log (MVP debt)
-│   └── templates/
-│       ├── layouts/                # base.html, app.html
-│       ├── pages/                  # login, queue, signup, setup, settings…
-│       └── partials/               # queue_board, queue_row, search_*, etc.
-├── static/css/app.css              # Design tokens — light + dark themes
-├── scripts/
-│   ├── create_user.py              # Out-of-band user provisioning
-│   └── make_late.py                # Backdate a booking for no-show testing
-├── migrations/
-│   ├── env.py                      # Alembic env
-│   └── versions/                   # 3 migrations: init, tenant_type, rate_limit
-├── frontend/                       # Next.js marketing landing
-│   ├── app/                        # App Router pages
-│   │   ├── layout.tsx              # Fonts + ThemeProvider
-│   │   ├── page.tsx                # Landing page composition
-│   │   └── globals.css             # Design tokens — mirror app.css
+├── frontend/                              ← the actual product
+│   ├── app/
+│   │   ├── layout.tsx                     # Fonts (Inter + Noto Devanagari) + ThemeProvider
+│   │   ├── globals.css                    # Design tokens (light + dark)
+│   │   ├── page.tsx                       # Marketing landing composition
+│   │   ├── login/
+│   │   │   ├── page.tsx + login-form.tsx
+│   │   │   └── actions.ts                 # loginAction, logoutAction
+│   │   ├── signup/
+│   │   │   ├── page.tsx + signup-form.tsx
+│   │   │   └── actions.ts                 # signupAction (vertical chips, +91 prefix, dup-mobile UX)
+│   │   ├── setup/
+│   │   │   ├── page.tsx + setup-form.tsx
+│   │   │   ├── actions.ts                 # setupAction (hours + slot length)
+│   │   │   └── done/page.tsx              # "Your workspace is live." landing
+│   │   ├── workspace-deleted/page.tsx     # Public post-deletion confirmation
+│   │   ├── api/cron/tick/route.ts         # Bearer-auth cron endpoint
+│   │   └── (app)/                         # Authed shell — middleware-gated
+│   │       ├── layout.tsx                 # Top nav + theme + logout
+│   │       ├── queue/
+│   │       │   ├── page.tsx               # Board (waiting / now / done)
+│   │       │   └── actions.ts             # check-in, mark-done, walk-in, close day, …
+│   │       ├── book/
+│   │       │   ├── page.tsx + book-form.tsx
+│   │       │   └── actions.ts             # bookAction (+ Save & add another)
+│   │       ├── search/
+│   │       │   ├── page.tsx               # Search bar + recent guests
+│   │       │   ├── add-guest-button.tsx
+│   │       │   ├── actions.ts             # addGuestAction
+│   │       │   └── [mobile]/page.tsx      # Customer profile (stats + history)
+│   │       ├── reports/
+│   │       │   ├── page.tsx               # KPIs + charts + sortable table
+│   │       │   ├── bookings-table.tsx
+│   │       │   ├── charts.tsx
+│   │       │   └── range-selector.tsx
+│   │       └── settings/
+│   │           ├── layout.tsx             # Left sub-nav (Workspace / Hours / Staff / Account)
+│   │           ├── settings-nav.tsx
+│   │           ├── actions.ts             # saveWorkspace, saveHours, changePassword, deleteWorkspace
+│   │           ├── workspace/             # workspace-form.tsx (name/type/slot/no-show/address)
+│   │           ├── hours/                 # hours-form.tsx (per-day + breaks + copy)
+│   │           ├── staff/                 # user list (stub for multi-staff)
+│   │           └── account/               # change-password + logout + delete
 │   ├── components/
-│   │   ├── ui/button.tsx           # shadcn Button + 'glow' variant
-│   │   ├── sections/               # Hero, DashboardPreview, Verticals, etc.
-│   │   ├── icons/tooth.tsx         # Custom tooth glyph
-│   │   ├── site-header.tsx
-│   │   ├── site-footer.tsx
+│   │   ├── ui/                            # shadcn-style primitives (Button, Input, Card, Label)
+│   │   ├── app/queue-board.tsx            # The big interactive board
+│   │   ├── sections/                      # Landing sections (hero, features, …)
+│   │   ├── icons/tooth.tsx                # Custom tooth glyph for Dental
+│   │   ├── site-header.tsx                # Marketing header
+│   │   ├── site-footer.tsx                # 3-column footer
 │   │   ├── theme-provider.tsx
-│   │   └── theme-toggle.tsx
-│   ├── lib/utils.ts                # cn() helper
-│   ├── package.json
+│   │   └── theme-toggle.tsx               # Pill (Light · Dark) — NOT a bare icon
+│   ├── lib/
+│   │   ├── auth.ts                        # Edge-safe: JWT sign/verify + normalizeMobile
+│   │   ├── password.ts                    # Node-only: bcryptjs + strength rules
+│   │   ├── session.ts                     # requireSession / requireDoctor / requireSetup
+│   │   ├── rate-limit.ts                  # DB-backed fixed-window limiter
+│   │   ├── time.ts                        # IST helpers (clinicToday, fmtTime, …)
+│   │   ├── vocab.ts                       # Per-tenant-type label dictionary
+│   │   ├── reports-range.ts               # computeRange (today/7d/30d/custom + prev period)
+│   │   ├── whatsapp.ts                    # MSG91 dispatch (env-gated dev no-op)
+│   │   ├── utils.ts                       # cn()
+│   │   ├── db/
+│   │   │   ├── client.ts                  # Drizzle client (postgres-js for transactions)
+│   │   │   └── schema.ts                  # ALL tables in one file
+│   │   └── services/                      # Domain logic — keep routes/actions thin
+│   │       ├── booking.ts                 # createBooking, walkIn, slot enumeration
+│   │       ├── queue.ts                   # state machine + buildBoard VM
+│   │       ├── sub-token.ts               # Family sub-tokens (add / start / done / cancel)
+│   │       ├── patients.ts                # getRecentGuests, addGuest, getCustomerProfile
+│   │       ├── reports.ts                 # loadReports + loadReportsHeadline
+│   │       ├── service-types.ts           # Per-tenant service catalog
+│   │       └── day-close.ts               # getSummary + closeDay
+│   ├── middleware.ts                      # Edge: redirects /queue etc. → /login when no cookie
+│   ├── drizzle.config.ts
 │   ├── tailwind.config.ts
-│   ├── tsconfig.json
 │   ├── next.config.ts
-│   ├── vercel.json                 # {"framework":"nextjs"} — pin
-│   └── .env.example                # NEXT_PUBLIC_APP_URL
-├── docker-compose.yml              # All-in-one dev: app + Postgres
-├── Dockerfile
-├── docker/entrypoint.sh            # Runs alembic upgrade head then uvicorn
-├── start-baari.command             # macOS one-click launcher
-├── start-baari.bat                 # Windows one-click launcher
-├── .github/workflows/cron-tick.yml # Hits /api/cron/tick every 5 min
-├── vercel.json                     # Python project routing
-├── requirements.txt
-├── pyproject.toml
-├── alembic.ini
-└── README.md
+│   ├── package.json
+│   └── vercel.json                        # framework pin
+├── .github/workflows/cron-tick.yml        # Hits /api/cron/tick every 5 min
+├── AGENTS.md                              # this file
+├── README.md
+├── STATUS.md                              # Historical snapshot of the cutover
+├── WALKTHROUGH.md
+│
+└── [legacy — DO NOT EDIT unless cleaning out]
+    ├── api/index.py                       # ← old Python entry
+    ├── app/                               # ← old FastAPI tree
+    ├── migrations/                        # ← Alembic (Drizzle now owns schema)
+    ├── static/                            # ← old templates' CSS
+    ├── docker/                            # ← old all-in-one Docker
+    ├── vercel.json (root)                 # ← legacy Python project config (unused)
+    ├── requirements.txt, pyproject.toml, alembic.ini
+    └── scripts/{create_user,make_late}.py
 ```
 
 ---
 
 ## 4. Stack & versions
 
-**Backend (root):**
-- Python 3.12
-- FastAPI 0.115.6
-- SQLModel 0.0.22 (Pydantic 2.x + SQLAlchemy 2.x)
-- Jinja2 3.1.4 templates
-- HTMX 2.0.4 + Alpine.js 3 for interactivity (no React/build step)
-- Postgres via psycopg 3.2.3
-- Alembic 1.14 migrations
-- passlib + bcrypt for password hashing
-- PyJWT 2.10.1 for session tokens
-- httpx 0.28.1 for outbound (MSG91, Turnstile)
-- pydantic-settings 2.7 for env
+**All runtime code is TypeScript on Next.js 15.5 / React 19.**
 
-**Frontend (`frontend/`):**
-- Next.js 15.x (App Router) on React 19
-- TypeScript strict
-- Tailwind CSS 3.4 + shadcn token convention
-- `motion` (Framer Motion successor) 11.x for animations
-- `next-themes` 0.4.x for OS-aware light/dark
-- `lucide-react` for icons (+ custom `Tooth` SVG)
-- Inter + Noto Sans Devanagari from `next/font/google`
+| Layer | What | Version |
+|---|---|---|
+| Framework | Next.js (App Router) | 15.5.19 |
+| Runtime | React | 19.0.0 |
+| Language | TypeScript strict | 5.x |
+| DB driver | postgres-js (transactions) + @neondatabase/serverless | 3.4 / 0.10 |
+| ORM | Drizzle ORM + drizzle-kit (`db:push`) | 0.36 / 0.28 |
+| Auth (Edge) | jose (JWT sign/verify) | 5.9 |
+| Auth (Node) | bcryptjs | 2.4 |
+| Validation | zod | 3.23 |
+| Cache | swr (client-side, sparing) | 2.2 |
+| Styling | Tailwind 3.4 + tailwindcss-animate + shadcn token convention | 3.4 |
+| Animation | motion (Framer Motion successor) | 11.13 |
+| Theme | next-themes | 0.4 |
+| Icons | lucide-react (+ custom `Tooth` SVG) | 0.456 |
+| Fonts | Inter + Noto Sans Devanagari (via `next/font/google`) | — |
+| Hosting | Vercel Hobby (project: `baari-tech`) | — |
+| DB | Neon Postgres (free tier, `ap-southeast-1` Singapore) | — |
+| Cron | GitHub Actions (Vercel Hobby Cron is daily-only) | — |
+| WhatsApp | MSG91 Business API — env-gated, dev no-op | — |
 
-**Infra:**
-- Vercel Hobby (free) for both projects
-- Neon Postgres free tier, `ap-southeast-1` (Singapore)
-- GitHub Actions for cron (Hobby Vercel Cron is daily-only, too coarse)
-- MSG91 (WhatsApp Business API) — keys empty in dev → no-op dispatch
-- Cloudflare Turnstile (optional) — both env vars empty → widget hidden
+The repo also still contains the **deprecated** Python stack (FastAPI
+0.115 + Jinja + HTMX + SQLModel + Alembic). It is no longer deployed.
+Treat it as documentation only.
 
 ---
 
 ## 5. Data model
 
 All tables have `clinic_id` from day 1 (multi-tenant ready). All
-timestamps `TIMESTAMP` (naive UTC currently — see "tz debt" below).
+timestamps are proper `TIMESTAMPTZ` (Drizzle: `timestamp(..., { withTimezone: true })`).
+The aware-vs-naive timezone debt from the Python stack is gone.
 
 | Table | Purpose |
 |---|---|
-| `clinics` | Tenant workspaces. `tenant_type` (clinic / salon / spa / dental / vet / other) drives vocab. `opening_hours` JSON with morning/evening shifts. `slot_length_min`, `no_show_threshold_min`. `setup_complete` gates the wizard. `retention_days` (730 default — sweep not implemented yet). |
-| `users` | Doctor + receptionist accounts. Composite-unique on (clinic_id, mobile). `password_hash` is bcrypt. `role` enum: doctor or receptionist. |
-| `patients` | Per-tenant patient records. Unique on (clinic_id, mobile). `is_new` flips false after first done. `whatsapp_opt_out` suppresses all notifications. `anonymized_at` for DPDP support (UI not built). `no_show_count`. |
-| `bookings` | One row per appointment. Composite-unique on (clinic_id, date, token). Holds full lifecycle timestamps: checked_in_at, started_at, completed_at, cancelled_at, no_show_at, restored_at. `wait_estimate_min` reserved for future live recalc. |
-| `sub_tokens` | Family members under a parent booking. Composite-unique on (booking_id, suffix). Up to 5 per parent (PRD §5). Independent status machine. |
-| `notifications` | Every WhatsApp dispatch attempt. Fields: trigger, channel, status (queued/sent/failed), provider_message_id, template_name, payload JSON, failure_reason, sent_at. |
-| `audit_log` | Designed for state-change events. **Currently empty — nothing writes to it.** |
-| `daily_summaries` | One row per (clinic_id, date) after day-close. Aggregated metrics. |
-| `rate_limit_buckets` | Fixed-window counters. `bucket_key` is composite `scope:identifier:windowEpoch`. GC'd by cron. |
-| `alembic_version` | Single row tracking migration head. |
+| `clinics` | Tenant workspaces. `tenantType` (clinic / salon / spa / dental / vet / other) drives vocab + service catalog defaults. `openingHours` JSON keyed by `mon`/`tue`/…/`sun` with optional `open2`/`close2` for midday breaks. `slotLengthMin`, `noShowThresholdMin`, optional `address`. `setupComplete` gates the wizard. |
+| `users` | Owner + receptionist accounts. Composite-unique on (`clinicId`, `mobile`). `passwordHash` is bcrypt. `role` enum: `doctor` (= owner) or `receptionist`. `lastLoginAt` populated on login. |
+| `patients` | Per-tenant guest/customer/patient records. Unique on (`clinicId`, `mobile`). `isNew` flips false once a booking is `done`. `whatsappOptOut` suppresses dispatch. `anonymizedAt` for DPDP support (UI not built). `noShowCount`. |
+| `bookings` | One row per appointment. Composite-unique on (`clinicId`, `date`, `token`). Full lifecycle timestamps: `checkedInAt`, `startedAt`, `completedAt`, `cancelledAt`, `noShowAt`, `restoredAt`. `waitEstimateMin` reserved. |
+| `subTokens` | Family members under a parent booking. Composite-unique on (`bookingId`, `suffix`). Up to 5 per parent. Independent status machine. |
+| `notifications` | Every WhatsApp dispatch attempt. `trigger`, `status` (queued/sent/failed), `providerMessageId`, `templateName`, `payload` JSON, `failureReason`, `sentAt`. |
+| `auditLog` | State-change events. Currently written by `reopenBooking` only — wider coverage TBD. |
+| `dailySummaries` | One row per (`clinicId`, `date`) after day-close. Aggregated metrics. |
+| `rateLimitBuckets` | Fixed-window counters. `bucketKey` is composite `scope:identifier:windowEpoch`. GC'd by cron. |
 
-**Enums:**
-- `UserRole`: doctor, receptionist
-- `TenantType`: clinic, salon, spa, dental, vet, other
-- `BookingStatus`: booked, checked_in, in_consult, done, no_show, cancelled
-- `SubTokenStatus`: booked, checked_in, in_consult, done, cancelled, no_show
-- `NotificationTrigger`: booking_confirmed, youre_next, slot_changed, wait_changed, cancelled, no_show, restored
-- `NotificationStatus`: queued, sent, failed
+**Enums** (lowercase string unions in `schema.ts`):
+
+- `userRole`: `doctor`, `receptionist`
+- `tenantType`: `clinic`, `salon`, `spa`, `dental`, `vet`, `other`
+- `bookingStatus`: `booked`, `checked_in`, `in_consult`, `done`, `no_show`, `cancelled`
+- `subTokenStatus`: same as bookingStatus minus `no_show` (sub-tokens never auto-no-show)
+- `notificationTrigger`: `booking_confirmed`, `youre_next`, `slot_changed`, `wait_changed`, `cancelled`, `no_show`, `restored`
+- `notificationStatus`: `queued`, `sent`, `failed`
+
+Schema changes go through Drizzle: edit `frontend/lib/db/schema.ts`, then
+`npm run db:push` (no Alembic). For destructive migrations review the
+generated SQL before applying.
 
 ---
 
 ## 6. Auth & multi-tenancy
 
 **Auth:**
-- Mobile + bcrypt password (no email, no OTP, no signup verification)
-- JWT in HTTP-only Secure SameSite=Lax cookie called `baari_session`
-- Expiry: 7 days for doctor, 30 days for receptionist
-- Provisioning: self-serve via `/signup` (most users) OR
-  `scripts/create_user.py` (operator override)
-- No password-reset-by-self — doctor resets receptionist from Settings;
-  operator resets doctor via the seed script
+- Mobile + bcrypt password. No email, no OTP, no verification.
+- JWT in HTTP-only Secure SameSite=Lax cookie called `baari_session`.
+- Expiry: 7 days for doctor, 30 days for receptionist.
+- Two-bin split for Edge safety: `lib/auth.ts` (Edge — jose only,
+  used by middleware) vs `lib/password.ts` (Node — bcryptjs). Don't
+  cross the streams.
+- Provisioning: self-serve via `/signup` (anyone can create a workspace).
+  Receptionist provisioning UI is stubbed at `/settings/staff`.
+- No password-reset-by-self yet — doctor resets receptionist password
+  (not wired); owner resets via `/settings/account`.
+
+**Mobile validation:** Indian mobile only. `normalizeMobile` in
+`lib/auth.ts` enforces `^(?:\+?91|0)?([6-9]\d{9})$` — 10 digits whose
+first digit is 6/7/8/9 (TRAI rule). `+91` and leading `0` prefixes are
+stripped. The validation error consistently reads: *"Enter a valid Indian
+mobile (10 digits, starting with 6, 7, 8 or 9)."*
 
 **Multi-tenancy:**
-- Every query filters by `clinic_id`. Tenant A literally cannot see B's
-  data through the app.
-- App-enforced isolation, NOT Postgres row-level security. A future
-  bug forgetting the filter could leak. Add RLS before scaling beyond
-  a few vendors.
+- Every query filters by `clinicId`. Tenant A literally cannot see B.
+- App-enforced isolation, **not** Postgres RLS. A future bug forgetting
+  the filter would leak silently. Add RLS before scaling beyond a few
+  vendors.
 
 **Roles:**
-- `doctor` — admin. Mark done, reports, settings, close day.
-- `receptionist` — staff. Queue + bookings + check-in. No reports/settings.
+- `doctor` — owner / admin. Mark done, reports, settings, close day,
+  delete workspace.
+- `receptionist` — staff. Queue + bookings + check-in. No reports /
+  settings.
+
+**Session helpers (`lib/session.ts`):**
+- `requireSession()` — any logged-in user (login redirect on fail).
+- `requireSetup()` — logged-in AND clinic.setupComplete (else → `/setup`).
+- `requireDoctor()` — logged-in AND role doctor (else → `/queue`).
 
 **Cron auth:**
 - `/api/cron/tick` requires `Authorization: Bearer <CRON_SECRET>`.
@@ -237,10 +275,11 @@ timestamps `TIMESTAMP` (naive UTC currently — see "tz debt" below).
 
 ---
 
-## 7. The queue state machine (the core logic to never break)
+## 7. The queue state machine
 
-This is the heart of the product. Read `app/services/queue_service.py` if
-touching anything that affects it.
+Heart of the product. Read `lib/services/queue.ts` if touching anything
+affecting it. The diagram below is the same as the Python stack — the
+behaviour ported intact.
 
 ```
                       ┌─────────────┐
@@ -252,12 +291,12 @@ touching anything that affects it.
                       └──────┬──────┘
        auto-promote  │      OR
        when idle     │  ┌───┴──────────┐
-                      ▼ │  no_show     │ ← cron sweep (slot + 45min past)
-                ┌─────────▼────────┐  │
+                      ▼ │  no_show     │ ← cron sweep (slot + threshold past)
+                ┌─────────▼────────┐  │     OR manual mark-no-show
    mark_done()  │   in_consult     │ ┌▼───────────┐
                 └─────────┬────────┘ │  restore   │ → back to checked_in
-                  ┌───────▼────────┐ │  (end of   │   at end of queue
-                  │      done      │ │  queue)    │
+                  ┌───────▼────────┐ │  /reopen   │   at end of queue
+                  │      done      │ │            │
                   └───────┬────────┘ └────────────┘
                           │
                        30s undo window
@@ -265,509 +304,479 @@ touching anything that affects it.
                        restored ↔ in_consult
 ```
 
-**Auto-promotion rules** (`_try_promote_next_booking` and `_try_promote_within_group`):
-
-1. When a booking is marked done, look for the FIRST pending sub-token
-   in the same parent group. If found → promote that sub-token to
-   `in_consult`. (Family flow: T5 done → T5.1 in_consult, not T6.)
-2. If no pending sub-tokens in the group, look for the next
-   checked-in booking. Lowest token first, BUT restored patients sort
-   to the end (PRD §10.5).
+**Auto-promotion rules** (in `markDone` and `promoteAfterSubDone`):
+1. When a booking is marked done, look for the FIRST pending sub-token in
+   the same parent group → promote that sub-token to `in_consult`.
+   (Family flow: T5 done → T5.1 in_consult, not T6.)
+2. If no pending sub-tokens, promote the next `checked_in` booking.
+   Lowest token first, but `restoredAt`-stamped patients sort to the end.
 3. Auto-promote only fires if NO booking AND NO sub-token is currently
-   in_consult.
+   `in_consult`.
 
-**The 30-second undo window** (PRD §3.6):
-- `mark_done` records `completed_at = now`. The board's view-model marks
-  rows `is_undoable = True` while `now - completed_at < 30s`.
-- `undo_done` reverses status and (if auto-promote already moved on)
-  pushes the promoted booking back to checked_in.
+**The 30-second undo window:**
+- `markDone` records `completedAt = now`. The board's view-model marks
+  rows `isUndoable = true` while `now - completedAt < 30s`.
+- `undoDone` reverses status and (if auto-promote already moved on) pushes
+  the promoted booking back to `checked_in`.
 
-**Family sub-tokens** (PRD §5):
-- Max 5 per parent. Added via `/queue/{booking_id}/sub-tokens`.
+**Family sub-tokens:**
+- Max 5 per parent. Added via the queue row's "Add family member" menu or
+  the now-card's overflow.
 - Can be added at booking time OR mid-consult (parent already in_consult).
-- Cancel a sub-token independently with `/queue/sub-tokens/{id}/cancel`.
+- Cancel a sub-token independently.
 
 **Lateness display:**
-- Pure view-model concern (`is_late` flag on `QueueRowVM`).
+- Pure view-model concern (`isLate` flag on the row).
 - Not a status transition — patient can still check in normally.
-- Triggers when `now - slot_time >= 15 min` AND status in (booked, checked_in).
+- Triggers when `now - slotTime >= 15 min` AND status in (`booked`,
+  `checked_in`).
 
 **No-show transition:**
-- Cron-only. App code never sets `no_show` directly.
-- Sweep: `slot_time + clinic.no_show_threshold_min < now` AND status in
-  (booked, checked_in) → set `no_show`, increment patient counter,
-  fire WhatsApp.
-
-**Datetime quirk** ⚠
-- DB columns are `TIMESTAMP` (naive, no tz). `now_utc()` returns aware.
-- All comparison sites strip tz: `now_utc().replace(tzinfo=None)`.
-- Form-submitted slot_times (aware IST) are converted to naive UTC at the
-  route boundary before storage. See `routes/booking.py:_normalize_slot`.
-- This is tech debt — proper fix is migrating columns to `TIMESTAMPTZ`.
-  Don't add new comparisons that mix aware/naive without normalizing first.
+- Cron-driven (or manually triggered via the row 3-dot menu).
+- Cron sweep: `slotTime + clinic.noShowThresholdMin < now` AND status in
+  (`booked`, `checked_in`) → `no_show`, increment patient counter, fire
+  WhatsApp.
+- `reopenBooking` (in `lib/services/queue.ts`) handles the manual
+  restore-from-no-show path and writes to `auditLog`.
 
 ---
 
-## 8. Background jobs
+## 8. Slot generation (new behaviour — read before touching)
 
-`/api/cron/tick` fires every 5 minutes via GitHub Actions workflow
-`.github/workflows/cron-tick.yml`. Triggered by:
+`lib/services/booking.ts:enumerateSlots` returns every slot in today's
+opening window with status `open` | `taken` | `past`.
+
+**Past-slot threshold (current):** a slot becomes `past` once its END
+time has elapsed (`slotEnd <= now`). This lets the receptionist still
+book the slot currently in progress for a late arrival, and keeps
+near-future slots clearly open. The earlier "5 minutes after start"
+threshold prematurely retired slots that were still useful.
+
+**UI rendering** (`book-form.tsx`):
+- `open` → solid border + normal text.
+- `taken` → muted background + strikethrough + "Already booked" tooltip.
+- `past` → dashed border + strikethrough + opacity 60 + "Past time"
+  tooltip. Visually distinct from `taken`.
+
+---
+
+## 9. Background jobs
+
+`/api/cron/tick` fires every 5 minutes via `.github/workflows/cron-tick.yml`:
 
 ```bash
 curl -X POST "$APP_URL/api/cron/tick" -H "Authorization: Bearer $CRON_SECRET"
 ```
 
 Each tick walks every clinic and runs:
+1. **No-show sweep** — promote overdue bookings (`booked`/`checked_in` past
+   `slotTime + noShowThresholdMin`) to `no_show`, increment counter, fire
+   WhatsApp.
+2. **Auto-close day** — at `≥ 23:55 IST` if not already closed. Idempotent.
+3. **GC rate-limit buckets** — delete rows older than 2 hours.
 
-1. **`sweep_no_shows(clinic)`** — `cron_jobs.py`. Transitions overdue
-   bookings to `no_show` and fires the WhatsApp notification per patient.
-2. **`maybe_auto_close(clinic)`** — closes the day at `≥ 23:55 IST` if
-   not already closed. Idempotent — running every 5 min is fine.
-3. **`gc_old_buckets(db)`** — `rate_limit.py`. Deletes
-   `rate_limit_buckets` rows older than 2 hours.
-
-GitHub Actions can drift by up to ~10 min on the free tier — acceptable
-for these jobs.
+GitHub Actions can drift up to ~10 min on the free tier — fine for these
+jobs.
 
 ---
 
-## 9. WhatsApp notifications (MSG91)
+## 10. WhatsApp notifications (MSG91)
 
-`app/services/notifications.py` handles all 6 PRD triggers:
+`lib/whatsapp.ts` handles all 6 PRD triggers (templates pre-approved on
+MSG91). Bilingual (English + Hindi) — single concatenated message.
 
 | Trigger | Fired by | Template params |
 |---|---|---|
-| `booking_confirmed` | `routes/booking.py` after create | token, slot, clinic |
-| `youre_next` | `routes/queue.py` after auto-promotion | token, clinic |
-| `slot_changed` | `routes/search.py` reschedule | token, old, new, clinic |
-| `cancelled` | `routes/search.py` cancel | token, clinic |
-| `no_show` | `cron_jobs.sweep_no_shows` | token, clinic |
-| `restored` | `routes/queue.py` restore | token, clinic |
+| `booking_confirmed` | `book/actions.ts` after create | token, slot, clinic |
+| `youre_next` | queue auto-promotion | token, clinic |
+| `slot_changed` | reschedule | token, old, new, clinic |
+| `cancelled` | cancel | token, clinic |
+| `no_show` | cron + manual mark-no-show | token, clinic |
+| `restored` | restore / reopen | token, clinic |
 
-Templates are pre-approved on MSG91 with these exact names. Bilingual
-(English + Hindi) per PRD §4.7 — single concatenated message.
+**Dev-mode skip:** if `MSG91_AUTH_KEY` is empty, the dispatcher returns
+`(false, null, "dev-mode-skip")` immediately and the notification row is
+recorded as `status=failed, failureReason="dev-mode-skip"`. No HTTP call.
+App keeps working.
 
-**Dev-mode skip:** if `MSG91_AUTH_KEY` is empty, `_send_via_msg91`
-returns `(False, None, "dev-mode-skip")` immediately and the
-notification row is recorded as `status=failed,
-failure_reason="dev-mode-skip"`. No HTTP call. App keeps working.
-
-**Patient opt-out:** if `patient.whatsapp_opt_out` is true, dispatch
-records `status=failed, failure_reason="patient_opt_out"`. Never sends.
+**Patient opt-out:** if `patient.whatsappOptOut` is true, dispatch records
+`status=failed, failureReason="patient_opt_out"`. Never sends. (The
+booking-form / add-guest UI for setting this was removed; the column
+remains for future re-introduction.)
 
 ---
 
-## 10. Theme & design tokens (light + dark)
+## 11. Theme & design tokens
 
-Both `static/css/app.css` (Python) and `frontend/app/globals.css`
-(Next.js) hold the **same palette** — recently unified to a modern
-aesthetic:
+`frontend/app/globals.css` holds the **only** palette. Tailwind 3.4
+consumes the CSS variables via the `colors.*` map in `tailwind.config.ts`.
 
-| Token | Light | Dark |
-|---|---|---|
-| `--bg-canvas` | `#fcfcfc` (off-white) | `#08080b` (near-pure black) |
-| `--bg-primary` | `#ffffff` (card) | `#0f0f12` (card) |
-| `--accent-blue` | `#6366f1` (indigo-500) | `#8b8cf6` (indigo-300) |
-| `--text-primary` | `#101013` (deep neutral) | `#fafafa` (white) |
+| Token | Light | Dark | Used as |
+|---|---|---|---|
+| `--background` | near-white | near-black | page surface |
+| `--foreground` | near-black | near-white | body text |
+| `--card` | white | `#0f0f12` | panel surfaces |
+| `--primary` | indigo-500 | indigo-300 | brand |
+| `--secondary` | warm grey | warm dark | chips, inputs |
+| `--border` | warm grey | warm dark | dividers |
+| `--ring` | indigo | indigo | focus ring |
 
-The variable is named `--accent-blue` for historical reasons but now
-holds **indigo**. Don't rename — too much downstream churn.
-
-Status colors map to standard Tailwind hues: emerald for success, amber
-for warning, red for danger, indigo for info.
-
-**Brand exceptions** that stay static across themes:
-- `.btn.success` "Mark done" button — semantic green `#5b9d20`. Don't
-  parametrize. Green = complete is cross-cultural.
-- White text on indigo primary buttons (`color: #fff`) — always.
+**Status colour map (consistent across queue / reports / search):**
+- `in_consult` → emerald 15% (active session, brand green)
+- `done` → emerald 10% (lower-contrast, the rest state)
+- `no_show` → rose 15%
+- `cancelled` → grey + line-through
+- `checked_in` → primary 15% (waiting state — brand purple)
+- `booked` → primary 10%
+- late (display only) → amber 15%
 
 **Theme switching:**
-- Both apps respect `prefers-color-scheme` when no cookie/preference set.
-- Python: `baari_theme` cookie (`light` or `dark`, empty for OS auto).
-  Read in `app/templating.py` and stamped onto `<html data-theme>`.
-- Next.js: `next-themes` library handles it (localStorage-backed).
-- Both have a client-side `syncThemeUI()` so first-click correctness on
-  OS-auto users isn't broken (don't remove this).
+- `next-themes` library handles light/dark with localStorage persistence
+  + `prefers-color-scheme` fallback.
+- The toggle (`components/theme-toggle.tsx`) is a two-position pill
+  (Light · Dark) with a sliding thumb and `role="switch"` —
+  **deliberately not a bare icon button** so it reads as an interactive
+  control at a glance.
 
 ---
 
-## 11. i18n — English + Hindi (Devanagari)
+## 12. i18n — current state
 
-`app/i18n.py` has bilingual strings keyed by dotted paths
-(`nav.queue`, `queue.title`, etc.). Templates pull via `t("key")`.
-Inject point is `templating._i18n_processor`.
-
-**Current state:**
-- **Chrome translated:** top nav, queue counters, status pills, empty
-  states, buttons.
-- **Page bodies NOT translated:** "Search bookings", "Reports", booking
-  detail labels, etc. Mechanical pass to do later.
-
-**Next.js landing:** zero i18n yet (it's marketing copy, can be
-localized when needed).
-
-Patient/customer names and reasons accept BOTH scripts at input — fonts
-(Inter + Noto Sans Devanagari) are loaded so either renders cleanly.
+- **Patient/customer names and reasons** accept both Latin and Devanagari
+  scripts at input. Fonts (Inter + Noto Sans Devanagari from
+  `next/font/google`) render both cleanly without baseline drift.
+- **Language preference on customer profile** is *inferred* from the
+  name's script — Devanagari → "हिन्दी", else "English". No DB column for
+  preference yet.
+- **App chrome and pages are English-only** for now. The Python stack's
+  i18n key dictionary did not port; bilingual UI is a follow-up.
 
 ---
 
-## 12. Per-tenant vocabulary (multi-vertical)
+## 13. Per-tenant vocabulary (`lib/vocab.ts`)
 
-`app/vocab.py` maps `tenant_type` → label dict.
+`vocabFor(tenantType)` returns a label dictionary used across the app to
+keep copy correct per vertical. Most surfaces consume this — settings
+headers, queue board (`NOW IN SESSION` vs `IN CHAIR` vs `IN CONSULT`),
+customer profile ("Book session" vs "Book appointment"), etc.
 
-Example for `salon`:
-```
-provider: stylist, entity_singular: customer,
-session: service, reason_label: "Service requested"
-```
+| Field | clinic | dental | salon | spa | vet | other |
+|---|---|---|---|---|---|---|
+| `entitySingular` | patient | patient | customer | guest | pet | customer |
+| `provider` | doctor | dentist | stylist | therapist | vet | owner |
+| `session` | consult | appointment | service | session | visit | appointment |
+| `sessionProgress` | in consult | in chair | in chair | in session | in consult | in session |
+| `reasonLabel` | Reason for visit | Procedure | Service requested | Service requested | Reason for visit | Notes |
 
-The `vocab` global is injected into every authenticated template render
-via `_vocab_processor`. **However**, most templates still use the literal
-clinic words ("Patient name", "Reason for visit"). Pass-through to vocab
-is a mechanical refactor pending — until then, a salon signup sees the
-correct landing/signup labels but the dashboard still says "Patient."
+The `sessionProgress` map matches the cross-vertical UX spec: clinic +
+vet share "in consult"; dental + salon share "in chair"; spa + other
+share "in session." Set automatically from `tenantType` — no manual
+override in Settings (yet).
 
 ---
 
-## 13. Running locally
+## 14. Service catalog defaults (`lib/services/service-types.ts`)
 
-### Backend (Python)
+`servicesFor(tenantType)` returns the dropdown options for the booking
+form's *Service requested* field. Defaults per vertical:
 
-```bash
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-# Fill: DATABASE_URL (Neon), JWT_SECRET, CRON_SECRET
+| Vertical | Defaults |
+|---|---|
+| Clinic | Consultation, Follow-up, Vaccination, Lab review, Other |
+| Dental | Check-up, Cleaning, Filling, Root canal, Extraction, Whitening, Other |
+| Salon | Haircut, Colour, Styling, Beard trim, Treatment, Other |
+| Spa | Massage, Facial, Body scrub, Aromatherapy, Other |
+| Vet | Consultation, Vaccination, Grooming, Surgery follow-up, Other |
+| Other | Appointment, Follow-up, Other |
 
-alembic upgrade head     # apply migrations
-python -m uvicorn api.index:app --reload --port 8000
-```
+The booking form also accepts a free-text custom service via "+ Add
+custom…" — useful when the catalog doesn't fit.
 
-Open `http://localhost:8000`. Use a freshly created tenant via `/signup`.
+---
 
-**Conda gotcha on macOS:** `conda deactivate` if `(base)` is active. The
-PATH from conda's base env shadows the venv's `uvicorn` binary and makes
-the wrong Python interpreter run.
+## 15. Server actions (the API surface)
 
-### Frontend (Next.js)
+Server actions are the only mutation entrypoints. They live next to the
+route that hosts them (`actions.ts` per directory). Each is `"use
+server"`, takes either a typed-state previous value + `FormData` (for
+useActionState forms) or positional args (for `formAction`-less
+buttons). Always validate via the relevant service in `lib/services/`.
+
+| Action | File | Purpose |
+|---|---|---|
+| `signupAction` | `app/signup/actions.ts` | Create clinic + owner user, login |
+| `loginAction` / `logoutAction` | `app/login/actions.ts` | Issue/clear session cookie |
+| `setupAction` | `app/setup/actions.ts` | Save opening hours, mark setup complete |
+| `bookAction` | `app/(app)/book/actions.ts` | Create booking (+ save & add another) |
+| `addGuestAction` | `app/(app)/search/actions.ts` | Create patient without booking |
+| `checkInAction` … `walkInAction` | `app/(app)/queue/actions.ts` | Queue state-machine transitions (16 actions in this file) |
+| `closeDayAction` | `app/(app)/queue/actions.ts` | End-of-day rollup |
+| `saveWorkspace`/`saveHours`/`changePassword`/`deleteWorkspace` | `app/(app)/settings/actions.ts` | Settings |
+
+`deleteWorkspace` hard-deletes the clinic + every dependent row in
+FK-reverse order inside a transaction, clears the cookie, then
+`redirect("/workspace-deleted")` (a static public page). Bouncing to
+`/login` instead crashes the app because the next layout render still
+tries to re-read the deleted clinic via `requireDoctor`.
+
+---
+
+## 16. Running locally
 
 ```bash
 cd frontend
-cp .env.example .env.local      # set NEXT_PUBLIC_APP_URL=http://localhost:8000
+cp .env.example .env.local
+# Fill: DATABASE_URL (Neon — separate branch from prod!),
+#       JWT_SECRET (>= 32 chars),
+#       CRON_SECRET (>= 32 chars)
+
 npm install
-npm run dev                      # http://localhost:3000
+npm run db:push        # apply schema to whatever DATABASE_URL points at
+npm run dev            # http://localhost:3000
 ```
 
-### All-in-one (Docker — non-technical testers)
+If port 3000 is busy, Next will auto-bump to 3001. Watch the dev banner.
 
-Double-click `start-baari.command` (macOS) or `start-baari.bat` (Windows).
-Requires Docker Desktop. Bundles its own Postgres so there's nothing to
-configure. The Python app runs on `:8000` inside the container; access at
-`http://localhost:8000`.
+**No Alembic, no Docker, no FastAPI venv.** The whole product is one
+`npm run dev` away.
 
 ---
 
-## 14. Database migrations
+## 17. Deployment
 
-```bash
-# Generate a new migration after model changes:
-alembic revision --autogenerate -m "what changed"
+One Vercel Hobby project (`baari-tech`) pointed at this GitHub repo with
+**Root Directory = `frontend`**. Push to `main` → Vercel builds Next.js →
+prod. The `frontend/vercel.json` (`{"framework":"nextjs"}`) pins the
+detection.
 
-# Apply to whatever DATABASE_URL points at (often prod Neon):
-alembic upgrade head
+**Vercel cron is daily-only on Hobby** — `/api/cron/tick` needs to fire
+every 5 min, so it's driven by GitHub Actions (`cron-tick.yml`).
 
-# Roll back one step:
-alembic downgrade -1
-```
-
-⚠ Your local `.env` points at the production Neon DB. Any
-`alembic upgrade head` you run from your laptop hits prod. Before a real
-team forms, set up a separate dev Neon project.
-
-**Current migrations on `main`:**
-
-```
-cfec55c85bb4  init
-800af70b2198  tenant_type on clinics
-c7a2e1b35d9f  rate_limit_buckets
-```
+The root-level `vercel.json` (which points at `api/index.py`) is **stale
+legacy** — left in the repo for now but not in the active deployment
+path. Don't ship a new deploy from it.
 
 ---
 
-## 15. Deployment
+## 18. Environment variables
 
-Two Vercel Hobby projects, both pointed at this GitHub repo:
+### Vercel project (`baari-tech`) + local `frontend/.env.local`
 
-| Project | URL | Root Directory | Framework |
-|---|---|---|---|
-| `baariprod` | `baariprod.vercel.app` | (root) | Other (Python) |
-| `baari-web` | `baari-web-lac.vercel.app` | `frontend` | Next.js |
-
-The Next.js project is pinned via `frontend/vercel.json` (`{"framework":
-"nextjs"}`) because Vercel's auto-detect sometimes picks "Other" and
-then looks for `public/` instead of `.next/`. Don't remove that file.
-
-**Vercel cron is daily-only on Hobby** — our `/api/cron/tick` needs to
-fire every 5 min, so it's driven by GitHub Actions instead (see
-`.github/workflows/cron-tick.yml`).
-
-Custom domain plan (when bought):
-- Point apex `baari.in` → `baari-web` project (the marketing landing)
-- Point `app.baari.in` → `baariprod` project (the actual app)
-- Update `NEXT_PUBLIC_APP_URL` env var in `baari-web` to `https://app.baari.in`
-
----
-
-## 16. End-to-end test flows (run after non-trivial changes)
-
-**Critical paths to manually validate** — for either prod or local.
-
-### A. Signup → setup → first booking
-
-1. Open landing → click **Start for free**.
-2. Signup form: pick a vertical (try `salon` to test multi-vertical
-   defaults), name, mobile (use any 10-digit number for testing —
-   not your real one), password (must contain letter+digit, ≥8 chars).
-3. Submit → auto-logged-in → land on `/setup` wizard.
-4. Wizard renders defaults, click **Save** → land on `/queue`.
-5. Click **+ New booking**, fill out the form, pick a slot.
-6. Verify the booking appears in **Waiting** with token T1.
-
-### B. Queue flow + family sub-tokens
-
-7. Click **Check in** on T1 → it auto-promotes to **Now consulting**.
-8. Open the **Add family member** disclosure → add "Ravi" → submit.
-9. Verify T1.1 pill appears under the patient name.
-10. Click **Mark done** on T1 → verify T1.1 auto-promotes to in_consult.
-11. Mark T1.1 done → queue idle, T1 + T1.1 both shown in **Done today**.
-
-### C. Search + reschedule + cancel
-
-12. Go to **Search** → type partial name → verify result under "Today".
-13. Click the result → booking detail page renders.
-14. (Only if status is booked or checked_in) reschedule to a new slot.
-15. Cancel a different booking → verify it shows "Cancelled" pill.
-
-### D. Theme + language toggles
-
-16. Click the moon/sun icon in the topbar → page flips to opposite theme.
-17. Click the **हिन्दी / English** button → top nav + counters switch
-    scripts. Verify both fonts (Inter + Noto Sans Devanagari) render
-    cleanly without baseline drift.
-
-### E. Settings (doctor only)
-
-18. Edit slot length or no-show threshold → save.
-19. Add a receptionist account → verify one-time password appears in a
-    yellow card. Sign out and sign in as the new receptionist → verify
-    they CANNOT see Reports or Settings.
-20. Sign back in as doctor → reset receptionist password → verify the
-    new password works.
-
-### F. Reports
-
-21. Close the day (top right button on `/queue`).
-22. Go to **Reports** → verify the day shows up with metrics.
-23. Click the day → verify metrics grid + hourly bar chart + patient
-    timeline all render. Numbers should match what you did.
-
-### G. No-show automation (without waiting 45 min)
-
-24. Create a booking.
-25. Run `python scripts/make_late.py --booking-id N --minutes 50` from
-    a terminal pointed at the same DB.
-26. Trigger cron: `curl -X POST .../api/cron/tick -H "Authorization: Bearer $CRON_SECRET"`
-27. Refresh `/queue` → verify the booking is marked **No show**.
-28. Click **Restore** → verify it goes back to end of the waiting queue
-    with token retained.
-
-### H. Security (Tier 1)
-
-29. Try signing up with a weak password (e.g. `11111111`) → expect 400
-    with error "Password must be at least 8 characters and contain both
-    letters and numbers."
-30. Hit `/signup` 6+ times rapidly from the same IP → expect 429 "Too
-    many signups from your network."
-31. Open dev tools, add a `<input name="company" value="bot">` to the
-    form, submit → expect silent 303 to `/` with no account created.
-
-### I. Multi-tenant isolation
-
-32. Sign up as Tenant A. Create some bookings.
-33. Sign up as Tenant B in a different browser/incognito. Create a
-    booking with mobile that matches a Tenant A patient.
-34. Verify: Tenant B does NOT see Tenant A's bookings. Tenant A's
-    `no_show_count` for that mobile is unaffected by Tenant B's actions.
-
-### J. WhatsApp dispatch (dev mode, no real send)
-
-35. Create a booking. Check the `notifications` table in Neon:
-    ```sql
-    SELECT trigger, status, failure_reason, created_at
-    FROM notifications
-    WHERE clinic_id = <yours>
-    ORDER BY created_at DESC LIMIT 10;
-    ```
-36. Expect rows for `booking_confirmed`, `youre_next` (after check-in),
-    all with `status='failed', failure_reason='dev-mode-skip'`. The
-    audit trail is there even though no message went out.
-
-### K. Cron health
-
-37. GitHub repo → **Actions** tab → `cron-tick` workflow → verify a
-    green run every ~5 min.
-38. Recent failure? Click into it; the curl step's exit code shows.
-
-### L. Landing (Next.js)
-
-39. Open the Next.js URL → verify hero, dashboard mockup, 6 verticals
-    with correct icons (especially the **tooth** for Dental — not a bone),
-    feature grid, closing CTA, footer.
-40. Click **Start for free** → routes to backend `/signup`.
-41. Click **Sign in** in header → routes to backend `/login`.
-42. Toggle dark/light — both should look polished (no white flashes).
-
----
-
-## 17. Known gaps & tech debt (prioritized)
-
-**Ship-stopping before real users:**
-1. **`cred_ledger.py` writes plaintext passwords.** Local-only (gitignored
-   `data/`); ephemeral on Vercel `/tmp`. Delete the writer module before
-   any production-grade launch. The bcrypt hash in `users.password_hash`
-   is the real source of truth.
-2. **No CSRF tokens** on state-changing forms. SameSite=Lax helps but
-   isn't airtight.
-3. **No mobile/email verification** at signup — anyone can sign up as
-   `9999999999`.
-
-**Friction items (medium):**
-4. **Datetime columns are naive `TIMESTAMP`, not `TIMESTAMPTZ`.** Every
-   comparison site has to strip tz manually. Fragile. Migration would
-   touch many files — left for a dedicated session.
-5. **Per-tenant vocabulary wired but not applied** to most templates. A
-   salon owner sees "Patient name" in the booking form. Mechanical fix.
-6. **Page-body i18n incomplete** — only chrome translated. Salon/clinic
-   users on हिन्दी see half-translated pages.
-7. **"No slots available today" dead-end** if a user signs up after their
-   evening shift ends. Walk-in slot would fix it.
-8. **HTMX 1 extension (`response-targets`) loaded with HTMX 2** — console
-   warning, no functional impact. Swap the CDN URL.
-
-**Quality of life:**
-9. **Audit log writes** — table exists, nothing writes to it. Wire on
-   state changes.
-10. **Wait-time live recalc + `wait_changed` notification** (PRD §4.4).
-    Schema field exists; logic doesn't.
-11. **PDF export of daily summaries** (PRD §8). Use WeasyPrint.
-12. **Closed-days UI** — model field exists, no settings UI exposes it.
-13. **Data retention sweep** — `clinics.retention_days` defaults to 730
-    but no cron job honors it. Required for DPDP compliance at scale.
-14. **No automated tests.** Pytest the queue state machine first.
-
-**Operational:**
-15. Vercel Hobby allows 100K function invocations/month; one open queue
-    page polling every 10s = ~130K/month. Move to Pro ($20/mo) or
-    Railway when paying customers exist. Or bump polling to 30s.
-
----
-
-## 18. Security posture
-
-**Live now (Tier 1):**
-- Bcrypt password hashing
-- JWT in HTTP-only Secure SameSite=Lax cookie
-- Multi-tenant isolation via app-enforced `clinic_id` filter
-- `/api/cron/tick` Bearer-secret auth
-- HTTPS enforced by Vercel
-- Rate limit `/signup` (5/IP/hour) + `/login` (10/mobile/15-min) — DB
-  fails open on any error
-- Honeypot field on `/signup` (silent 303 to `/` if filled)
-- Password strength enforced on signup (≥8 chars, letters AND digits)
-- Cloudflare Turnstile widget — wired but inactive until env vars set
-
-**Missing (Tier 2+):**
-- CSRF tokens
-- Mobile/email verification
-- 2FA on doctor accounts
-- Postgres row-level security
-- WAF in front of Vercel
-- Audit log writes
-- DPDP Act 2023 retention sweep
-
----
-
-## 19. Environment variables
-
-### Backend (Vercel `baariprod` + local `.env`)
-
-```
-DATABASE_URL                       postgresql+psycopg://...        REQUIRED
-JWT_SECRET                         random 48+ chars                REQUIRED
-CRON_SECRET                        random 48+ chars                REQUIRED
-APP_ENV                            production | dev                default: dev
-CLINIC_TZ                          Asia/Kolkata                    default: Asia/Kolkata
-MSG91_AUTH_KEY                     (blank = dev-mode skip)         optional
-MSG91_WHATSAPP_INTEGRATED_NUMBER   (blank = dev-mode skip)         optional
-MSG91_WHATSAPP_NAMESPACE           (blank = dev-mode skip)         optional
-TURNSTILE_SITE_KEY                 (blank = widget hidden)         optional
-TURNSTILE_SECRET_KEY               (blank = verify returns True)   optional
-```
-
-### Frontend (Vercel `baari-web` + local `frontend/.env.local`)
-
-```
-NEXT_PUBLIC_APP_URL                URL of the Python backend       REQUIRED
-                                   (e.g. https://baariprod.vercel.app)
-```
+| Var | Required | Notes |
+|---|---|---|
+| `DATABASE_URL` | ✅ | Neon Postgres connection string (postgres-js compatible) |
+| `JWT_SECRET` | ✅ | ≥ 32 chars. Edge runtime throws otherwise |
+| `CRON_SECRET` | ✅ | ≥ 32 chars. Bearer for `/api/cron/tick` |
+| `APP_ENV` | — | `production` or `dev`. Default `dev` |
+| `CLINIC_TZ` | — | Default `Asia/Kolkata` |
+| `MSG91_AUTH_KEY` | — | Blank → dev-mode skip (no real send) |
+| `MSG91_WHATSAPP_INTEGRATED_NUMBER` | — | Blank → skip |
+| `MSG91_WHATSAPP_NAMESPACE` | — | Blank → skip |
 
 ### GitHub Actions secrets (for cron)
 
-```
-APP_URL                            https://baariprod.vercel.app
-CRON_SECRET                        same value as the backend env var
-```
+| Var | Notes |
+|---|---|
+| `APP_URL` | `https://baari-tech.vercel.app` |
+| `CRON_SECRET` | Same value as the Vercel env var |
 
 ---
 
-## 20. Common pitfalls
+## 19. End-to-end audit (2026-06-19)
 
-- **Don't mix aware and naive datetimes.** Strip tz at comparison sites.
-  See `queue_service.py:build_board` for the pattern.
-- **Don't query without `clinic_id`.** Multi-tenant leakage will be
-  silent and your test data won't catch it.
-- **Don't add a new template without confirming it uses CSS variables.**
-  Hardcoding `#185fa5` instead of `var(--accent-blue)` will break the
-  theme toggle.
-- **Don't commit `data/credentials.jsonl`.** It's gitignored — verify
-  before pushing.
-- **Don't change variable names in `app.css` / `globals.css`.** Templates
-  reference `--accent-blue`, `--bg-canvas`, etc. by name everywhere.
-- **Don't break the `htmx-request` opacity rule** by re-adding the
-  `#board.htmx-request` dimming — it sticks under some swap timings and
-  makes the dashboard look broken between polls. Button spinners are
-  enough feedback.
-- **Don't `git push --force` to main.** Even when you're solo. The repo's
-  history is small and reversible-on-paper but a force-push during a
-  Vercel deploy can put prod and `origin/main` out of sync.
+Tested on `localhost:3001` with a fresh `Audit Spa` workspace, dark mode.
+
+### A. Marketing landing — ✅ works
+- 8-section flow renders cleanly: header with pill theme toggle + solid
+  Sign-in / hero with embedded tilted queue preview / Who Baari is for
+  (eyebrow + scenario per vertical) / How it works (3-step) / 3
+  alternating feature blocks with inline UI snippets / 3-icon band /
+  closing CTA / 3-column footer + India baseline.
+- All `motion` animations fire on first paint and on scroll.
+- Dark mode pill toggle slides correctly between Light/Dark.
+
+### B. Signup — ✅ works (with one UX wart)
+- Vertical chips select; business name placeholder updates by vertical
+  (e.g. Spa → "Tranquil Day Spa").
+- +91 prefix renders with a flag, mobile field accepts only 10 digits.
+- **Mobile validation:** `0909090922` is correctly rejected with the new
+  message "Enter a valid Indian mobile (10 digits, starting with 6, 7, 8
+  or 9)." ✅
+- Password meter (8+ chars, has letter, has number) ticks live.
+- ⚠ **Wart:** when the action returns an error, the form resets fields
+  (business name, your name, mobile) to empty rather than preserving the
+  user's input. React 19 `useActionState` doesn't preserve form values
+  by default — needs explicit `defaultValue` plumbing. Not blocking but
+  it's a real friction point. (See § 21 #1.)
+
+### C. Setup wizard — ✅ works
+- Slot length dropdown (15/20/30/45/60).
+- Per-day open/close + "Copy Monday to weekdays" + "Leave both blank to
+  close the day."
+- Submit → `/setup/done`. The "Invite a teammate · Coming soon" item is
+  gone — list now shows only "Make your first <session>" and "Tweak
+  settings any time." ✅
+
+### D. Queue board — ✅ works
+- Empty state: "Quiet for now." with a mug glyph; right card "No active
+  session." with user-x glyph.
+- Top nav uses vocab — "Auditor · Therapist" for the Spa workspace ✅.
+- Summary strip: Today · Waiting · In session · Running late · Next free.
+- "Walk in" + "New booking" CTAs visible; "Close day" too.
+- Tested: New booking side-panel opens, fields are correct vocab
+  ("Guest name" for Spa).
+- "Don't send WhatsApp" checkbox is gone from the booking form ✅.
+
+### E. Booking slot picker — ✅ works
+- Slot grid rendered; past slots are dashed + strikethrough + low
+  opacity, clearly inert ✅.
+- "0 of 30 slots free today" — at 20:12 IST with hours 9–19, every slot
+  is correctly past (their end time has elapsed). The new end-of-slot
+  threshold is exercising correctly.
+
+### F. Search → customer profile — ✅ works
+- Empty state polished: "No guests on file yet. Add one with the button
+  above — this list fills in as bookings come through."
+- Add-guest popover: name + 10-digit mobile, NO WhatsApp checkbox ✅.
+- Devanagari name (`अमित शर्मा`) renders correctly.
+- After add: "Recent guests" appears with "first visit" badge (was "new"
+  before) ✅.
+- "Open profile →" link (was "View history →") ✅.
+- `/search/9876543201` → full customer profile renders:
+  - Header: name in Devanagari, "first visit" pill, +91 mobile, "Book
+    session" CTA (vocab — Spa).
+  - Stats grid: TOTAL VISITS (0) · COMPLETED (0) · NO-SHOWS (0) ·
+    **LANGUAGE: हिन्दी** ← Devanagari name → Hindi inferred ✅.
+  - Booking history: empty state "On file but no bookings yet. Try Book
+    session above."
+- "Back to search" link returns cleanly.
+
+### G. Reports — ✅ works
+- Range selector: Today · Last 7 days · Last 30 days · Custom.
+- 6 KPI cards (Total bookings · Completed · No-show rate · Cancelled ·
+  Avg wait · Avg session) all render.
+- KPI delta labels are clear: "no data" / "no change" / "+N (new)" /
+  "+12% vs prev" — never the bare "new" or "0pp" ✅.
+- Hourly distribution chart shows hour labels 00–21 + empty state line.
+- Busiest days bar chart with weekdays.
+- Top sessions card uses vocab ("Top sessions" for Spa) with empty state
+  "Pick a service the next time you book…"
+- Bookings table with "Showing 0".
+
+### H. Settings — ✅ works
+- Left sub-nav: Workspace · Opening hours · Staff · Account.
+- **Workspace:** name + 6 business types radio + slot length + no-show
+  threshold + address. Helper text below address now reads
+  "Shown on booking confirmations." (no more "when you wire WhatsApp") ✅.
+- **Account:** Change password panel + Sign out + DANGER ZONE with
+  type-name-to-confirm. Destructive button stays disabled until the
+  confirmation matches.
+
+### I. Workspace deletion → /workspace-deleted — ✅ works
+- Public static page. Site header (pill toggle + Sign in) + emerald
+  check icon + "Workspace deleted." headline + body + "Start a new
+  workspace →" (glow) + "Back to home" (ghost) + footer.
+- No auth gate, no clinic read — the app cannot crash here.
+
+### J. Theme toggle — ✅ works
+- Two-position pill (Light · Dark) visible in BOTH the marketing site
+  header AND the authed app layout. Slides correctly on click.
+
+### K. Cron endpoint — ✅ works (code path)
+- `app/api/cron/tick/route.ts` enforces `Authorization: Bearer
+  <CRON_SECRET>`. Without it: 401. With it: sweeps no-shows, runs
+  day-close if past 23:55, GCs rate-limit buckets.
+
+### Known issues / friction points
+
+| # | Where | Symptom | Severity |
+|---|---|---|---|
+| 1 | Signup, login, book form | On server-action error, form fields reset to empty (`useActionState` doesn't preserve `defaultValue` of inputs). | UX wart |
+| 2 | Signup mobile input | Was typing into the wrong field once when the layout shifted between renders — investigating; might be a focus/ref race | low |
+| 3 | Receptionist provisioning | `/settings/staff` shows the current user list + "Invite teammate (v2)" stub. No actual invite flow yet. | feature gap |
+| 4 | Booking prefill from profile | `Book session` button on the profile passes `?prefill_mobile=…&prefill_name=…` but the booking form doesn't yet read them. | wiring TODO |
+| 5 | Per-tenant override of vocab | `sessionProgress` is auto-set from `tenantType`. No Settings field to override it (e.g. salon owner who calls it "in service" not "in chair"). | future |
+| 6 | Language preference column | Currently *inferred* from name script (Devanagari → हिन्दी). A real `patients.language` column with a picker is a small follow-up. | minor |
+| 7 | i18n on app chrome | App is English-only. The Python stack's bilingual key dictionary did not port. | feature gap |
+| 8 | Audit log writes | Only `reopenBooking` writes to `auditLog`. Wider coverage (state changes, settings edits, etc.) TBD. | quality |
+| 9 | DPDP retention sweep | No automated patient anonymization after `retentionDays`. | compliance debt |
+| 10 | Tests | No automated tests. The queue state machine is the most important thing to cover first. | quality |
 
 ---
 
-## 21. When asked to add a new feature, default sequence
+## 20. Security posture
 
-1. Read the PRD section if it relates to an existing requirement
-   (find it in the source folder).
-2. Find the right service file under `app/services/` — most logic lives
-   there, routes are thin orchestrators.
-3. If schema changes: edit `app/models.py`, then
-   `alembic revision --autogenerate -m "..."`. Inspect the generated
-   migration before `alembic upgrade head`.
-4. If a new template: extend `layouts/app.html`, use `{{ t("...") }}` for
-   labels, never hardcode colors.
-5. If a new route: register it in `api/index.py`.
-6. Verify with the relevant test flows in section 16.
-7. Run `python -m py_compile` on touched .py files, `npm run build`
-   on frontend, and commit only after both are clean.
+**Live now (Tier 1):**
+- Bcrypt password hashing (cost 10).
+- JWT in HTTP-only Secure SameSite=Lax cookie.
+- Multi-tenant isolation via app-enforced `clinicId` filter.
+- `/api/cron/tick` Bearer-secret auth.
+- HTTPS enforced by Vercel.
+- Rate limit `/signup` and `/login` (per IP + per mobile).
+- Password strength enforced on signup (≥8 chars, letters AND digits).
+- Indian mobile validation rejects non-TRAI numbers.
+
+**Missing (Tier 2+):**
+- CSRF tokens on state-changing forms. SameSite=Lax helps but isn't
+  airtight against cross-site POST.
+- Mobile/email verification at signup.
+- 2FA on doctor accounts.
+- Postgres row-level security.
+- WAF in front of Vercel.
+- Audit log coverage (currently sparse).
+- DPDP Act 2023 retention sweep.
+
+---
+
+## 21. Common pitfalls
+
+- **Don't mix Edge and Node imports.** `lib/auth.ts` is Edge-safe (jose
+  only). `lib/password.ts` pulls bcryptjs (Node only). Middleware imports
+  `lib/auth.ts`; if you accidentally import bcrypt-using code there, the
+  Edge bundle blows up at deploy time.
+- **Don't query without `clinicId`.** Tenant leakage will be silent and
+  your test data won't catch it. Always join from `requireSession()` /
+  `requireDoctor()` and pass `clinicId` to every service.
+- **Don't hardcode colours.** Use Tailwind classes that resolve to the
+  `--*` variables. A literal `#185fa5` will break light/dark.
+- **Don't break the "past slot" rule.** `enumerateSlots` retires a slot
+  only after its END time has elapsed. Changing the threshold without a
+  spec discussion will surprise users mid-booking.
+- **Don't remove `whatsappOptOut` from the schema** even though the UI is
+  gone. The column is still in use server-side and likely returns to the
+  UI later.
+- **Don't put DB calls in the middleware.** It runs on Edge per request.
+  Keep middleware to `decodeSession` + redirect logic only.
+- **Don't add a route under `(app)/` that doesn't expect a logged-in user.**
+  The layout calls `requireSession` — public pages go to `frontend/app/`
+  (e.g. `workspace-deleted`, `login`, `signup`).
+- **Don't `git push --force` to `main`.** Even when solo. A force-push
+  during a Vercel deploy can put prod and `origin/main` out of sync.
+- **Don't touch the Python `app/`, `api/`, `migrations/` trees** unless
+  explicitly cleaning them out. They're not deployed and any change adds
+  noise to the diff.
+
+---
+
+## 22. When asked to add a new feature, default sequence
+
+1. Find or write the service function in `lib/services/<domain>.ts`.
+   Routes/actions are thin orchestrators; logic lives in services.
+2. If schema changes: edit `lib/db/schema.ts`, then `npm run db:push`.
+   Inspect generated SQL before applying to anything other than your
+   dev branch.
+3. If a new route: add a `page.tsx` under `app/` (public) or
+   `app/(app)/` (authed). Add an `actions.ts` sibling for mutations.
+4. Use `useActionState<State, FormData>` for forms with progressive
+   enhancement. If you need fields to survive errors, plumb explicit
+   `defaultValue` — `useActionState` won't do it for you.
+5. Status pills, late chips, and empty states must follow the unified
+   colour map (§ 11) and the established empty-state voice
+   ("Quiet for now." / "No data in this range yet." style).
+6. `npm run build` locally before committing. The Edge-vs-Node split
+   sometimes blows up at build time even if `dev` was happy.
+7. After committing, push to `main` — Vercel auto-deploys. Verify on
+   `baari-tech.vercel.app`.
 
 ---
 
