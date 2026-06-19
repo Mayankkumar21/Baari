@@ -13,9 +13,11 @@ type Trigger =
   | "no_show"
   | "restored";
 
-const AUTHKEY = process.env.MSG91_AUTHKEY ?? "";
-const NAMESPACE = process.env.MSG91_TEMPLATE_NAMESPACE ?? "";
-const INTEGRATED_NUMBER = process.env.MSG91_INTEGRATED_NUMBER ?? "";
+const AUTHKEY = process.env.MSG91_AUTH_KEY ?? process.env.MSG91_AUTHKEY ?? "";
+const NAMESPACE =
+  process.env.MSG91_WHATSAPP_NAMESPACE ?? process.env.MSG91_TEMPLATE_NAMESPACE ?? "";
+const INTEGRATED_NUMBER =
+  process.env.MSG91_WHATSAPP_INTEGRATED_NUMBER ?? process.env.MSG91_INTEGRATED_NUMBER ?? "";
 
 const TEMPLATE_BY_TRIGGER: Record<Trigger, string> = {
   booking_confirmed: "booking_confirmed_v1",

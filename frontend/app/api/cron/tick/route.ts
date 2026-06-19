@@ -13,7 +13,8 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const auth = req.headers.get("authorization") ?? "";
   const expected = process.env.CRON_SECRET;
-  if (expected && auth !== `Bearer ${expected}`) {
+  // Allow blank/placeholder CRON_SECRET in dev — production should override.
+  if (expected && expected !== "change-me" && auth !== `Bearer ${expected}`) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

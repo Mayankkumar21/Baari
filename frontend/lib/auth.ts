@@ -14,9 +14,11 @@ export type SessionPayload = {
 };
 
 function secret(): Uint8Array {
-  const s = process.env.SECRET_KEY;
+  // Accept either name — JWT_SECRET is the preferred convention; SECRET_KEY
+  // is the legacy alias kept around so older .env files keep working.
+  const s = process.env.JWT_SECRET || process.env.SECRET_KEY;
   if (!s || s.length < 32) {
-    throw new Error("SECRET_KEY env var is required (>= 32 chars)");
+    throw new Error("JWT_SECRET env var is required (>= 32 chars)");
   }
   return new TextEncoder().encode(s);
 }
