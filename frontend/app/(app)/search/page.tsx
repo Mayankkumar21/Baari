@@ -101,16 +101,16 @@ export default async function SearchPage({
               <ul className="space-y-1.5">
                 {results.map((r) => (
                   <li key={r.id}>
-                    <div className="flex items-center justify-between rounded-md border border-border bg-card/60 p-3 backdrop-blur transition-all hover:border-primary/40 hover:translate-x-0.5">
-                      <div>
-                        <div className="font-semibold">
+                    <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-card/60 p-3 backdrop-blur transition-all hover:border-primary/40 hover:translate-x-0.5">
+                      <div className="min-w-0">
+                        <div className="truncate font-semibold">
                           T{r.token} · {r.patientName}
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          {r.patientMobile} · {fmtDateTime(r.slotTime)} ·{" "}
-                          <span className="capitalize">{r.status.replace("_", " ")}</span>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {r.patientMobile} · {fmtDateTime(r.slotTime)}
                         </div>
                       </div>
+                      <SearchStatusPill status={r.status} />
                     </div>
                   </li>
                 ))}
@@ -126,6 +126,29 @@ export default async function SearchPage({
         />
       )}
     </div>
+  );
+}
+
+function SearchStatusPill({ status }: { status: string }) {
+  // Same unified status colour system used on /queue and /reports.
+  const tone =
+    status === "in_consult"
+      ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+      : status === "done"
+        ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+        : status === "no_show"
+          ? "border-rose-400/40 bg-rose-500/15 text-rose-700 dark:text-rose-300"
+          : status === "cancelled"
+            ? "border-border bg-secondary/60 text-muted-foreground line-through"
+            : status === "checked_in"
+              ? "border-primary/40 bg-primary/15 text-primary"
+              : "border-primary/30 bg-primary/10 text-primary";
+  return (
+    <span
+      className={`inline-flex shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize ${tone}`}
+    >
+      {status.replace("_", " ")}
+    </span>
   );
 }
 
