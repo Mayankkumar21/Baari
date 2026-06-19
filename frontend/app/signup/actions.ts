@@ -2,6 +2,7 @@
 
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { SESSION_COOKIE, issueSession, normalizeMobile } from "@/lib/auth";
 import { hashPassword, passwordStrength } from "@/lib/password";
@@ -20,7 +21,9 @@ const DEFAULT_OPENING_HOURS = {
   sun: { closed: true },
 };
 
-export type SignupState = { error?: string };
+// `duplicate` lets the form render a "Sign in instead?" link instead of a
+// generic error message.
+export type SignupState = { error?: string; duplicate?: boolean };
 
 export async function signupAction(_prev: SignupState, formData: FormData): Promise<SignupState> {
   // Honeypot — bots fill every field, real users leave hidden ones empty.
@@ -56,6 +59,20 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
   const mobCheck = await checkAndIncrement(LIMITS.signup_per_mobile, "signup_mob", mobile);
   if (!mobCheck.ok) return { error: "Too many signups with this number. Try again later." };
 
+  // Pre-check for existing workspace owner on this mobile so we can return a
+  // specific "sign in instead" hint rather than the unique-violation noise.
+  const [existing] = await db
+    .select({ id: schema.users.id })
+    .from(schema.users)
+    .where(eq(schema.users.mobile, mobile))
+    .limit(1);
+  if (existing) {
+    return {
+      duplicate: true,
+      error: "This number already has a workspace. Sign in instead?",
+    };
+  }
+
   let clinicId: number;
   let userId: number;
   try {
@@ -88,8 +105,17 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
       .returning();
     userId = user.id;
   } catch (err) {
+    // Race with another signup using the same mobile — return the friendly
+    // duplicate state rather than the generic 500-style error.
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("uq_users_clinic_mobile") || msg.includes("duplicate key")) {
+      return {
+        duplicate: true,
+        error: "This number already has a workspace. Sign in instead?",
+      };
+    }
     console.error("signup error:", err);
-    return { error: "Could not create workspace. Maybe the number is already used?" };
+    return { error: "Could not create workspace. Try again." };
   }
 
   const { token, maxAge } = await issueSession({
