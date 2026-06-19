@@ -143,3 +143,67 @@ export async function createBooking(args: {
     .returning();
   return booking;
 }
+
+export async function rescheduleBooking(args: {
+  clinicId: number;
+  bookingId: number;
+  newSlotTime: Date;
+}): Promise<Booking> {
+  const [booking] = await db
+    .select()
+    .from(schema.bookings)
+    .where(
+      and(eq(schema.bookings.id, args.bookingId), eq(schema.bookings.clinicId, args.clinicId)),
+    )
+    .limit(1);
+  if (!booking) throw new BookingError("Booking not found.");
+  if (
+    booking.status === "done" ||
+    booking.status === "no_show" ||
+    booking.status === "cancelled" ||
+    booking.status === "in_consult"
+  ) {
+    throw new BookingError(`Cannot reschedule a ${booking.status} booking.`);
+  }
+  if (args.newSlotTime.toISOString().slice(0, 10) !== booking.date) {
+    throw new BookingError("Reschedule must stay on the same day.");
+  }
+  if (args.newSlotTime.getTime() === booking.slotTime.getTime()) {
+    throw new BookingError("Pick a different slot.");
+  }
+  const taken = await takenSlots(args.clinicId, booking.date);
+  taken.delete(booking.slotTime.toISOString()); // the current slot is the booking itself
+  if (taken.has(args.newSlotTime.toISOString())) {
+    throw new BookingError("That slot is already taken.");
+  }
+  const [updated] = await db
+    .update(schema.bookings)
+    .set({ slotTime: args.newSlotTime, updatedAt: nowUtc() })
+    .where(eq(schema.bookings.id, args.bookingId))
+    .returning();
+  return updated;
+}
+
+export async function cancelBooking(args: {
+  clinicId: number;
+  bookingId: number;
+}): Promise<Booking> {
+  const [booking] = await db
+    .select()
+    .from(schema.bookings)
+    .where(
+      and(eq(schema.bookings.id, args.bookingId), eq(schema.bookings.clinicId, args.clinicId)),
+    )
+    .limit(1);
+  if (!booking) throw new BookingError("Booking not found.");
+  if (booking.status === "done" || booking.status === "no_show" || booking.status === "cancelled") {
+    throw new BookingError(`Booking is already ${booking.status}.`);
+  }
+  const now = nowUtc();
+  const [updated] = await db
+    .update(schema.bookings)
+    .set({ status: "cancelled", cancelledAt: now, updatedAt: now })
+    .where(eq(schema.bookings.id, args.bookingId))
+    .returning();
+  return updated;
+}
