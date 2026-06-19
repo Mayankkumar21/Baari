@@ -14,28 +14,46 @@ type HoursDoc = Record<string, DayBlock>;
 
 const DAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 
-export function availableSlots(clinic: Clinic, on: string, taken: Set<string>): string[] {
-  // on = YYYY-MM-DD. Returns ISO strings of UTC slot times.
+export type SlotStatus = "open" | "taken" | "past";
+export type SlotInfo = { iso: string; status: SlotStatus };
+
+// Returns EVERY slot in today's opening hours, with status. The booking form
+// uses this to show greyed-out unavailable slots so the receptionist can see
+// what's already booked instead of seeing a sparser grid.
+//
+// Day-of-week derivation: noon-IST → getUTCDay() returns the IST weekday
+// (IST has no DST so the +05:30 offset is fixed year-round).
+export function enumerateSlots(
+  clinic: Clinic,
+  on: string,
+  taken: Set<string>,
+): SlotInfo[] {
   const slotLen = clinic.slotLengthMin ?? 20;
   const hours = (clinic.openingHours as HoursDoc) ?? {};
   const onDate = new Date(`${on}T12:00:00+05:30`);
-  const day = DAY_KEYS[onDate.getUTCDay()]; // UTC day in IST = same calendar day
-  // Note: with IST being +05:30, onDate.getUTCDay() at noon IST returns the IST weekday.
-  // The day index for a +05:30 noon would be the IST date's weekday — verified.
+  const day = DAY_KEYS[onDate.getUTCDay()];
   const block = hours[day];
   const now = nowUtc();
-  const slots: string[] = [];
-  if (!block || block.closed || !block.open || !block.close) return slots;
+  if (!block || block.closed || !block.open || !block.close) return [];
 
   let cursor = combineDateTime(on, block.open);
   const end = combineDateTime(on, block.close);
+  const out: SlotInfo[] = [];
   while (cursor < end) {
     const iso = cursor.toISOString();
     const past = cursor.getTime() < now.getTime() - 5 * 60 * 1000;
-    if (!past && !taken.has(iso)) slots.push(iso);
+    const status: SlotStatus = past ? "past" : taken.has(iso) ? "taken" : "open";
+    out.push({ iso, status });
     cursor = new Date(cursor.getTime() + slotLen * 60 * 1000);
   }
-  return slots;
+  return out;
+}
+
+// Open-slots-only view, kept for walk-in / reschedule popovers.
+export function availableSlots(clinic: Clinic, on: string, taken: Set<string>): string[] {
+  return enumerateSlots(clinic, on, taken)
+    .filter((s) => s.status === "open")
+    .map((s) => s.iso);
 }
 
 export async function takenSlots(clinicId: number, on: string): Promise<Set<string>> {

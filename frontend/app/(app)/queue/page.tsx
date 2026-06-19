@@ -1,7 +1,8 @@
 import { requireSetup } from "@/lib/session";
 import { vocabFor } from "@/lib/vocab";
 import { buildBoard, type QueueRowVM, type SubTokenVM } from "@/lib/services/queue";
-import { availableSlots, takenSlots } from "@/lib/services/booking";
+import { availableSlots, enumerateSlots, takenSlots } from "@/lib/services/booking";
+import { servicesFor } from "@/lib/services/service-types";
 import { clinicToday, fmtDateTime, fmtTime } from "@/lib/time";
 import { QueueBoard } from "@/components/app/queue-board";
 import type { SubToken } from "@/lib/db/schema";
@@ -54,6 +55,9 @@ export default async function QueuePage() {
   const today = clinicToday();
   const taken = await takenSlots(sess.clinic.id, today);
   const slots = availableSlots(sess.clinic, today, taken);
+  const allSlots = enumerateSlots(sess.clinic, today, taken);
+  const slotsFree = allSlots.filter((s) => s.status === "open").length;
+  const services = servicesFor(sess.clinic.tenantType);
   const nextFreeSlot = slots[0] ?? null;
 
   const isDoctor = sess.user.role === "doctor";
@@ -114,6 +118,14 @@ export default async function QueuePage() {
       done={doneRows}
       vocab={vocab}
       availableSlots={slots}
+      bookingInputs={{
+        slots: allSlots,
+        freeCount: slotsFree,
+        totalCount: allSlots.length,
+        services,
+        reasonLabel: vocab.reasonLabel,
+        entitySingular: vocab.entitySingular,
+      }}
       isClosed={board.isClosed}
       summaryBanner={summaryRender}
       isDoctor={isDoctor}

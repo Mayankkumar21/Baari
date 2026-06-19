@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
   AlertTriangle,
@@ -32,6 +31,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { BookForm, type SlotInfo } from "@/app/(app)/book/book-form";
 import {
   addSubTokenAction,
   cancelAction,
@@ -114,6 +114,15 @@ type Vocab = {
   entitySingular: string;
 };
 
+type BookingInputs = {
+  slots: SlotInfo[];
+  freeCount: number;
+  totalCount: number;
+  services: string[];
+  reasonLabel: string;
+  entitySingular: string;
+};
+
 // ─── main ────────────────────────────────────────────────────────────────
 
 export function QueueBoard({
@@ -125,6 +134,7 @@ export function QueueBoard({
   summary,
   vocab,
   availableSlots,
+  bookingInputs,
   isClosed,
   summaryBanner,
   isDoctor,
@@ -137,10 +147,12 @@ export function QueueBoard({
   summary: Summary;
   vocab: Vocab;
   availableSlots: string[];
+  bookingInputs: BookingInputs;
   isClosed: boolean;
   summaryBanner: DayClosedSummary;
   isDoctor: boolean;
 }) {
+  const [bookOpen, setBookOpen] = useState(false);
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -156,10 +168,8 @@ export function QueueBoard({
           {!isClosed && isDoctor ? <CloseDayButton /> : null}
           {!isClosed ? <WalkInButton /> : null}
           {!isClosed ? (
-            <Button variant="glow" asChild>
-              <Link href="/book">
-                <Plus className="size-4" /> New booking
-              </Link>
+            <Button variant="glow" onClick={() => setBookOpen(true)}>
+              <Plus className="size-4" /> New booking
             </Button>
           ) : null}
         </div>
@@ -227,6 +237,74 @@ export function QueueBoard({
 
       {/* Done today — thin collapsible strip at the bottom */}
       <DoneStrip rows={done} vocab={vocab} readOnly={isClosed} />
+
+      {/* Slide-in booking panel over the queue */}
+      <BookPanel
+        open={bookOpen}
+        onClose={() => setBookOpen(false)}
+        inputs={bookingInputs}
+      />
+    </div>
+  );
+}
+
+function BookPanel({
+  open,
+  onClose,
+  inputs,
+}: {
+  open: boolean;
+  onClose: () => void;
+  inputs: BookingInputs;
+}) {
+  // Close on Escape and when clicking the backdrop.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      <div
+        className="flex-1 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden
+      />
+      <aside
+        className={cn(
+          "h-full w-full max-w-md overflow-y-auto border-l border-border bg-card shadow-2xl",
+          "translate-x-0 transition-transform duration-200 ease-out",
+        )}
+      >
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card/95 p-4 backdrop-blur">
+          <div>
+            <div className="text-sm font-semibold">New booking</div>
+            <div className="text-[11px] text-muted-foreground">
+              {inputs.freeCount} of {inputs.totalCount} slots free today
+            </div>
+          </div>
+          <Button size="icon" variant="ghost" onClick={onClose} title="Close">
+            <X className="size-4" />
+          </Button>
+        </div>
+        <div className="p-5">
+          <BookForm
+            slots={inputs.slots}
+            freeCount={inputs.freeCount}
+            totalCount={inputs.totalCount}
+            services={inputs.services}
+            reasonLabel={inputs.reasonLabel}
+            entitySingular={inputs.entitySingular}
+            fromPanel
+            onSuccess={onClose}
+          />
+        </div>
+      </aside>
     </div>
   );
 }
