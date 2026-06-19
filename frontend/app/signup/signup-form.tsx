@@ -117,9 +117,12 @@ export function SignupForm({ initialType }: { initialType?: string }) {
         <div className="space-y-1.5">
           <Label htmlFor="mobile">Mobile</Label>
           <div className="relative">
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center gap-1.5 pl-3 text-xs text-muted-foreground">
+            {/* z-10 lifts the prefix above the input's translucent backdrop
+                so the tricolor + "+91" render crisply instead of through
+                the frosted-glass overlay. */}
+            <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center gap-1.5 pl-3 text-xs text-foreground">
               <IndiaFlag className="rounded-[1px]" />
-              <span className="font-medium">+91</span>
+              <span className="font-semibold">+91</span>
               <span className="h-3 w-px bg-border" />
             </div>
             <Input
