@@ -500,8 +500,11 @@ function NowCard({
     : null;
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-card/70 p-6 backdrop-blur-md shadow-[0_0_0_1px_hsl(var(--primary)/0.18),0_24px_64px_-32px_hsl(var(--primary)/0.4)]">
-      <div className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full bg-primary/20 blur-3xl" />
+    <div className="relative overflow-hidden rounded-xl border border-emerald-400/30 bg-card/70 p-6 backdrop-blur-md shadow-[0_0_0_1px_rgb(16_185_129_/_0.18),0_24px_64px_-32px_rgb(16_185_129_/_0.4)]">
+      {/* "In session" = active, green tint per the unified status colour
+          system. Token text keeps the indigo→foreground gradient so the brand
+          identity still shows. */}
+      <div className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full bg-emerald-500/15 blur-3xl" />
       <div className="relative flex items-start justify-between gap-4">
         <div>
           <div className="text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
@@ -512,7 +515,7 @@ function NowCard({
           </div>
         </div>
         <div className="flex items-start gap-2">
-          <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/40 bg-emerald-500/12 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
             <Stethoscope className="size-3" /> {vocab.sessionProgress}
           </span>
           {!readOnly ? <NowOverflowMenu bookingId={nc.bookingId} /> : null}
@@ -612,12 +615,18 @@ function WaitingRow({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const stateStyles =
-    row.isLate
-      ? "border-amber-400/50 bg-amber-500/8"
-      : row.status === "checked_in"
-        ? "border-emerald-400/40 bg-emerald-500/8"
-        : "border-border";
+  // Status colour system, unified across the app:
+  //   waiting (booked/checked_in) → primary tint, the brand colour
+  //   late                       → amber border + chip (highest priority)
+  //   in_session                 → emerald (on the NOW card, not here)
+  //   done                       → emerald dimmed
+  //   no_show                    → red dimmed
+  //   cancelled                  → grey, strikethrough
+  const stateStyles = row.isLate
+    ? "border-amber-400/50 bg-amber-500/8"
+    : row.status === "checked_in"
+      ? "border-primary/40 bg-primary/8"
+      : "border-primary/15";
 
   return (
     <div
@@ -1030,19 +1039,28 @@ function DoneRow({
   vocab: Vocab;
   readOnly: boolean;
 }) {
+  // Unified status colour system for the done strip.
+  const stateClass =
+    row.status === "no_show"
+      ? "border-rose-400/30 bg-rose-500/8 opacity-70"
+      : row.status === "cancelled"
+        ? "border-border bg-card/30 opacity-60"
+        : "border-emerald-400/25 bg-emerald-500/4";
+  const nameClass =
+    row.status === "no_show" || row.status === "cancelled" ? "line-through" : "";
   return (
-    <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-card/40 p-2.5 backdrop-blur">
+    <div
+      className={cn(
+        "flex items-center justify-between gap-3 rounded-md border p-2.5 backdrop-blur transition-all",
+        stateClass,
+      )}
+    >
       <div className="flex min-w-0 items-center gap-3">
         <div className="rounded-md bg-secondary px-2 py-0.5 text-xs font-bold">
           {row.label}
         </div>
         <div className="min-w-0">
-          <div
-            className={cn(
-              "truncate text-sm font-semibold",
-              row.status === "no_show" || row.status === "cancelled" ? "line-through" : "",
-            )}
-          >
+          <div className={cn("truncate text-sm font-semibold", nameClass)}>
             {row.patientName}
           </div>
           <div className="truncate text-[11px] text-muted-foreground">
@@ -1053,6 +1071,14 @@ function DoneRow({
       </div>
       {!readOnly ? (
         <UndoOrReopenButton row={row} />
+      ) : row.status === "no_show" ? (
+        <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-medium text-rose-700 dark:text-rose-300">
+          No-show
+        </span>
+      ) : row.status === "cancelled" ? (
+        <span className="rounded-full bg-secondary/60 px-2 py-0.5 text-[10px] text-muted-foreground">
+          Cancelled
+        </span>
       ) : (
         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300">
           <CheckCircle2 className="size-3" /> Done

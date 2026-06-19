@@ -1,43 +1,41 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { requireDoctor } from "@/lib/session";
-
-export type SettingsState = { ok?: boolean; error?: string };
+import { SESSION_COOKIE } from "@/lib/auth";
+import { hashPassword, passwordStrength, verifyPassword } from "@/lib/password";
 
 const TENANT_TYPES = ["clinic", "salon", "spa", "dental", "vet", "other"] as const;
 const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 
-export async function saveSettings(
-  _prev: SettingsState,
+// ─── Workspace ────────────────────────────────────────────────────────────
+
+export type WorkspaceState = { ok?: boolean; error?: string };
+
+export async function saveWorkspace(
+  _prev: WorkspaceState,
   formData: FormData,
-): Promise<SettingsState> {
+): Promise<WorkspaceState> {
   const sess = await requireDoctor();
   const name = String(formData.get("name") ?? "").trim().slice(0, 120);
   const tenantType = String(formData.get("tenant_type") ?? sess.clinic.tenantType);
   const slot = Number(formData.get("slot_length_min") ?? "20");
   const noShow = Number(formData.get("no_show_threshold_min") ?? "45");
+  const address = String(formData.get("address") ?? "").trim().slice(0, 300);
 
   if (!name) return { error: "Workspace name is required." };
   if (!(TENANT_TYPES as readonly string[]).includes(tenantType)) {
     return { error: "Invalid business type." };
   }
-  if (!Number.isFinite(slot) || slot < 5 || slot > 240)
+  if (!Number.isFinite(slot) || slot < 5 || slot > 240) {
     return { error: "Slot length must be 5–240 minutes." };
-
-  // Opening-hours editor. Saved iff the form opted in via hours_present=1, so
-  // a settings update that only changes the workspace name doesn't overwrite
-  // hours with empty defaults.
-  let openingHours: Record<string, { open?: string; close?: string; closed?: boolean }> | null = null;
-  if (formData.get("hours_present") === "1") {
-    openingHours = {};
-    for (const d of DAYS) {
-      const open = String(formData.get(`${d}_open`) ?? "").trim();
-      const close = String(formData.get(`${d}_close`) ?? "").trim();
-      openingHours[d] = open && close ? { open, close } : { closed: true };
-    }
+  }
+  if (!Number.isFinite(noShow) || noShow < 0) {
+    return { error: "Invalid no-show threshold." };
   }
 
   await db
@@ -47,11 +45,127 @@ export async function saveSettings(
       tenantType,
       slotLengthMin: Math.round(slot),
       noShowThresholdMin: Math.round(noShow),
-      ...(openingHours ? { openingHours } : {}),
+      address: address || null,
     })
     .where(eq(schema.clinics.id, sess.clinic.id));
-
-  revalidatePath("/settings");
+  revalidatePath("/settings/workspace");
   revalidatePath("/queue");
   return { ok: true };
+}
+
+// ─── Opening hours ────────────────────────────────────────────────────────
+
+export type HoursState = { ok?: boolean; error?: string };
+
+type DayBlock = {
+  open?: string;
+  close?: string;
+  closed?: boolean;
+  // Optional second range for a midday break (e.g. 9–13 and 17–21).
+  open2?: string;
+  close2?: string;
+};
+
+export async function saveHours(
+  _prev: HoursState,
+  formData: FormData,
+): Promise<HoursState> {
+  const sess = await requireDoctor();
+  const openingHours: Record<string, DayBlock> = {};
+  for (const d of DAYS) {
+    const open = String(formData.get(`${d}_open`) ?? "").trim();
+    const close = String(formData.get(`${d}_close`) ?? "").trim();
+    const open2 = String(formData.get(`${d}_open2`) ?? "").trim();
+    const close2 = String(formData.get(`${d}_close2`) ?? "").trim();
+    if (!open || !close) {
+      openingHours[d] = { closed: true };
+    } else {
+      openingHours[d] = open2 && close2 ? { open, close, open2, close2 } : { open, close };
+    }
+  }
+  await db
+    .update(schema.clinics)
+    .set({ openingHours })
+    .where(eq(schema.clinics.id, sess.clinic.id));
+  revalidatePath("/settings/hours");
+  revalidatePath("/queue");
+  return { ok: true };
+}
+
+// ─── Account: change password ─────────────────────────────────────────────
+
+export type ChangePasswordState = { ok?: boolean; error?: string };
+
+export async function changePassword(
+  _prev: ChangePasswordState,
+  formData: FormData,
+): Promise<ChangePasswordState> {
+  const sess = await requireDoctor();
+  const current = String(formData.get("current") ?? "");
+  const next = String(formData.get("next") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+
+  if (!current) return { error: "Enter your current password." };
+  if (next !== confirm) return { error: "New password and confirmation don't match." };
+  const pwErr = passwordStrength(next);
+  if (pwErr) return { error: pwErr };
+  if (current === next) return { error: "New password must differ from the current one." };
+
+  const ok = await verifyPassword(current, sess.user.passwordHash);
+  if (!ok) return { error: "Current password is incorrect." };
+
+  await db
+    .update(schema.users)
+    .set({ passwordHash: await hashPassword(next) })
+    .where(eq(schema.users.id, sess.user.id));
+  return { ok: true };
+}
+
+// ─── Account: delete workspace ────────────────────────────────────────────
+
+export type DeleteState = { error?: string };
+
+export async function deleteWorkspace(
+  _prev: DeleteState,
+  formData: FormData,
+): Promise<DeleteState> {
+  const sess = await requireDoctor();
+  const confirm = String(formData.get("confirm_name") ?? "").trim();
+  if (confirm !== sess.clinic.name) {
+    return { error: `Type "${sess.clinic.name}" exactly to confirm.` };
+  }
+
+  const cid = sess.clinic.id;
+
+  // Hard delete in FK-reverse order. Tables referencing clinic_id (directly
+  // or via booking_id / user_id) must be drained before the parent. All
+  // wrapped in a transaction so a partial failure leaves the workspace intact.
+  await db.transaction(async (tx) => {
+    const childBookingIds = await tx
+      .select({ id: schema.bookings.id })
+      .from(schema.bookings)
+      .where(eq(schema.bookings.clinicId, cid));
+    if (childBookingIds.length > 0) {
+      await tx
+        .delete(schema.subTokens)
+        .where(
+          inArray(
+            schema.subTokens.bookingId,
+            childBookingIds.map((r) => r.id),
+          ),
+        );
+    }
+    await tx.delete(schema.notifications).where(eq(schema.notifications.clinicId, cid));
+    await tx.delete(schema.auditLog).where(eq(schema.auditLog.clinicId, cid));
+    await tx.delete(schema.dailySummaries).where(eq(schema.dailySummaries.clinicId, cid));
+    await tx.delete(schema.bookings).where(eq(schema.bookings.clinicId, cid));
+    await tx.delete(schema.patients).where(eq(schema.patients.clinicId, cid));
+    await tx.delete(schema.users).where(eq(schema.users.clinicId, cid));
+    await tx.delete(schema.clinics).where(eq(schema.clinics.id, cid));
+  });
+
+  // Sign the user out and bounce to /login.
+  const jar = await cookies();
+  jar.delete(SESSION_COOKIE);
+  redirect("/login");
 }

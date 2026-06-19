@@ -57,7 +57,7 @@ export function BookingsTable({ rows }: { rows: BookingRow[] }) {
   if (rows.length === 0) {
     return (
       <p className="py-6 text-center text-sm text-muted-foreground">
-        No bookings in this range.
+        No bookings yet in this range. Your queue lights up when the first guest checks in.
       </p>
     );
   }

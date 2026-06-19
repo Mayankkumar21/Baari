@@ -94,7 +94,9 @@ export default async function SearchPage({
         <Card>
           <CardContent className="p-4">
             {results.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">No matches.</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                No matches. Try a different name or number.
+              </p>
             ) : (
               <ul className="space-y-1.5">
                 {results.map((r) => (
@@ -142,8 +144,8 @@ function RecentGuests({
         <CardContent className="p-8 text-center">
           <UserX className="mx-auto mb-2 size-5 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            No {entityPlural} on file yet. Add one with the button above or
-            create a booking.
+            No {entityPlural} on file yet. Add one with the button above —
+            this list fills in as bookings come through.
           </p>
         </CardContent>
       </Card>

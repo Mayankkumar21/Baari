@@ -62,7 +62,7 @@ export function HourlyChart({ data }: { data: number[] }) {
       </div>
       {!hasData ? (
         <p className="mt-3 text-center text-xs text-muted-foreground">
-          No bookings in this range.
+          No bookings yet in this range. Your hourly trend lights up as the queue fills.
         </p>
       ) : null}
     </div>
@@ -107,7 +107,7 @@ export function DayOfWeekChart({ data }: { data: number[] }) {
       </div>
       {!hasData ? (
         <p className="mt-2 text-center text-xs text-muted-foreground">
-          No bookings in this range.
+          A few weeks of bookings and the busy days will jump out.
         </p>
       ) : null}
     </div>
@@ -122,7 +122,7 @@ export function ServicesChart({
   if (data.length === 0) {
     return (
       <p className="text-center text-xs text-muted-foreground">
-        Nothing booked yet in this range.
+        Pick a service the next time you book and the breakdown shows up here.
       </p>
     );
   }
