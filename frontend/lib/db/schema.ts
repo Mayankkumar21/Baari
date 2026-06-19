@@ -257,3 +257,5 @@ export type Booking = typeof bookings.$inferSelect;
 export type NewBooking = typeof bookings.$inferInsert;
 export type SubToken = typeof subTokens.$inferSelect;
 export type NewSubToken = typeof subTokens.$inferInsert;
+export type DailySummary = typeof dailySummaries.$inferSelect;
+export type NewDailySummary = typeof dailySummaries.$inferInsert;

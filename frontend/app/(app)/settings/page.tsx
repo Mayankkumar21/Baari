@@ -6,12 +6,17 @@ export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const sess = await requireDoctor();
+  const openingHours =
+    (sess.clinic.openingHours as Record<
+      string,
+      { open?: string; close?: string; closed?: boolean }
+    >) ?? {};
   return (
     <div className="mx-auto max-w-2xl space-y-5">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
         <p className="text-sm text-muted-foreground">
-          Workspace basics. Opening hours editor lives in setup (see STATUS.md).
+          Workspace basics, slot config, and opening hours. Changes apply immediately.
         </p>
       </div>
       <Card>
@@ -25,6 +30,7 @@ export default async function SettingsPage() {
               tenantType: sess.clinic.tenantType,
               slot: sess.clinic.slotLengthMin,
               noShow: sess.clinic.noShowThresholdMin,
+              openingHours,
             }}
           />
         </CardContent>

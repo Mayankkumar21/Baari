@@ -1,11 +1,8 @@
 // Queue state machine + board view-model. Port of app/services/queue_service.py.
-// Sub-token (family-member) flow is intentionally omitted from this evening's
-// MVP — board reads will surface them, but the dispatch + mark-done actions
-// only operate on the parent booking. See STATUS.md.
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { clinicToday, nowUtc } from "@/lib/time";
-import type { Booking, Patient, SubToken } from "@/lib/db/schema";
+import type { Booking, DailySummary, Patient, SubToken } from "@/lib/db/schema";
 
 export const UNDO_WINDOW_SEC = 30;
 export class QueueActionError extends Error {}
@@ -35,6 +32,7 @@ export type QueueBoardVM = {
   counters: { booked: number; waiting: number; done: number; noShow: number };
   generatedAt: Date;
   isClosed: boolean;
+  summary: DailySummary | null;
 };
 
 const fmtLabel = (token: number, suffix?: number) =>
@@ -81,6 +79,20 @@ async function nextCheckedIn(clinicId: number, date: string): Promise<Booking | 
 
 async function tryPromoteNextBooking(clinicId: number, date: string): Promise<Booking | undefined> {
   if (await anyoneInConsult(clinicId, date)) return;
+  // Don't promote if a sub-token is currently consulting anywhere.
+  const [activeSub] = await db
+    .select({ id: schema.subTokens.id })
+    .from(schema.subTokens)
+    .innerJoin(schema.bookings, eq(schema.bookings.id, schema.subTokens.bookingId))
+    .where(
+      and(
+        eq(schema.bookings.clinicId, clinicId),
+        eq(schema.bookings.date, date),
+        eq(schema.subTokens.status, "in_consult"),
+      ),
+    )
+    .limit(1);
+  if (activeSub) return;
   const nxt = await nextCheckedIn(clinicId, date);
   if (!nxt) return;
   const now = nowUtc();
@@ -88,6 +100,28 @@ async function tryPromoteNextBooking(clinicId: number, date: string): Promise<Bo
     .update(schema.bookings)
     .set({ status: "in_consult", startedAt: now, updatedAt: now })
     .where(eq(schema.bookings.id, nxt.id))
+    .returning();
+  return updated;
+}
+
+async function tryPromoteWithinGroup(bookingId: number): Promise<SubToken | undefined> {
+  const [pending] = await db
+    .select()
+    .from(schema.subTokens)
+    .where(
+      and(
+        eq(schema.subTokens.bookingId, bookingId),
+        eq(schema.subTokens.status, "booked"),
+      ),
+    )
+    .orderBy(asc(schema.subTokens.suffix))
+    .limit(1);
+  if (!pending) return;
+  const now = nowUtc();
+  const [updated] = await db
+    .update(schema.subTokens)
+    .set({ status: "in_consult", startedAt: now })
+    .where(eq(schema.subTokens.id, pending.id))
     .returning();
   return updated;
 }
@@ -115,7 +149,26 @@ export async function markDone(clinicId: number, bookingId: number): Promise<voi
     .update(schema.bookings)
     .set({ status: "done", completedAt: now, updatedAt: now })
     .where(eq(schema.bookings.id, bookingId));
-  await tryPromoteNextBooking(clinicId, b.date);
+  // Family group flow: prefer promoting a pending sub-token within the same
+  // booking. Falls through to the next checked-in booking only when the group
+  // is empty.
+  const promotedSub = await tryPromoteWithinGroup(bookingId);
+  if (!promotedSub) await tryPromoteNextBooking(clinicId, b.date);
+}
+
+// Called from the sub-token actions layer after marking a sub-token done.
+export async function promoteAfterSubDone(
+  clinicId: number,
+  bookingId: number,
+): Promise<void> {
+  const promoted = await tryPromoteWithinGroup(bookingId);
+  if (promoted) return;
+  const [b] = await db
+    .select({ date: schema.bookings.date })
+    .from(schema.bookings)
+    .where(eq(schema.bookings.id, bookingId))
+    .limit(1);
+  if (b) await tryPromoteNextBooking(clinicId, b.date);
 }
 
 export async function startConsult(clinicId: number, bookingId: number): Promise<void> {
@@ -301,12 +354,25 @@ export async function buildBoard(clinicId: number): Promise<QueueBoardVM> {
     return a.booking.token - b.booking.token;
   });
 
+  // Read daily_summaries to know if the day was closed.
+  const [summary] = await db
+    .select()
+    .from(schema.dailySummaries)
+    .where(
+      and(
+        eq(schema.dailySummaries.clinicId, clinicId),
+        eq(schema.dailySummaries.date, today),
+      ),
+    )
+    .limit(1);
+
   return {
     nowConsulting,
     waiting,
     done,
     counters,
     generatedAt: now,
-    isClosed: false, // day-close is in STATUS.md as a TODO
+    isClosed: Boolean(summary?.closedAt),
+    summary: summary ?? null,
   };
 }
