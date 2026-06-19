@@ -21,18 +21,18 @@ export function CtaClosing() {
         <div className="orb right-[15%] bottom-[-40%] h-[280px] w-[280px] bg-primary/25" />
 
         <h2 className="relative text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-          Set up in under a minute.
+          Your queue, finally on one screen.
         </h2>
-        <p className="relative mx-auto mt-3 max-w-md text-balance text-muted-foreground">
-          Name your business, pick your shift hours, start booking. No installs, no training.
-        </p>
         <div className="relative mt-8">
           <Button variant="glow" size="xl" asChild>
-            <Link href={`/signup`}>
-              Start for free <ArrowRight className="size-5" />
+            <Link href="/signup">
+              Start free <ArrowRight className="size-5" />
             </Link>
           </Button>
         </div>
+        <p className="relative mx-auto mt-6 max-w-md text-balance text-sm text-muted-foreground">
+          Two quick screens. No card. Free during early access.
+        </p>
       </motion.div>
     </section>
   );

@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { motion } from "motion/react";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Check, Stethoscope } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 
 export function Hero() {
   return (
-    <section className="relative isolate overflow-hidden pt-20 pb-24 sm:pt-28 sm:pb-32">
+    <section className="relative isolate overflow-hidden pt-16 pb-20 sm:pt-24 sm:pb-28">
       {/* Soft gradient orbs in the background */}
       <div className="orb left-[10%] top-[-10%] h-[420px] w-[420px] bg-primary/40" />
       <div className="orb right-[5%] top-[20%] h-[360px] w-[360px] bg-primary/25" />
@@ -20,61 +21,184 @@ export function Hero() {
         className="absolute inset-0 -z-10 opacity-[0.04] dark:opacity-[0.06] [background-image:linear-gradient(to_right,hsl(var(--foreground))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--foreground))_1px,transparent_1px)] [background-size:48px_48px]"
       />
 
-      <div className="container relative text-center">
+      <div className="container relative grid items-center gap-12 lg:grid-cols-[1.4fr_1fr] lg:gap-10">
+        {/* Left: copy + CTAs */}
+        <div>
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground backdrop-blur">
+              One screen. Every appointment.
+            </div>
+          </motion.div>
+
+          <motion.h1
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
+            className="mt-6 text-balance text-5xl font-extrabold leading-[1.05] tracking-tight sm:text-6xl md:text-[64px]"
+          >
+            Your <span className="text-gradient">front desk</span>,<br className="hidden sm:block" />{" "}
+            on one screen.
+          </motion.h1>
+
+          <motion.p
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.14, ease: [0.16, 1, 0.3, 1] }}
+            className="mt-6 max-w-xl text-balance text-base text-muted-foreground sm:text-lg"
+          >
+            Tokens, walk-ins, family bookings, late patients — handled from one place. Built for
+            clinics, salons, and spas where the receptionist is doing six things at once.
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="mt-8 flex flex-wrap items-center gap-3"
+          >
+            <Button variant="glow" size="xl" asChild>
+              <Link href="/signup">
+                Start free <ArrowRight className="size-5" />
+              </Link>
+            </Button>
+            <Button variant="ghost" asChild>
+              <Link href="/login">I already have an account</Link>
+            </Button>
+          </motion.div>
+
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8, delay: 0.36 }}
+            className="mt-6 text-xs text-muted-foreground"
+          >
+            Free during early access. No card. Two quick screens and you&apos;re in.
+          </motion.p>
+        </div>
+
+        {/* Right: floating compact dashboard preview at a slight tilt */}
         <motion.div
-          initial={{ opacity: 0, y: 8 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.8, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
+          className="relative mx-auto w-full max-w-md lg:max-w-none"
+          style={{ perspective: "1800px" }}
         >
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 px-3.5 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur">
-            <Sparkles className="size-3.5 text-primary" />
-            One dashboard. Every appointment.
-          </div>
+          <CompactQueuePreview />
         </motion.div>
-
-        <motion.h1
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-7 text-balance text-5xl font-extrabold leading-[1.05] tracking-tight sm:text-6xl md:text-[64px]"
-        >
-          The <span className="text-gradient">paper register</span>
-          <br className="hidden sm:block" /> your front desk replaces.
-        </motion.h1>
-
-        <motion.p
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.14, ease: [0.16, 1, 0.3, 1] }}
-          className="mx-auto mt-6 max-w-xl text-balance text-base text-muted-foreground sm:text-lg"
-        >
-          Baari is a live queue and booking dashboard for any business where customers wait for a
-          sequential service. Tokens, family sub-tokens, no-show automation, WhatsApp reminders —
-          all on one screen.
-        </motion.p>
-
-        <motion.div
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.22, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-9 flex flex-wrap items-center justify-center gap-3"
-        >
-          <Button variant="glow" size="xl" asChild>
-            <Link href={`/signup`}>
-              Start for free <ArrowRight className="size-5" />
-            </Link>
-          </Button>
-        </motion.div>
-
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8, delay: 0.4 }}
-          className="mt-8 text-xs text-muted-foreground"
-        >
-          Free during the early-access period. No card required.
-        </motion.p>
       </div>
     </section>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Compact dashboard preview — mirrors what /queue looks like today.
+   Uses the unified status colour system: emerald for active / done,
+   primary for waiting, amber for late.
+   ───────────────────────────────────────────────────────────────────── */
+
+function CompactQueuePreview() {
+  return (
+    <div
+      className="relative overflow-hidden rounded-2xl border border-border bg-card/90 shadow-2xl shadow-primary/25 ring-1 ring-white/5 backdrop-blur"
+      style={{
+        transform: "rotateY(-6deg) rotateX(4deg)",
+        transformOrigin: "60% 50%",
+      }}
+    >
+      {/* macOS window chrome */}
+      <div className="flex items-center gap-2 border-b border-border bg-card/80 px-3 py-2">
+        <div className="flex items-center gap-1.5">
+          <div className="size-2 rounded-full bg-red-500/80" />
+          <div className="size-2 rounded-full bg-yellow-500/80" />
+          <div className="size-2 rounded-full bg-emerald-500/80" />
+        </div>
+        <div className="ml-2 flex items-center gap-1.5 rounded-md border border-border bg-background/70 px-2 py-0.5 text-[9px] text-muted-foreground">
+          <div className="size-1.5 rounded-full bg-emerald-500" />
+          app.baari.in/queue
+        </div>
+      </div>
+
+      <div className="p-3.5">
+        {/* Summary line */}
+        <div className="mb-3 flex items-baseline justify-between">
+          <div>
+            <div className="text-[8px] uppercase tracking-[0.14em] text-muted-foreground">
+              Today
+            </div>
+            <div className="text-sm font-bold leading-tight">5 waiting · 1 in consult</div>
+          </div>
+          <div className="text-[9px] tabular-nums text-muted-foreground">10:42</div>
+        </div>
+
+        {/* Now in session card */}
+        <div className="mb-3 rounded-lg border border-emerald-400/40 bg-emerald-500/10 p-2.5">
+          <div className="flex items-center justify-between">
+            <div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-300">
+              In consult
+            </div>
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/50 bg-emerald-500/20 px-1.5 py-0.5 text-[8px] font-semibold text-emerald-700 dark:text-emerald-200">
+              <Stethoscope className="size-2.5" /> T12
+            </span>
+          </div>
+          <div className="mt-1 text-[13px] font-semibold leading-tight">Meera Pillai</div>
+          <div className="text-[10px] text-muted-foreground">cold, sore throat</div>
+          <button className="mt-2 inline-flex items-center gap-1 rounded-md bg-emerald-500 px-2 py-1 text-[10px] font-semibold text-white shadow-sm shadow-emerald-500/40">
+            <Check className="size-2.5" /> Mark done
+          </button>
+        </div>
+
+        {/* Waiting list */}
+        <div className="mb-1 flex items-center justify-between text-[8px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          <span>Waiting</span>
+          <span>5</span>
+        </div>
+        <div className="space-y-1.5">
+          <MiniRow token="T13" name="Anjali Verma" meta="10:40 · headache" tone="wait" />
+          <MiniRow token="T14" name="Ravi Kumar" meta="11:00 · party of 2" tone="wait" />
+          <MiniRow token="T15" name="Sneha Iyer" meta="11:20" tone="late" />
+          <MiniRow token="T16" name="अमित शर्मा" meta="11:40 · skin" tone="wait" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MiniRow({
+  token,
+  name,
+  meta,
+  tone,
+}: {
+  token: string;
+  name: string;
+  meta: string;
+  tone: "wait" | "late";
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-2 rounded-md border px-2 py-1.5",
+        tone === "wait" && "border-primary/30 bg-primary/5",
+        tone === "late" && "border-amber-400/40 bg-amber-500/10",
+      )}
+    >
+      <div className="grid w-8 place-items-center rounded bg-secondary py-0.5 text-[10px] font-bold tabular-nums">
+        {token}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[11px] font-semibold leading-tight">{name}</div>
+        <div className="truncate text-[9px] text-muted-foreground">{meta}</div>
+      </div>
+      {tone === "late" && (
+        <span className="rounded-full border border-amber-400/50 bg-amber-500/20 px-1.5 py-0.5 text-[8px] font-semibold text-amber-700 dark:text-amber-300">
+          Late
+        </span>
+      )}
+    </div>
   );
 }

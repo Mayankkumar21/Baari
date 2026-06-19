@@ -1,9 +1,10 @@
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { Hero } from "@/components/sections/hero";
-import { DashboardPreview } from "@/components/sections/dashboard-preview";
 import { Verticals } from "@/components/sections/verticals";
+import { HowItWorks } from "@/components/sections/how-it-works";
 import { Features } from "@/components/sections/features";
+import { MoreFeatures } from "@/components/sections/more-features";
 import { CtaClosing } from "@/components/sections/cta-closing";
 
 export default function HomePage() {
@@ -11,9 +12,14 @@ export default function HomePage() {
     <main className="min-h-screen">
       <SiteHeader />
       <Hero />
-      <DashboardPreview />
       <Verticals />
-      <Features />
+      <section id="how-it-works">
+        <HowItWorks />
+      </section>
+      <section id="features">
+        <Features />
+      </section>
+      <MoreFeatures />
       <CtaClosing />
       <SiteFooter />
     </main>

@@ -16,22 +16,64 @@ import { Tooth } from "@/components/icons/tooth";
 type Vertical = {
   key: string;
   label: string;
-  description: string;
+  scenario: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
 };
 
 const VERTICALS: Vertical[] = [
-  { key: "clinic", label: "Clinic", description: "Homeopathy, GP, paediatrics, physio.", icon: Stethoscope },
-  { key: "dental", label: "Dental", description: "Dentist, orthodontist.", icon: Tooth },
-  { key: "salon",  label: "Salon",  description: "Hair, beauty, nails, barbershop.", icon: Scissors },
-  { key: "spa",    label: "Spa",    description: "Massage, wellness, day spa.", icon: Flower },
-  { key: "vet",    label: "Vet",    description: "Veterinary clinic.", icon: PawPrint },
-  { key: "other",  label: "Other",  description: "Any appointment-based business.", icon: Store },
+  {
+    key: "clinic",
+    label: "Clinic",
+    scenario: "Homeopathy, GP, paediatrics. Walk-ins and bookings on the same queue.",
+    icon: Stethoscope,
+  },
+  {
+    key: "dental",
+    label: "Dental",
+    scenario: "Sequential chairs, follow-up patients, no double-bookings.",
+    icon: Tooth,
+  },
+  {
+    key: "salon",
+    label: "Salon",
+    scenario: "Track who's in the chair, who's next, who's still waiting.",
+    icon: Scissors,
+  },
+  {
+    key: "spa",
+    label: "Spa",
+    scenario: "Long sessions, multi-room, family appointments.",
+    icon: Flower,
+  },
+  {
+    key: "vet",
+    label: "Vet",
+    scenario: "Sick pets first, the queue knows.",
+    icon: PawPrint,
+  },
+  {
+    key: "other",
+    label: "Other",
+    scenario: "Any service where customers wait their turn.",
+    icon: Store,
+  },
 ];
 
 export function Verticals() {
   return (
-    <section className="container -mt-2 pb-24">
+    <section className="container pb-20 pt-4 sm:pb-24">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-80px" }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className="mb-6 text-center"
+      >
+        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          Who Baari is for
+        </div>
+      </motion.div>
+
       <motion.div
         initial="hidden"
         whileInView="visible"
@@ -40,9 +82,9 @@ export function Verticals() {
           hidden: {},
           visible: { transition: { staggerChildren: 0.04 } },
         }}
-        className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6"
+        className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6"
       >
-        {VERTICALS.map(({ key, label, description, icon: Icon }) => (
+        {VERTICALS.map(({ key, label, scenario, icon: Icon }) => (
           <motion.div
             key={key}
             variants={{
@@ -52,11 +94,12 @@ export function Verticals() {
           >
             <Link
               href={`/signup?type=${key}`}
-              title={description}
-              className="group block h-full rounded-xl border border-border bg-card/70 p-4 text-center backdrop-blur transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:bg-card hover:shadow-lg hover:shadow-primary/10"
+              title={scenario}
+              className="group block h-full rounded-xl border border-border bg-card/70 p-4 backdrop-blur transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:bg-card hover:shadow-lg hover:shadow-primary/10"
             >
-              <Icon className="mx-auto size-6 text-primary transition-transform group-hover:scale-110" />
-              <div className="mt-2 text-sm font-semibold">{label}</div>
+              <Icon className="size-5 text-primary transition-transform group-hover:scale-110" />
+              <div className="mt-2.5 text-sm font-semibold">{label}</div>
+              <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{scenario}</p>
             </Link>
           </motion.div>
         ))}
