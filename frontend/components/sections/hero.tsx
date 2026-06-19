@@ -6,7 +6,6 @@ import { ArrowRight, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://baariprod.vercel.app";
 
 export function Hero() {
   return (
@@ -61,7 +60,7 @@ export function Hero() {
           className="mt-9 flex flex-wrap items-center justify-center gap-3"
         >
           <Button variant="glow" size="xl" asChild>
-            <Link href={`${BACKEND_URL}/signup`}>
+            <Link href={`/signup`}>
               Start for free <ArrowRight className="size-5" />
             </Link>
           </Button>
