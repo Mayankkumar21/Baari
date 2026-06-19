@@ -1,11 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
+  AlertTriangle,
   Calendar,
+  Check,
   CheckCircle2,
+  ChevronDown,
   Coffee,
+  History,
   Loader2,
+  MessageSquare,
+  MoreVertical,
   Moon,
   Play,
   Plus,
@@ -15,9 +22,10 @@ import {
   UserCheck,
   UserPlus,
   UserX,
+  Users,
   X,
 } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { fmtTime } from "@/lib/time";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,13 +39,19 @@ import {
   checkInAction,
   closeDayAction,
   markDoneAction,
+  markNoShowAction,
   markSubDoneAction,
+  reopenAction,
   rescheduleAction,
   restoreNoShowAction,
+  sendReminderAction,
   startConsultAction,
   startSubTokenAction,
   undoDoneAction,
+  walkInAction,
 } from "@/app/(app)/queue/actions";
+
+// ─── types ────────────────────────────────────────────────────────────────
 
 type SubTokenRow = {
   id: number;
@@ -58,7 +72,9 @@ type Row = {
   slotTime: string;
   status: string;
   isLate: boolean;
+  minutesLate: number;
   isUndoable: boolean;
+  completedAt: string | null;
   subTokens: SubTokenRow[];
 };
 
@@ -68,10 +84,19 @@ type NowConsulting = {
   reason: string | null;
   bookingId: number;
   subTokenId: number | null;
+  startedAt: string | null;
   pendingSubs: { id: number; label: string; name: string }[];
 };
 
 type Summary = {
+  today: number;
+  waiting: number;
+  inSession: number;
+  runningLate: number;
+  nextFree: string;
+};
+
+type DayClosedSummary = {
   totalBookings: number;
   completed: number;
   noShows: number;
@@ -89,61 +114,65 @@ type Vocab = {
   entitySingular: string;
 };
 
+// ─── main ────────────────────────────────────────────────────────────────
+
 export function QueueBoard({
+  generatedAtLabel,
   waiting,
   done,
   nowConsulting,
   counters,
+  summary,
   vocab,
   availableSlots,
   isClosed,
-  summary,
+  summaryBanner,
   isDoctor,
 }: {
+  generatedAtLabel: string;
   waiting: Row[];
   done: Row[];
   nowConsulting: NowConsulting | null;
   counters: { booked: number; waiting: number; done: number; noShow: number };
+  summary: Summary;
   vocab: Vocab;
   availableSlots: string[];
   isClosed: boolean;
-  summary: Summary;
+  summaryBanner: DayClosedSummary;
   isDoctor: boolean;
 }) {
   return (
     <div className="space-y-5">
-      {/* Day-closed banner */}
-      {isClosed && summary ? <DayClosedBanner summary={summary} /> : null}
-
-      {/* Counters */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          { key: "booked", label: "Booked", value: counters.booked },
-          { key: "waiting", label: "Waiting", value: counters.waiting },
-          { key: "done", label: "Done", value: counters.done },
-          { key: "no_show", label: "No-show", value: counters.noShow },
-        ].map((c) => (
-          <motion.div
-            key={c.key}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <Card className="relative overflow-hidden">
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-              <CardContent className="p-4">
-                <div className="text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
-                  {c.label}
-                </div>
-                <div className="mt-1 text-2xl font-bold">{c.value}</div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
+      {/* Header */}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <div className="text-xs text-muted-foreground">
+            {generatedAtLabel} · IST
+            {isClosed ? <span className="ml-2 text-primary">· closed</span> : null}
+          </div>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight">Queue</h1>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {!isClosed && isDoctor ? <CloseDayButton /> : null}
+          {!isClosed ? <WalkInButton /> : null}
+          {!isClosed ? (
+            <Button variant="glow" asChild>
+              <Link href="/book">
+                <Plus className="size-4" /> New booking
+              </Link>
+            </Button>
+          ) : null}
+        </div>
       </div>
 
+      {/* Day-closed banner (read-only summary) */}
+      {isClosed && summaryBanner ? <DayClosedBanner summary={summaryBanner} /> : null}
+
+      {/* Summary strip */}
+      {!isClosed ? <SummaryStrip s={summary} vocab={vocab} /> : null}
+
+      {/* Two-column layout */}
       <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
-        {/* Waiting list */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between p-5 pb-3">
             <CardTitle>Waiting</CardTitle>
@@ -161,7 +190,7 @@ export function QueueBoard({
                     exit={{ opacity: 0, x: -8 }}
                     transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
                   >
-                    <QueueRow
+                    <WaitingRow
                       row={row}
                       vocab={vocab}
                       availableSlots={availableSlots}
@@ -179,70 +208,79 @@ export function QueueBoard({
           </CardContent>
         </Card>
 
-        {/* Now consulting + Done */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader className="p-5 pb-3">
-              <CardTitle>Now {vocab.sessionProgress}</CardTitle>
-            </CardHeader>
-            <CardContent className="p-5 pt-0">
-              {nowConsulting ? (
-                <NowCard nc={nowConsulting} vocab={vocab} readOnly={isClosed} />
-              ) : (
-                <div className="rounded-md border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
-                  <UserX className="mx-auto mb-2 size-5" />
-                  No active {vocab.sessionTitled.toLowerCase()}.
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between p-5 pb-3">
-              <CardTitle>Done today</CardTitle>
-              <div className="text-xs text-muted-foreground">{done.length}</div>
-            </CardHeader>
-            <CardContent className="space-y-1.5 p-5 pt-0">
-              {done.length ? (
-                done
-                  .slice(0, 6)
-                  .map((row) => (
-                    <QueueRow
-                      key={row.bookingId}
-                      row={row}
-                      vocab={vocab}
-                      availableSlots={availableSlots}
-                      readOnly={isClosed}
-                    />
-                  ))
-              ) : (
-                <div className="rounded-md border border-dashed border-border py-6 text-center text-xs text-muted-foreground">
-                  No completed {vocab.sessionTitled.toLowerCase()}s yet.
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader className="p-5 pb-3">
+            <CardTitle>Now {vocab.sessionProgress}</CardTitle>
+          </CardHeader>
+          <CardContent className="p-5 pt-0">
+            {nowConsulting ? (
+              <NowCard nc={nowConsulting} vocab={vocab} readOnly={isClosed} />
+            ) : (
+              <div className="rounded-md border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
+                <UserX className="mx-auto mb-2 size-5" />
+                No active {vocab.sessionTitled.toLowerCase()}.
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Done today — thin collapsible strip at the bottom */}
+      <DoneStrip rows={done} vocab={vocab} readOnly={isClosed} />
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Close-day button
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── summary strip ────────────────────────────────────────────────────────
 
-export function CloseDayButton({ disabled }: { disabled?: boolean }) {
+function SummaryStrip({ s, vocab }: { s: Summary; vocab: Vocab }) {
+  const items = [
+    { label: "Today", value: s.today },
+    { label: "Waiting", value: s.waiting },
+    { label: `In ${vocab.sessionProgress.split(" ")[1] ?? "session"}`, value: s.inSession },
+    {
+      label: "Running late",
+      value: s.runningLate,
+      tone: s.runningLate > 0 ? "amber" : undefined,
+    },
+    { label: "Next free", value: s.nextFree },
+  ];
+  return (
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-border bg-card/60 px-4 py-2.5 text-xs backdrop-blur">
+      {items.map((it, i) => (
+        <div key={it.label} className="flex items-center gap-2">
+          <span className="text-muted-foreground">{it.label}:</span>
+          <span
+            className={cn(
+              "font-semibold tabular-nums",
+              it.tone === "amber" ? "text-amber-500" : "text-foreground",
+            )}
+          >
+            {it.value}
+          </span>
+          {i < items.length - 1 ? <span className="text-muted-foreground/40">·</span> : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── close day button + closed banner ─────────────────────────────────────
+
+function CloseDayButton() {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   return (
     <Button
       variant="outline"
-      disabled={pending || disabled}
+      disabled={pending}
       onClick={() => {
-        if (!confirm("Close the day? Active bookings get marked no-show; the board becomes read-only.")) {
+        if (
+          !confirm(
+            "Close the day? Active bookings get marked no-show; the board becomes read-only.",
+          )
+        )
           return;
-        }
         setError(null);
         start(async () => {
           const r = await closeDayAction();
@@ -257,7 +295,7 @@ export function CloseDayButton({ disabled }: { disabled?: boolean }) {
   );
 }
 
-function DayClosedBanner({ summary }: { summary: NonNullable<Summary> }) {
+function DayClosedBanner({ summary }: { summary: NonNullable<DayClosedSummary> }) {
   const avgWait =
     summary.avgWaitSeconds != null ? `${Math.round(summary.avgWaitSeconds / 60)}m` : "—";
   const avgConsult =
@@ -295,9 +333,78 @@ function DayClosedBanner({ summary }: { summary: NonNullable<Summary> }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Now-consulting card
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── walk-in button + popover ─────────────────────────────────────────────
+
+function WalkInButton() {
+  const [open, setOpen] = useState(false);
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <div className="relative">
+      <Button variant="outline" onClick={() => setOpen((v) => !v)}>
+        <UserPlus className="size-4" /> Walk in
+      </Button>
+      {open ? (
+        <form
+          action={(fd) => {
+            setError(null);
+            start(async () => {
+              const r = await walkInAction(fd);
+              if (r.ok) {
+                setOpen(false);
+              } else {
+                setError(r.error);
+              }
+            });
+          }}
+          className="absolute right-0 top-full z-30 mt-2 w-80 rounded-lg border border-border bg-card/95 p-4 shadow-xl backdrop-blur"
+        >
+          <div className="mb-3 text-sm font-semibold">Walk-in</div>
+          <p className="mb-3 text-xs text-muted-foreground">
+            We'll take the next open slot today.
+          </p>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="walkin_name" className="mb-1 block">
+                Name
+              </Label>
+              <Input id="walkin_name" name="name" required maxLength={80} autoFocus />
+            </div>
+            <div>
+              <Label htmlFor="walkin_mobile" className="mb-1 block">
+                Mobile
+              </Label>
+              <Input
+                id="walkin_mobile"
+                name="mobile"
+                type="tel"
+                inputMode="numeric"
+                maxLength={10}
+                required
+                placeholder="10 digits"
+              />
+            </div>
+            {error ? (
+              <div className="rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-[11px] text-destructive">
+                {error}
+              </div>
+            ) : null}
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" variant="glow" disabled={pending}>
+                <UserCheck className="size-3.5" /> Add walk-in
+              </Button>
+            </div>
+          </div>
+        </form>
+      ) : null}
+    </div>
+  );
+}
+
+// ─── now card ─────────────────────────────────────────────────────────────
 
 function NowCard({
   nc,
@@ -309,30 +416,44 @@ function NowCard({
   readOnly: boolean;
 }) {
   const [pending, start] = useTransition();
+  const startedAtLabel = nc.startedAt ? fmtTime(nc.startedAt) : null;
+  const elapsedMin = nc.startedAt
+    ? Math.max(0, Math.floor((Date.now() - new Date(nc.startedAt).getTime()) / 60000))
+    : null;
+
   return (
     <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-card/70 p-6 backdrop-blur-md shadow-[0_0_0_1px_hsl(var(--primary)/0.18),0_24px_64px_-32px_hsl(var(--primary)/0.4)]">
       <div className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full bg-primary/20 blur-3xl" />
       <div className="relative flex items-start justify-between gap-4">
         <div>
-          <div className="text-[10px] uppercase tracking-[0.06em] text-muted-foreground">Token</div>
+          <div className="text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+            Token
+          </div>
           <div className="bg-gradient-to-b from-foreground from-30% to-primary bg-clip-text text-5xl font-bold tracking-tight text-transparent">
             {nc.label}
           </div>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
-          <Stethoscope className="size-3" /> {vocab.sessionProgress}
-        </span>
+        <div className="flex items-start gap-2">
+          <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+            <Stethoscope className="size-3" /> {vocab.sessionProgress}
+          </span>
+          {!readOnly ? <NowOverflowMenu bookingId={nc.bookingId} /> : null}
+        </div>
       </div>
       <div className="relative mt-4">
         <div className="text-xl font-semibold">{nc.patientName}</div>
         {nc.reason ? (
           <div className="mt-0.5 text-sm text-muted-foreground">{nc.reason}</div>
         ) : null}
+        {startedAtLabel ? (
+          <div className="mt-1 text-xs text-muted-foreground">
+            Started {startedAtLabel} · {elapsedMin ?? 0} min in
+          </div>
+        ) : null}
       </div>
 
-      {/* Pending sub-tokens preview */}
       {nc.pendingSubs.length ? (
-        <div className="relative mt-3 flex flex-wrap gap-1.5">
+        <div className="relative mt-3 flex flex-wrap items-center gap-1.5">
           <span className="text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
             Next in family:
           </span>
@@ -350,7 +471,7 @@ function NowCard({
       {!readOnly ? (
         <div className="relative mt-6 flex flex-wrap gap-2">
           <Button
-            variant="glow"
+            variant="success"
             size="lg"
             disabled={pending}
             onClick={() =>
@@ -372,11 +493,34 @@ function NowCard({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Queue row
-// ─────────────────────────────────────────────────────────────────────────────
+function NowOverflowMenu({ bookingId }: { bookingId: number }) {
+  return (
+    <Menu
+      label={<MoreVertical className="size-3.5" />}
+      labelTitle="More actions"
+      items={[
+        {
+          key: "cancel",
+          icon: <Trash2 className="size-3.5" />,
+          label: "Cancel session",
+          confirm: "Cancel this active session? A WhatsApp will be sent if enabled.",
+          run: () => cancelAction(bookingId),
+        },
+        {
+          key: "noshow",
+          icon: <UserX className="size-3.5" />,
+          label: "Mark no-show",
+          confirm: "Mark the active session as no-show?",
+          run: () => markNoShowAction(bookingId),
+        },
+      ]}
+    />
+  );
+}
 
-function QueueRow({
+// ─── waiting row ──────────────────────────────────────────────────────────
+
+function WaitingRow({
   row,
   vocab,
   availableSlots,
@@ -391,26 +535,11 @@ function QueueRow({
   const [error, setError] = useState<string | null>(null);
 
   const stateStyles =
-    row.status === "checked_in"
-      ? "border-emerald-400/40 bg-emerald-500/8"
-      : row.status === "in_consult"
-        ? "border-primary/40 bg-primary/8"
-        : row.status === "no_show"
-          ? "opacity-60"
-          : row.status === "cancelled"
-            ? "opacity-50"
-            : "border-border";
-
-  const isClosedRow =
-    row.status === "done" || row.status === "no_show" || row.status === "cancelled";
-
-  const runVoidAction = async (
-    actionPromise: Promise<{ ok: boolean; error?: string }>,
-  ) => {
-    setError(null);
-    const res = await actionPromise;
-    if (!res.ok && res.error) setError(res.error);
-  };
+    row.isLate
+      ? "border-amber-400/50 bg-amber-500/8"
+      : row.status === "checked_in"
+        ? "border-emerald-400/40 bg-emerald-500/8"
+        : "border-border";
 
   return (
     <div
@@ -418,7 +547,6 @@ function QueueRow({
       className={cn(
         "group rounded-lg border bg-card/60 p-3 backdrop-blur transition-all hover:shadow-[0_2px_12px_-6px_hsl(var(--primary)/0.25)]",
         stateStyles,
-        row.isLate ? "border-amber-400/40 bg-amber-500/8" : "",
       )}
     >
       <div className="grid grid-cols-[56px_1fr_auto] items-center gap-3">
@@ -426,16 +554,16 @@ function QueueRow({
           {row.label}
         </div>
         <div className="min-w-0">
-          <div
-            className={cn(
-              "truncate font-semibold",
-              row.status === "no_show" || row.status === "cancelled" ? "line-through" : "",
-            )}
-          >
-            {row.patientName}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="truncate font-semibold">{row.patientName}</span>
             {row.partySize > 1 ? (
-              <span className="ml-2 text-xs font-normal text-muted-foreground">
-                · party of {row.partySize}
+              <span className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/60 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                <Users className="size-2.5" /> +{row.partySize - 1} family
+              </span>
+            ) : null}
+            {row.isLate ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-300">
+                <AlertTriangle className="size-2.5" /> Late · {row.minutesLate} min
               </span>
             ) : null}
           </div>
@@ -447,100 +575,59 @@ function QueueRow({
                 <span>{row.reason}</span>
               </>
             ) : null}
-            {row.isLate ? (
-              <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-300">
-                Late
-              </span>
-            ) : null}
           </div>
         </div>
         <div className="flex items-center gap-1.5">
           {!readOnly && row.status === "booked" ? (
-            <>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={pending}
-                onClick={() =>
-                  start(() => runVoidAction(checkInAction(row.bookingId)))
-                }
-              >
-                <UserCheck className="size-3.5" /> Check in
-              </Button>
-              <ReschedulePopover
-                bookingId={row.bookingId}
-                slotTime={row.slotTime}
-                availableSlots={availableSlots}
-              />
-              <CancelButton bookingId={row.bookingId} />
-              <AddFamilyPopover bookingId={row.bookingId} />
-            </>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={pending}
+              onClick={() =>
+                start(async () => {
+                  setError(null);
+                  const r = await checkInAction(row.bookingId);
+                  if (!r.ok && r.error) setError(r.error);
+                })
+              }
+            >
+              <UserCheck className="size-3.5" /> Check in
+            </Button>
           ) : null}
           {!readOnly && row.status === "checked_in" ? (
-            <>
-              <Button
-                size="sm"
-                variant="default"
-                disabled={pending}
-                onClick={() =>
-                  start(() => runVoidAction(startConsultAction(row.bookingId)))
-                }
-              >
-                <Play className="size-3.5" /> Start
-              </Button>
-              <ReschedulePopover
-                bookingId={row.bookingId}
-                slotTime={row.slotTime}
-                availableSlots={availableSlots}
-              />
-              <CancelButton bookingId={row.bookingId} />
-              <AddFamilyPopover bookingId={row.bookingId} />
-            </>
-          ) : null}
-          {!readOnly && row.status === "done" && row.isUndoable ? (
             <Button
               size="sm"
-              variant="outline"
+              variant="default"
               disabled={pending}
               onClick={() =>
-                start(() => runVoidAction(undoDoneAction(row.bookingId)))
+                start(async () => {
+                  setError(null);
+                  const r = await startConsultAction(row.bookingId);
+                  if (!r.ok && r.error) setError(r.error);
+                })
               }
             >
-              <RotateCcw className="size-3.5" /> Undo
+              <Play className="size-3.5" /> Start
             </Button>
           ) : null}
-          {row.status === "done" && !row.isUndoable ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300">
-              <CheckCircle2 className="size-3" /> Done
-            </span>
-          ) : null}
-          {!readOnly && row.status === "no_show" ? (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={pending}
-              onClick={() =>
-                start(() => runVoidAction(restoreNoShowAction(row.bookingId)))
-              }
-            >
-              <RotateCcw className="size-3.5" /> Restore
-            </Button>
-          ) : null}
-          {row.status === "cancelled" ? (
-            <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px]">Cancelled</span>
+          {!readOnly ? (
+            <WaitingOverflowMenu
+              bookingId={row.bookingId}
+              slotTime={row.slotTime}
+              availableSlots={availableSlots}
+            />
           ) : null}
         </div>
       </div>
 
-      {/* Sub-tokens row */}
       {row.subTokens.length ? (
         <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-[68px]">
           {row.subTokens.map((s) => (
             <SubTokenChip
               key={s.id}
               sub={s}
-              readOnly={readOnly || isClosedRow}
-              parentInConsult={row.status === "in_consult"}
+              readOnly={readOnly}
+              parentInConsult={false}
             />
           ))}
         </div>
@@ -555,9 +642,66 @@ function QueueRow({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Sub-token chip
-// ─────────────────────────────────────────────────────────────────────────────
+function WaitingOverflowMenu({
+  bookingId,
+  slotTime,
+  availableSlots,
+}: {
+  bookingId: number;
+  slotTime: string;
+  availableSlots: string[];
+}) {
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  return (
+    <>
+      <Menu
+        label={<MoreVertical className="size-3.5" />}
+        labelTitle="More actions"
+        items={[
+          {
+            key: "edit",
+            icon: <Calendar className="size-3.5" />,
+            label: "Reschedule",
+            run: async () => {
+              setRescheduleOpen(true);
+              return { ok: true } as const;
+            },
+          },
+          {
+            key: "reminder",
+            icon: <MessageSquare className="size-3.5" />,
+            label: "Send WhatsApp reminder",
+            run: () => sendReminderAction(bookingId),
+          },
+          {
+            key: "noshow",
+            icon: <UserX className="size-3.5" />,
+            label: "Mark no-show",
+            confirm: "Mark this booking as no-show?",
+            run: () => markNoShowAction(bookingId),
+          },
+          {
+            key: "cancel",
+            icon: <Trash2 className="size-3.5" />,
+            label: "Cancel booking",
+            confirm: "Cancel this booking? Patient gets a WhatsApp notice if enabled.",
+            run: () => cancelAction(bookingId),
+          },
+        ]}
+      />
+      {rescheduleOpen ? (
+        <ReschedulePopover
+          bookingId={bookingId}
+          slotTime={slotTime}
+          availableSlots={availableSlots}
+          onClose={() => setRescheduleOpen(false)}
+        />
+      ) : null}
+    </>
+  );
+}
+
+// ─── sub-token chip ──────────────────────────────────────────────────────
 
 function SubTokenChip({
   sub,
@@ -617,9 +761,7 @@ function SubTokenChip({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Add-family popover
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── add-family popover (unchanged) ──────────────────────────────────────
 
 function AddFamilyPopover({
   bookingId,
@@ -631,7 +773,6 @@ function AddFamilyPopover({
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-
   return (
     <div className="relative">
       <Button
@@ -648,11 +789,8 @@ function AddFamilyPopover({
             setError(null);
             start(async () => {
               const r = await addSubTokenAction(bookingId, fd);
-              if (r.ok) {
-                setOpen(false);
-              } else if (r.error) {
-                setError(r.error);
-              }
+              if (r.ok) setOpen(false);
+              else if (r.error) setError(r.error);
             });
           }}
           className="absolute right-0 top-full z-20 mt-2 w-72 rounded-lg border border-border bg-card/95 p-3 shadow-xl backdrop-blur"
@@ -695,103 +833,336 @@ function AddFamilyPopover({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Reschedule popover
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── reschedule popover (standalone, controlled by parent) ────────────────
 
 function ReschedulePopover({
   bookingId,
   slotTime,
   availableSlots,
+  onClose,
 }: {
   bookingId: number;
   slotTime: string;
   availableSlots: string[];
+  onClose: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-
   const options = availableSlots.filter((iso) => iso !== slotTime);
-
   return (
-    <div className="relative">
-      <Button size="sm" variant="ghost" onClick={() => setOpen((v) => !v)} title="Reschedule">
-        <Calendar className="size-3.5" />
-      </Button>
-      {open ? (
-        <div className="absolute right-0 top-full z-20 mt-2 w-72 rounded-lg border border-border bg-card/95 p-3 shadow-xl backdrop-blur">
-          <div className="mb-2 text-xs font-medium text-muted-foreground">
-            Move to another slot today
+    <div
+      className="fixed inset-0 z-40 grid place-items-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-lg border border-border bg-card p-4 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <div className="text-sm font-semibold">Reschedule to another slot</div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X className="size-4" />
+          </button>
+        </div>
+        {options.length === 0 ? (
+          <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+            No other slots open today.
           </div>
-          {options.length === 0 ? (
-            <div className="rounded-md border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
-              No other slots open today.
-            </div>
-          ) : (
-            <div className="grid max-h-56 grid-cols-3 gap-1.5 overflow-y-auto">
-              {options.map((iso) => (
-                <button
-                  key={iso}
-                  type="button"
-                  disabled={pending}
-                  onClick={() => {
-                    setError(null);
-                    start(async () => {
-                      const r = await rescheduleAction(bookingId, iso);
-                      if (r.ok) {
-                        setOpen(false);
-                      } else if (r.error) {
-                        setError(r.error);
-                      }
-                    });
-                  }}
-                  className="rounded-md border border-border bg-card/60 px-2 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:border-primary/40 hover:text-foreground"
-                >
-                  {fmtTime(iso)}
-                </button>
-              ))}
-            </div>
+        ) : (
+          <div className="grid max-h-72 grid-cols-3 gap-1.5 overflow-y-auto">
+            {options.map((iso) => (
+              <button
+                key={iso}
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  setError(null);
+                  start(async () => {
+                    const r = await rescheduleAction(bookingId, iso);
+                    if (r.ok) onClose();
+                    else if (r.error) setError(r.error);
+                  });
+                }}
+                className="rounded-md border border-border bg-card/60 px-2 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:border-primary/40 hover:text-foreground"
+              >
+                {fmtTime(iso)}
+              </button>
+            ))}
+          </div>
+        )}
+        {error ? (
+          <div className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-[11px] text-destructive">
+            {error}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+// ─── done strip (collapsible) ────────────────────────────────────────────
+
+function DoneStrip({
+  rows,
+  vocab,
+  readOnly,
+}: {
+  rows: Row[];
+  vocab: Vocab;
+  readOnly: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  if (!rows.length) return null;
+  return (
+    <div className="rounded-lg border border-border bg-card/60 backdrop-blur">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-4 py-3 text-left text-sm"
+      >
+        <div className="flex items-center gap-2">
+          <History className="size-4 text-muted-foreground" />
+          <span className="font-medium">Done today</span>
+          <span className="text-xs text-muted-foreground">({rows.length})</span>
+        </div>
+        <ChevronDown
+          className={cn(
+            "size-4 text-muted-foreground transition-transform",
+            open ? "rotate-180" : "",
           )}
-          {error ? (
-            <div className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-[11px] text-destructive">
-              {error}
-            </div>
-          ) : null}
-          <div className="mt-2 flex justify-end">
-            <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
-              Close
-            </Button>
-          </div>
+        />
+      </button>
+      {open ? (
+        <div className="space-y-1.5 border-t border-border p-3">
+          {rows.map((r) => (
+            <DoneRow key={r.bookingId} row={r} vocab={vocab} readOnly={readOnly} />
+          ))}
         </div>
       ) : null}
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Cancel button
-// ─────────────────────────────────────────────────────────────────────────────
+function DoneRow({
+  row,
+  vocab,
+  readOnly,
+}: {
+  row: Row;
+  vocab: Vocab;
+  readOnly: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-card/40 p-2.5 backdrop-blur">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="rounded-md bg-secondary px-2 py-0.5 text-xs font-bold">
+          {row.label}
+        </div>
+        <div className="min-w-0">
+          <div
+            className={cn(
+              "truncate text-sm font-semibold",
+              row.status === "no_show" || row.status === "cancelled" ? "line-through" : "",
+            )}
+          >
+            {row.patientName}
+          </div>
+          <div className="truncate text-[11px] text-muted-foreground">
+            {fmtTime(row.slotTime)} ·{" "}
+            <span className="capitalize">{row.status.replace("_", " ")}</span>
+          </div>
+        </div>
+      </div>
+      {!readOnly ? (
+        <UndoOrReopenButton row={row} />
+      ) : (
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300">
+          <CheckCircle2 className="size-3" /> Done
+        </span>
+      )}
+    </div>
+  );
+}
 
-function CancelButton({ bookingId }: { bookingId: number }) {
+function UndoOrReopenButton({ row }: { row: Row }) {
+  const [pending, start] = useTransition();
+  const [, force] = useState(0);
+
+  // Keep relative-time labels fresh while the strip is open.
+  useEffect(() => {
+    const id = setInterval(() => force((n) => n + 1), 20_000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (row.status === "cancelled") {
+    return <span className="text-[11px] text-muted-foreground">Cancelled</span>;
+  }
+
+  const completedMs = row.completedAt
+    ? new Date(row.completedAt).getTime()
+    : null;
+  const ageSec = completedMs ? (Date.now() - completedMs) / 1000 : Infinity;
+
+  // 0-30s: cheap silent undo
+  if (row.isUndoable) {
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={pending}
+        onClick={() =>
+          start(async () => {
+            await undoDoneAction(row.bookingId);
+          })
+        }
+      >
+        <RotateCcw className="size-3.5" /> Undo
+      </Button>
+    );
+  }
+
+  if (row.status === "no_show") {
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={pending}
+        onClick={() =>
+          start(async () => {
+            await restoreNoShowAction(row.bookingId);
+          })
+        }
+      >
+        <RotateCcw className="size-3.5" /> Restore
+      </Button>
+    );
+  }
+
+  // 30s-10min: "Undo · 2m ago" + green confirmed dot once stale.
+  // 10min+: "Reopen" prompting for a reason.
+  const ageLabel = ageSec < 60 ? "just now" : `${Math.floor(ageSec / 60)}m ago`;
+  const isStale = ageSec > 10 * 60;
+
+  if (!isStale) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] text-muted-foreground">{ageLabel}</span>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={pending}
+          onClick={() => {
+            const reason = prompt("Why are you reopening this booking?");
+            if (!reason) return;
+            start(async () => {
+              await reopenAction(row.bookingId, reason);
+            });
+          }}
+        >
+          <RotateCcw className="size-3.5" /> Reopen
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] text-muted-foreground">{ageLabel}</span>
+      <Button
+        size="sm"
+        variant="ghost"
+        disabled={pending}
+        title="Past undo window — reopen with a reason"
+        onClick={() => {
+          const reason = prompt("Why are you reopening this booking?");
+          if (!reason) return;
+          start(async () => {
+            await reopenAction(row.bookingId, reason);
+          });
+        }}
+      >
+        Reopen
+      </Button>
+    </div>
+  );
+}
+
+// ─── generic dropdown menu ───────────────────────────────────────────────
+
+type MenuItem = {
+  key: string;
+  icon: React.ReactNode;
+  label: string;
+  confirm?: string;
+  run: () => Promise<{ ok: boolean; error?: string }>;
+};
+
+function Menu({
+  label,
+  labelTitle,
+  items,
+}: {
+  label: React.ReactNode;
+  labelTitle?: string;
+  items: MenuItem[];
+}) {
+  const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const handle = (item: MenuItem) => {
+    if (item.confirm && !confirm(item.confirm)) return;
+    setError(null);
+    start(async () => {
+      const r = await item.run();
+      if (r.ok) setOpen(false);
+      else if (r.error) setError(r.error);
+    });
+  };
+
   return (
-    <Button
-      size="sm"
-      variant="ghost"
-      disabled={pending}
-      title={error ?? "Cancel booking"}
-      onClick={() => {
-        if (!confirm("Cancel this booking? Patient gets a WhatsApp notice if enabled.")) return;
-        setError(null);
-        start(async () => {
-          const r = await cancelAction(bookingId);
-          if (!r.ok && r.error) setError(r.error);
-        });
-      }}
-    >
-      <Trash2 className="size-3.5" />
-    </Button>
+    <div ref={rootRef} className="relative">
+      <Button
+        size="icon"
+        variant="ghost"
+        className="size-8"
+        title={labelTitle}
+        onClick={() => setOpen((v) => !v)}
+        disabled={pending}
+      >
+        {pending ? <Loader2 className="size-3.5 animate-spin" /> : label}
+      </Button>
+      {open ? (
+        <div className="absolute right-0 top-full z-30 mt-1 w-56 overflow-hidden rounded-lg border border-border bg-card/95 shadow-xl backdrop-blur">
+          {items.map((it) => (
+            <button
+              key={it.key}
+              type="button"
+              onClick={() => handle(it)}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-secondary"
+              disabled={pending}
+            >
+              <span className="text-muted-foreground">{it.icon}</span>
+              {it.label}
+            </button>
+          ))}
+          {error ? (
+            <div className="border-t border-border px-3 py-2 text-[11px] text-destructive">
+              {error}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }

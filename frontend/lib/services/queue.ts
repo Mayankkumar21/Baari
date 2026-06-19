@@ -1,5 +1,5 @@
 // Queue state machine + board view-model. Port of app/services/queue_service.py.
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { clinicToday, nowUtc } from "@/lib/time";
 import type { Booking, DailySummary, Patient, SubToken } from "@/lib/db/schema";
@@ -203,6 +203,72 @@ export async function restoreNoShow(clinicId: number, bookingId: number): Promis
     })
     .where(eq(schema.bookings.id, bookingId));
   await tryPromoteNextBooking(clinicId, b.date);
+}
+
+// After the 30s "undo" window has closed, the receptionist can still flip a
+// done/no-show back into the queue — but only with a reason, which we
+// write to audit_log so there's a paper trail.
+export async function markNoShowManual(
+  clinicId: number,
+  bookingId: number,
+): Promise<Booking> {
+  const b = await loadBooking(bookingId, clinicId);
+  if (b.status === "done" || b.status === "no_show" || b.status === "cancelled") {
+    throw new QueueActionError(`Cannot mark no-show — booking is ${b.status}.`);
+  }
+  const now = nowUtc();
+  const [updated] = await db
+    .update(schema.bookings)
+    .set({ status: "no_show", noShowAt: now, updatedAt: now })
+    .where(eq(schema.bookings.id, bookingId))
+    .returning();
+  await db
+    .update(schema.patients)
+    .set({ noShowCount: sql`${schema.patients.noShowCount} + 1` })
+    .where(eq(schema.patients.id, b.patientId));
+  // Pull the next checked-in patient into the in_consult slot if it just
+  // freed up.
+  await tryPromoteNextBooking(clinicId, b.date);
+  return updated;
+}
+
+export async function reopenBooking(args: {
+  clinicId: number;
+  bookingId: number;
+  userId: number;
+  reason: string;
+}): Promise<Booking> {
+  const reason = (args.reason ?? "").trim();
+  if (reason.length < 2) {
+    throw new QueueActionError("Please give a short reason for reopening.");
+  }
+  const b = await loadBooking(args.bookingId, args.clinicId);
+  if (b.status !== "done" && b.status !== "no_show") {
+    throw new QueueActionError("Only done or no-show bookings can be reopened.");
+  }
+  const now = nowUtc();
+  const [updated] = await db
+    .update(schema.bookings)
+    .set({
+      status: "checked_in",
+      completedAt: null,
+      noShowAt: null,
+      checkedInAt: b.checkedInAt ?? now,
+      updatedAt: now,
+    })
+    .where(eq(schema.bookings.id, args.bookingId))
+    .returning();
+  // Write the reason to audit_log for the paper trail.
+  await db.insert(schema.auditLog).values({
+    clinicId: args.clinicId,
+    userId: args.userId,
+    eventType: "booking.reopen",
+    entityType: "booking",
+    entityId: args.bookingId,
+    changes: { previousStatus: b.status, reason: reason.slice(0, 200) },
+  });
+  await tryPromoteNextBooking(args.clinicId, b.date);
+  return updated;
 }
 
 export async function undoDone(clinicId: number, bookingId: number): Promise<void> {

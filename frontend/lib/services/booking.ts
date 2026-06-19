@@ -144,6 +144,49 @@ export async function createBooking(args: {
   return booking;
 }
 
+// Walk-in: receptionist takes a customer who's standing in front of them.
+// Auto-pick the next open slot today; default party_size 1; reason "Walk-in".
+// On creation we immediately flip to checked_in so the receptionist doesn't
+// need a separate click — walk-ins are already physically present.
+export async function createWalkIn(args: {
+  clinic: Clinic;
+  createdByUserId: number;
+  name: string;
+  mobile: string;
+}): Promise<Booking> {
+  const name = args.name.trim();
+  if (!name || name.length > 80) throw new BookingError("Name is required (max 80 characters).");
+  const mobile = normalizeMobile(args.mobile);
+  if (!mobile) throw new BookingError("Enter a valid 10-digit Indian mobile number.");
+
+  const on = clinicToday();
+  const taken = await takenSlots(args.clinic.id, on);
+  const slots = availableSlots(args.clinic, on, taken);
+  if (slots.length === 0) {
+    throw new BookingError("No open slots today. Adjust opening hours or try tomorrow.");
+  }
+  const slotTime = new Date(slots[0]);
+
+  const patient = await upsertPatient(args.clinic.id, name, mobile, false, false);
+  const token = await nextToken(args.clinic.id, on);
+  const [booking] = await db
+    .insert(schema.bookings)
+    .values({
+      clinicId: args.clinic.id,
+      patientId: patient.id,
+      date: on,
+      token,
+      slotTime,
+      reason: "Walk-in",
+      partySize: 1,
+      status: "checked_in",
+      checkedInAt: nowUtc(),
+      createdByUserId: args.createdByUserId,
+    })
+    .returning();
+  return booking;
+}
+
 export async function rescheduleBooking(args: {
   clinicId: number;
   bookingId: number;
