@@ -93,7 +93,10 @@ export const VOCABS: Record<TenantTypeKey, Vocab> = {
     providerTitled: "Vet",
     session: "visit",
     sessionTitled: "Visit",
-    sessionProgress: "in exam",
+    // Vet patients are examined like clinic patients — "in consult" reads
+    // naturally for both. "in exam" was overly clinical and didn't match
+    // how clinics talk about a doctor seeing a pet.
+    sessionProgress: "in consult",
   },
   other: {
     ...DEFAULT,
@@ -106,7 +109,9 @@ export const VOCABS: Record<TenantTypeKey, Vocab> = {
     providerTitled: "Owner",
     session: "appointment",
     sessionTitled: "Appointment",
-    sessionProgress: "with provider",
+    // "with provider" was a placeholder. "in session" is generic and
+    // recognisable across coaching, legal, notary, and services at large.
+    sessionProgress: "in session",
     staff: "staff",
     staffTitled: "Staff",
     reasonLabel: "Notes",

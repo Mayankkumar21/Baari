@@ -191,7 +191,9 @@ export function BookForm({
                         ? "border-border bg-card/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
                         : isTaken
                           ? "border-border/40 bg-secondary/30 text-muted-foreground/40 line-through cursor-not-allowed"
-                          : "border-border/40 bg-card/30 text-muted-foreground/30 cursor-not-allowed",
+                          // past — dashed border + heavier strike + lower opacity so it
+                          // reads as visually inert next to open slots.
+                          : "border-dashed border-border/40 bg-transparent text-muted-foreground/40 line-through opacity-60 cursor-not-allowed",
                   )}
                 >
                   {fmtTime(iso)}

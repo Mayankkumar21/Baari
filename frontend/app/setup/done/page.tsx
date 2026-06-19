@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, CalendarPlus, Settings, UserPlus } from "lucide-react";
+import { ArrowRight, CalendarPlus, Settings } from "lucide-react";
 import { requireSession } from "@/lib/session";
 import { vocabFor } from "@/lib/vocab";
 import { Button } from "@/components/ui/button";
@@ -22,11 +22,6 @@ export default async function SetupDonePage() {
       icon: Settings,
       title: "Tweak settings any time",
       body: `Slot length, hours, no-show threshold — all editable from Settings.`,
-    },
-    {
-      icon: UserPlus,
-      title: "Invite a teammate",
-      body: `Coming soon — multi-user workspaces with role-based access.`,
     },
   ];
 

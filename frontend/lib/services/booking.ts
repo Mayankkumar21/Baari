@@ -39,9 +39,16 @@ export function enumerateSlots(
   let cursor = combineDateTime(on, block.open);
   const end = combineDateTime(on, block.close);
   const out: SlotInfo[] = [];
+  // A slot is "past" once its END time has elapsed — meaning the entire
+  // window is gone, not just the start. That way at 19:18, a slot starting
+  // at 19:00 (ending 19:20) is still bookable for late arrivals, the slot
+  // starting at 19:20 is clearly open, and only the genuinely-finished
+  // ones grey out. The previous 5-minute-after-start grace was too quick
+  // to retire near-future slots.
   while (cursor < end) {
     const iso = cursor.toISOString();
-    const past = cursor.getTime() < now.getTime() - 5 * 60 * 1000;
+    const slotEnd = cursor.getTime() + slotLen * 60 * 1000;
+    const past = slotEnd <= now.getTime();
     const status: SlotStatus = past ? "past" : taken.has(iso) ? "taken" : "open";
     out.push({ iso, status });
     cursor = new Date(cursor.getTime() + slotLen * 60 * 1000);

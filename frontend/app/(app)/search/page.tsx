@@ -37,22 +37,55 @@ async function search(clinicId: number, q: string) {
     .limit(30);
 }
 
-function relativeTime(iso: string | null): string {
+// "just now" / "10m ago" stays useful while the timestamp is *fresh* — but
+// after an hour, an exact wallclock ("yesterday 14:30") tells the receptionist
+// far more than "3h ago" or "12d ago". The old function leaned on relative
+// strings even for visits months back, which masked the actual date.
+function visitStamp(iso: string | null): string {
   if (!iso) return "no visits yet";
-  const ms = Date.now() - new Date(iso).getTime();
+  const d = new Date(iso);
+  const ms = Date.now() - d.getTime();
   const sec = Math.round(ms / 1000);
   if (sec < 60) return "just now";
   const min = Math.round(sec / 60);
   if (min < 60) return `${min}m ago`;
-  const hr = Math.round(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const days = Math.round(hr / 24);
-  if (days === 0) return "today";
-  if (days === 1) return "yesterday";
-  if (days < 30) return `${days}d ago`;
-  const months = Math.round(days / 30);
-  if (months < 12) return `${months}mo ago`;
-  return `${Math.round(months / 12)}y ago`;
+
+  // ≥ 1 hour: anchor to the actual day.
+  const time = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d);
+
+  const today = new Date();
+  const sameDay = (a: Date, b: Date) =>
+    a.toDateString() === b.toDateString();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
+  if (sameDay(d, today)) return `today ${time}`;
+  if (sameDay(d, yesterday)) return `yesterday ${time}`;
+
+  // Within the past week: weekday + time.
+  const daysAgo = Math.floor((Date.now() - d.getTime()) / (24 * 60 * 60 * 1000));
+  if (daysAgo < 7) {
+    const weekday = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Kolkata",
+      weekday: "short",
+    }).format(d);
+    return `${weekday} ${time}`;
+  }
+
+  // Within the current calendar year: day + short month.
+  const sameYear = d.getFullYear() === today.getFullYear();
+  const dayMonth = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "short",
+    ...(sameYear ? {} : { year: "numeric" }),
+  }).format(d);
+  return `${dayMonth} ${time}`;
 }
 
 export default async function SearchPage({
@@ -101,7 +134,10 @@ export default async function SearchPage({
               <ul className="space-y-1.5">
                 {results.map((r) => (
                   <li key={r.id}>
-                    <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-card/60 p-3 backdrop-blur transition-all hover:border-primary/40 hover:translate-x-0.5">
+                    <Link
+                      href={`/search/${encodeURIComponent(r.patientMobile)}`}
+                      className="flex items-center justify-between gap-3 rounded-md border border-border bg-card/60 p-3 backdrop-blur transition-all hover:border-primary/40 hover:translate-x-0.5"
+                    >
                       <div className="min-w-0">
                         <div className="truncate font-semibold">
                           T{r.token} · {r.patientName}
@@ -111,7 +147,7 @@ export default async function SearchPage({
                         </div>
                       </div>
                       <SearchStatusPill status={r.status} />
-                    </div>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -183,10 +219,10 @@ function RecentGuests({
         <ul className="space-y-1.5">
           {rows.map((g) => (
             <li key={g.id}>
-              {/* Clicking the row re-searches for the guest's mobile — that
-                  returns every booking they've ever had at this clinic. */}
+              {/* Open the full customer profile — visit counts, no-shows,
+                  language preference, and the complete booking history. */}
               <Link
-                href={`/search?q=${encodeURIComponent(g.mobile)}`}
+                href={`/search/${encodeURIComponent(g.mobile)}`}
                 className="flex items-center justify-between rounded-md border border-border bg-card/60 p-3 backdrop-blur transition-all hover:border-primary/40 hover:translate-x-0.5"
               >
                 <div className="min-w-0">
@@ -211,7 +247,7 @@ function RecentGuests({
                     {" · "}
                     <span className="inline-flex items-center gap-1">
                       <Clock className="size-2.5" />
-                      {relativeTime(g.lastVisitAt)}
+                      {visitStamp(g.lastVisitAt)}
                     </span>
                     {g.lastReason ? (
                       <>
@@ -221,7 +257,7 @@ function RecentGuests({
                     ) : null}
                   </div>
                 </div>
-                <span className="text-[11px] text-muted-foreground">View history →</span>
+                <span className="text-[11px] text-muted-foreground">Open profile →</span>
               </Link>
             </li>
           ))}
