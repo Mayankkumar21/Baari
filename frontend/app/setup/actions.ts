@@ -45,5 +45,5 @@ export async function setupAction(_prev: SetupState, formData: FormData): Promis
     })
     .where(eq(schema.clinics.id, sess.clinic.id));
 
-  redirect("/queue");
+  redirect("/setup/done");
 }

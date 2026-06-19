@@ -25,7 +25,7 @@ export default async function SignupPage({
               Start for free
             </h1>
             <p className="text-sm text-muted-foreground">
-              Set up your workspace in under a minute. No card needed.
+              Set up your workspace in a couple of minutes. No card needed.
             </p>
           </div>
           <SignupForm initialType={sp.type} />

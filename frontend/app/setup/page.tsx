@@ -3,11 +3,35 @@ import { requireSession } from "@/lib/session";
 import { Card, CardContent } from "@/components/ui/card";
 import { SetupForm } from "./setup-form";
 
+// Type-aware no-show thresholds. A clinic doctor running 15-min slots tolerates
+// far less lateness than a spa with 60-min sessions; falling back to 30 for
+// "other" feels safe.
+const NO_SHOW_DEFAULTS_BY_TYPE: Record<string, number> = {
+  clinic: 15,
+  dental: 20,
+  salon: 30,
+  spa: 45,
+  vet: 20,
+  other: 30,
+};
+
 export default async function SetupPage() {
   const sess = await requireSession();
   if (sess.clinic.setupComplete) redirect("/queue");
 
-  const openingHours = (sess.clinic.openingHours as Record<string, { open?: string; close?: string; closed?: boolean }>) ?? {};
+  const openingHours =
+    (sess.clinic.openingHours as Record<
+      string,
+      { open?: string; close?: string; closed?: boolean }
+    >) ?? {};
+
+  // The signup action seeds noShowThresholdMin = 45 for everyone. Override
+  // with the type-aware default the first time the user lands on /setup.
+  const typeDefault =
+    NO_SHOW_DEFAULTS_BY_TYPE[sess.clinic.tenantType] ??
+    NO_SHOW_DEFAULTS_BY_TYPE.other;
+  const noShowInitial =
+    sess.clinic.noShowThresholdMin === 45 ? typeDefault : sess.clinic.noShowThresholdMin;
 
   return (
     <div className="relative grid min-h-screen place-items-center px-4 py-10">
@@ -27,7 +51,7 @@ export default async function SetupPage() {
             initial={{
               address: sess.clinic.address,
               slotLength: sess.clinic.slotLengthMin,
-              noShowThreshold: sess.clinic.noShowThresholdMin,
+              noShowThreshold: noShowInitial,
               openingHours,
             }}
           />

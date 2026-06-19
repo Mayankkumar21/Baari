@@ -1,10 +1,14 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef, useState } from "react";
+import { Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { setupAction, type SetupState } from "./actions";
+import { cn } from "@/lib/utils";
+
+const SLOT_OPTIONS = [15, 20, 30, 45, 60] as const;
 
 const DAYS: { key: string; label: string; defaultOpen?: string; defaultClose?: string }[] = [
   { key: "mon", label: "Monday", defaultOpen: "09:00", defaultClose: "19:00" },
@@ -16,10 +20,47 @@ const DAYS: { key: string; label: string; defaultOpen?: string; defaultClose?: s
   { key: "sun", label: "Sunday" },
 ];
 
-export function SetupForm({ initial }: { initial: { address?: string | null; slotLength: number; noShowThreshold: number; openingHours: Record<string, { open?: string; close?: string; closed?: boolean }> } }) {
+const WEEKDAY_KEYS = ["tue", "wed", "thu", "fri"] as const;
+
+export function SetupForm({
+  initial,
+}: {
+  initial: {
+    address?: string | null;
+    slotLength: number;
+    noShowThreshold: number;
+    openingHours: Record<string, { open?: string; close?: string; closed?: boolean }>;
+  };
+}) {
   const [state, action, pending] = useActionState<SetupState, FormData>(setupAction, {});
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Snap incoming slotLength to the closest dropdown option so a value of
+  // e.g. 25 (from a future setting) doesn't drop to 0.
+  const initialSlotInOptions = (SLOT_OPTIONS as readonly number[]).includes(initial.slotLength)
+    ? initial.slotLength
+    : SLOT_OPTIONS.reduce((a, b) =>
+        Math.abs(b - initial.slotLength) < Math.abs(a - initial.slotLength) ? b : a,
+      );
+  const [slotLength, setSlotLength] = useState<number>(initialSlotInOptions);
+
+  // Allow the "copy Monday hours" button to flow values into the other
+  // weekday inputs without forcing a controlled-component rewrite.
+  const copyMonToWeekdays = () => {
+    const form = formRef.current;
+    if (!form) return;
+    const monOpen = (form.elements.namedItem("mon_open") as HTMLInputElement | null)?.value ?? "";
+    const monClose = (form.elements.namedItem("mon_close") as HTMLInputElement | null)?.value ?? "";
+    for (const d of WEEKDAY_KEYS) {
+      const openEl = form.elements.namedItem(`${d}_open`) as HTMLInputElement | null;
+      const closeEl = form.elements.namedItem(`${d}_close`) as HTMLInputElement | null;
+      if (openEl) openEl.value = monOpen;
+      if (closeEl) closeEl.value = monClose;
+    }
+  };
+
   return (
-    <form action={action} className="space-y-6">
+    <form ref={formRef} action={action} className="space-y-6">
       <div className="space-y-1.5">
         <Label htmlFor="address">Address (optional)</Label>
         <Input id="address" name="address" defaultValue={initial.address ?? ""} maxLength={300} />
@@ -27,22 +68,62 @@ export function SetupForm({ initial }: { initial: { address?: string | null; slo
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label htmlFor="slot_length_min">Slot length (minutes)</Label>
-          <Input id="slot_length_min" name="slot_length_min" type="number" min={5} max={240} defaultValue={initial.slotLength} />
+          <Label htmlFor="slot_length_min">Slot length</Label>
+          <div className="grid grid-cols-5 gap-1.5">
+            {SLOT_OPTIONS.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => setSlotLength(opt)}
+                className={cn(
+                  "rounded-md border px-2 py-2 text-sm font-medium transition-all",
+                  slotLength === opt
+                    ? "border-primary bg-primary/10 text-foreground shadow-[0_0_0_1px_hsl(var(--primary)/0.5)]"
+                    : "border-border bg-card/60 text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                )}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+          <input type="hidden" name="slot_length_min" value={slotLength} />
+          <p className="text-[11px] text-muted-foreground">
+            How long is one appointment? Used to space out bookings.
+          </p>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="no_show_threshold_min">No-show threshold (minutes)</Label>
-          <Input id="no_show_threshold_min" name="no_show_threshold_min" type="number" min={0} defaultValue={initial.noShowThreshold} />
+          <Label htmlFor="no_show_threshold_min">No-show threshold (min)</Label>
+          <Input
+            id="no_show_threshold_min"
+            name="no_show_threshold_min"
+            type="number"
+            min={0}
+            defaultValue={initial.noShowThreshold}
+          />
+          <p className="text-[11px] text-muted-foreground">
+            How late before we mark someone as no-show?
+          </p>
         </div>
       </div>
 
       <div>
-        <Label className="mb-2 block">Opening hours</Label>
-        <div className="space-y-2">
+        <div className="flex items-end justify-between gap-2">
+          <Label className="block">Opening hours</Label>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={copyMonToWeekdays}
+            className="text-xs"
+          >
+            <Copy className="size-3" /> Copy Monday to weekdays
+          </Button>
+        </div>
+        <div className="mt-2 space-y-2">
           {DAYS.map(({ key, label, defaultOpen, defaultClose }) => {
             const cur = initial.openingHours[key] ?? {};
-            const open = cur.closed ? "" : cur.open ?? defaultOpen ?? "";
-            const close = cur.closed ? "" : cur.close ?? defaultClose ?? "";
+            const open = cur.closed ? "" : (cur.open ?? defaultOpen ?? "");
+            const close = cur.closed ? "" : (cur.close ?? defaultClose ?? "");
             return (
               <div key={key} className="grid grid-cols-[100px_1fr_1fr] items-center gap-2">
                 <div className="text-sm text-muted-foreground">{label}</div>
