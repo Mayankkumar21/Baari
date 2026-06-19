@@ -47,7 +47,7 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
     return { error: "Your name is required" };
   }
   const mobile = normalizeMobile(mobileRaw);
-  if (!mobile) return { error: "Enter a valid 10-digit mobile number" };
+  if (!mobile) return { error: "Enter a valid Indian mobile (10 digits, starting with 6, 7, 8 or 9)." };
   const pwErr = passwordStrength(password);
   if (pwErr) return { error: pwErr };
 

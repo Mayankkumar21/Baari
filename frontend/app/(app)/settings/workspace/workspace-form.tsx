@@ -86,7 +86,7 @@ export function WorkspaceForm({
           placeholder="Where customers can find you"
         />
         <p className="text-[11px] text-muted-foreground">
-          Shown on booking confirmations when you wire WhatsApp.
+          Shown on booking confirmations.
         </p>
       </div>
 

@@ -125,7 +125,7 @@ export async function createBooking(args: {
   const name = args.name.trim();
   if (!name || name.length > 80) throw new BookingError("Name is required (max 80 characters).");
   const mobile = normalizeMobile(args.mobile);
-  if (!mobile) throw new BookingError("Enter a valid 10-digit Indian mobile number.");
+  if (!mobile) throw new BookingError("Enter a valid Indian mobile (10 digits, starting with 6, 7, 8 or 9).");
   if (args.partySize < 1 || args.partySize > 5)
     throw new BookingError("Party size must be between 1 and 5.");
   if (args.reason && args.reason.length > 200)
@@ -175,7 +175,7 @@ export async function createWalkIn(args: {
   const name = args.name.trim();
   if (!name || name.length > 80) throw new BookingError("Name is required (max 80 characters).");
   const mobile = normalizeMobile(args.mobile);
-  if (!mobile) throw new BookingError("Enter a valid 10-digit Indian mobile number.");
+  if (!mobile) throw new BookingError("Enter a valid Indian mobile (10 digits, starting with 6, 7, 8 or 9).");
 
   const on = clinicToday();
   const taken = await takenSlots(args.clinic.id, on);

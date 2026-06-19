@@ -164,8 +164,11 @@ export async function deleteWorkspace(
     await tx.delete(schema.clinics).where(eq(schema.clinics.id, cid));
   });
 
-  // Sign the user out and bounce to /login.
+  // Sign the user out and bounce to a friendly confirmation page. Going to
+  // /login or /queue here is fragile — those routes re-read the (now-deleted)
+  // clinic via requireDoctor/requireSetup and crash before the cookie clear
+  // takes effect on the next request.
   const jar = await cookies();
   jar.delete(SESSION_COOKIE);
-  redirect("/login");
+  redirect("/workspace-deleted");
 }

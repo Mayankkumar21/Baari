@@ -64,14 +64,6 @@ export function AddGuestButton() {
                 placeholder="10 digits"
               />
             </div>
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              <input
-                type="checkbox"
-                name="whatsapp_opt_out"
-                className="accent-primary"
-              />{" "}
-              Don't send WhatsApp
-            </label>
             {state.error ? (
               <div className="rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-[11px] text-destructive">
                 {state.error}

@@ -152,9 +152,6 @@ export function BookForm({
         <label className="flex items-center gap-2 text-xs text-muted-foreground">
           <input type="checkbox" name="is_new" defaultChecked className="accent-primary" /> First visit
         </label>
-        <label className="flex items-center gap-2 text-xs text-muted-foreground">
-          <input type="checkbox" name="whatsapp_opt_out" className="accent-primary" /> Don't send WhatsApp
-        </label>
       </div>
 
       <div>

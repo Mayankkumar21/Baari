@@ -24,7 +24,9 @@ function secret(): Uint8Array {
 }
 
 // Indian mobile: 10 digits, optionally prefixed +91 or 0. Stored as 10 digits.
-const MOBILE_RE = /^(?:\+?91|0)?(\d{10})$/;
+// Per TRAI, the first digit of an Indian mobile must be 6, 7, 8, or 9 — any
+// other leading digit is a landline/STD code or a typo, never a mobile.
+const MOBILE_RE = /^(?:\+?91|0)?([6-9]\d{9})$/;
 export function normalizeMobile(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const cleaned = raw.trim().replace(/[\s-]/g, "");

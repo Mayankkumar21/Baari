@@ -193,8 +193,11 @@ function RecentGuests({
                   <div className="flex items-center gap-2">
                     <span className="truncate font-semibold">{g.name}</span>
                     {g.isNew && !g.lastVisitAt ? (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                        <UserPlus className="size-2.5" /> new
+                      <span
+                        title="On file but hasn't visited yet."
+                        className="inline-flex cursor-help items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+                      >
+                        <UserPlus className="size-2.5" /> first visit
                       </span>
                     ) : null}
                     {g.noShowCount > 0 ? (

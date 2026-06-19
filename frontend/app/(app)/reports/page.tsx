@@ -20,27 +20,51 @@ import {
 // Snap to ~60s freshness so refreshes are cheap.
 export const revalidate = 60;
 
-function fmtPctDelta(now: number, prev: number): {
-  label: string;
-  tone: "up" | "down" | "neutral";
-} {
-  if (prev === 0 && now === 0) return { label: "—", tone: "neutral" };
-  if (prev === 0) return { label: "new", tone: "up" };
+// Bare "new" hides whether the period saw 1 booking or 100. Spell out the
+// count and add a tooltip so the owner doesn't have to guess.
+function fmtPctDelta(
+  now: number,
+  prev: number,
+): { label: string; tone: "up" | "down" | "neutral"; title?: string } {
+  if (prev === 0 && now === 0) {
+    return { label: "no data", tone: "neutral", title: "Nothing in this range yet." };
+  }
+  if (prev === 0) {
+    return {
+      label: `+${now} (new)`,
+      tone: "up",
+      title: "Nothing in the previous period to compare against — pure gain.",
+    };
+  }
   const delta = (now - prev) / prev;
-  if (Math.abs(delta) < 0.01) return { label: "0%", tone: "neutral" };
+  if (Math.abs(delta) < 0.01) {
+    return { label: "no change", tone: "neutral", title: "Same as the previous period." };
+  }
   const pct = Math.round(delta * 100);
   return {
-    label: (pct > 0 ? "+" : "") + pct + "%",
+    label: (pct > 0 ? "+" : "") + pct + "% vs prev",
     tone: pct > 0 ? "up" : "down",
+    title: `Previous period: ${prev}. Now: ${now}.`,
   };
 }
 
+// "pp" (percentage points) is correct but esoteric. Use plain "% pts" with a
+// tooltip that explains it in dollars-and-cents English.
 function fmtRateDelta(now: number, prev: number) {
-  const diff = Math.round((now - prev) * 1000) / 10; // percentage points
-  if (Math.abs(diff) < 0.1) return { label: "0pp", tone: "neutral" as const };
+  const nowPct = Math.round(now * 1000) / 10;
+  const prevPct = Math.round(prev * 1000) / 10;
+  const diff = Math.round((now - prev) * 1000) / 10;
+  if (Math.abs(diff) < 0.1) {
+    return {
+      label: "no change",
+      tone: "neutral" as const,
+      title: `Previous: ${prevPct}%. Now: ${nowPct}%.`,
+    };
+  }
   return {
-    label: (diff > 0 ? "+" : "") + diff + "pp",
+    label: (diff > 0 ? "+" : "") + diff + "% pts",
     tone: diff > 0 ? ("up" as const) : ("down" as const),
+    title: `Previous: ${prevPct}%. Now: ${nowPct}%.`,
   };
 }
 
@@ -52,13 +76,20 @@ function fmtSecAvg(sec: number | null): string {
 
 function fmtSecDelta(now: number | null, prev: number | null) {
   if (now == null || prev == null || prev === 0) {
-    return { label: "—", tone: "neutral" as const };
+    return { label: "—", tone: "neutral" as const, title: undefined };
   }
   const delta = Math.round(((now - prev) / prev) * 100);
-  if (Math.abs(delta) < 1) return { label: "0%", tone: "neutral" as const };
+  if (Math.abs(delta) < 1) {
+    return {
+      label: "no change",
+      tone: "neutral" as const,
+      title: "Same as the previous period.",
+    };
+  }
   return {
-    label: (delta > 0 ? "+" : "") + delta + "%",
+    label: (delta > 0 ? "+" : "") + delta + "% vs prev",
     tone: delta > 0 ? ("up" as const) : ("down" as const),
+    title: `Previous period: ${prev}s. Now: ${now}s.`,
   };
 }
 
@@ -72,7 +103,7 @@ function Kpi({
 }: {
   label: string;
   value: string;
-  delta: { label: string; tone: DeltaTone };
+  delta: { label: string; tone: DeltaTone; title?: string };
   // For metrics where "up" is bad (no-show rate, wait time), flip the color.
   invertColor?: boolean;
 }) {
@@ -92,8 +123,10 @@ function Kpi({
         </div>
         <div className="mt-1 text-2xl font-bold tabular-nums">{value}</div>
         <div
+          title={delta.title}
           className={cn(
             "mt-1 inline-flex items-center gap-1 text-[11px] font-medium",
+            delta.title && "cursor-help",
             tone === "up" && "text-emerald-600 dark:text-emerald-400",
             tone === "down" && "text-rose-600 dark:text-rose-400",
             tone === "neutral" && "text-muted-foreground",
