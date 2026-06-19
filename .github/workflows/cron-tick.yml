@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - name: POST /api/cron/tick
+      - name: GET /api/cron/tick
         env:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
@@ -31,6 +31,6 @@ jobs:
             exit 1
           fi
           curl --fail --silent --show-error \
-            -X POST "$APP_URL/api/cron/tick" \
+            "$APP_URL/api/cron/tick" \
             -H "Authorization: Bearer $CRON_SECRET" \
             --max-time 30
