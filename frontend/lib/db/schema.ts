@@ -223,6 +223,54 @@ export const rateLimitBuckets = pgTable("rate_limit_buckets", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// One-off closures (Diwali, owner vacation, half-day). The booking page
+// consults this alongside the recurring openingHours JSON.
+export const closedDays = pgTable(
+  "closed_days",
+  {
+    id: serial("id").primaryKey(),
+    clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+    date: date("date").notNull(),
+    reason: varchar("reason", { length: 120 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uq: uniqueIndex("uq_closed_clinic_date").on(t.clinicId, t.date),
+  }),
+);
+
+// Short-lived tokens issued when a customer is offered a self-serve booking
+// link — e.g. after a missed call. Customer taps the SMS link, lands on
+// /b/<linkToken>, picks a slot, and the request gets "spent" (bookingId set,
+// usedAt stamped). Single-use, time-boxed.
+export const bookingRequestSource = pgEnum("booking_request_source", [
+  "missed_call",
+  "owner_test",
+  "manual",
+]);
+
+export const bookingRequests = pgTable(
+  "booking_requests",
+  {
+    id: serial("id").primaryKey(),
+    clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+    mobile: varchar("mobile", { length: 15 }).notNull(),
+    patientId: integer("patient_id").references(() => patients.id),
+    linkToken: varchar("link_token", { length: 32 }).notNull(),
+    source: bookingRequestSource("source").notNull().default("missed_call"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    bookingId: integer("booking_id").references(() => bookings.id),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelReason: varchar("cancel_reason", { length: 200 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uqToken: uniqueIndex("uq_booking_request_token").on(t.linkToken),
+    pendingIdx: index("idx_booking_request_pending").on(t.clinicId, t.expiresAt),
+  }),
+);
+
 export const dailySummaries = pgTable(
   "daily_summaries",
   {
@@ -259,3 +307,7 @@ export type SubToken = typeof subTokens.$inferSelect;
 export type NewSubToken = typeof subTokens.$inferInsert;
 export type DailySummary = typeof dailySummaries.$inferSelect;
 export type NewDailySummary = typeof dailySummaries.$inferInsert;
+export type ClosedDay = typeof closedDays.$inferSelect;
+export type NewClosedDay = typeof closedDays.$inferInsert;
+export type BookingRequest = typeof bookingRequests.$inferSelect;
+export type NewBookingRequest = typeof bookingRequests.$inferInsert;

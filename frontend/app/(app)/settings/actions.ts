@@ -8,6 +8,7 @@ import { db, schema } from "@/lib/db/client";
 import { requireDoctor } from "@/lib/session";
 import { SESSION_COOKIE } from "@/lib/auth";
 import { hashPassword, passwordStrength, verifyPassword } from "@/lib/password";
+import { createBookingRequest } from "@/lib/services/booking-request";
 
 const TENANT_TYPES = ["clinic", "salon", "spa", "dental", "vet", "other"] as const;
 const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
@@ -171,4 +172,31 @@ export async function deleteWorkspace(
   const jar = await cookies();
   jar.delete(SESSION_COOKIE);
   redirect("/workspace-deleted");
+}
+
+// ─── Dev: make a self-serve booking link the owner can walk through ──────
+//
+// In dev / pre-launch we don't have Exotel wired yet — but the owner needs
+// to see what the customer flow feels like. This action mints a
+// booking_request bound to the owner's own mobile, then redirects them to
+// the same /b/<token> page a customer would land on after the SMS.
+
+export type TestLinkState = { error?: string; ok?: boolean };
+
+export async function makeTestBookingLink(
+  _prev: TestLinkState,
+  _formData: FormData,
+): Promise<TestLinkState> {
+  const sess = await requireDoctor();
+  try {
+    const request = await createBookingRequest({
+      clinicId: sess.clinic.id,
+      mobile: sess.user.mobile,
+      source: "owner_test",
+    });
+    redirect(`/b/${request.linkToken}`);
+  } catch (err) {
+    if (err instanceof Error && err.message === "NEXT_REDIRECT") throw err;
+    return { error: err instanceof Error ? err.message : "Could not create link." };
+  }
 }
