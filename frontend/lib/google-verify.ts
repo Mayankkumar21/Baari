@@ -7,16 +7,19 @@
 //    GOOGLE_WEB_CLIENT_ID env var. Rejects expired, tampered, or
 //    wrong-audience tokens.
 //
-//  • DEV: when DEV_AUTH_ENABLED=true, also accepts tokens of the form
-//    `mock:<email>:<name>:<HMAC>` produced by the Replit/Expo stub.
-//    The HMAC binds the mock token to our JWT_SECRET so randoms can't
-//    forge customer accounts even if they discover the endpoint.
+//  • DEV: when DEV_AUTH_ENABLED=true, also accepts short-form mock
+//    tokens of the shape `mock:<id>` where <id> is one of the
+//    pre-defined dev customers (anjali / rohan / priya). The mobile
+//    stub can't HMAC against JWT_SECRET (it doesn't have the secret),
+//    so we rely on (a) the endpoint being opt-in via env, and (b) the
+//    mock IDs being a fixed allow-list — random strangers can't mint
+//    arbitrary customer rows.
 //
 // Production builds with DEV_AUTH_ENABLED unset will ALWAYS use the
-// real path — no accidental mock acceptance.
+// real Google path — no accidental mock acceptance.
 
 import { OAuth2Client } from "google-auth-library";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { devAuthEnabled, resolveDevCustomer } from "./dev-customers";
 
 export type VerifiedGoogleIdentity = {
   googleId: string;
@@ -41,9 +44,17 @@ export async function verifyGoogleIdToken(
 ): Promise<VerifiedGoogleIdentity | null> {
   if (!idToken) return null;
 
-  // Dev path — mock tokens accepted only when explicitly enabled.
-  if (idToken.startsWith("mock:") && process.env.DEV_AUTH_ENABLED === "true") {
-    return verifyMockToken(idToken);
+  // Dev path — `mock:<id>` accepted only when DEV_AUTH_ENABLED is true.
+  if (idToken.startsWith("mock:") && devAuthEnabled()) {
+    const id = idToken.slice("mock:".length).trim();
+    const profile = resolveDevCustomer(id);
+    if (!profile) return null;
+    return {
+      googleId: profile.googleId,
+      email: profile.email,
+      name: profile.name,
+      photoUrl: profile.photoUrl,
+    };
   }
 
   // Prod path — full Google verification.
@@ -63,40 +74,5 @@ export async function verifyGoogleIdToken(
     };
   } catch {
     return null;
-  }
-}
-
-// `mock:<email>:<name>:<hmac>` where hmac = HMAC-SHA256(JWT_SECRET,
-// `${email}:${name}`). The Expo stub computes this when AUTH_MODE=mock.
-function verifyMockToken(token: string): VerifiedGoogleIdentity | null {
-  const secret = process.env.JWT_SECRET || process.env.SECRET_KEY;
-  if (!secret) return null;
-
-  const parts = token.split(":");
-  if (parts.length < 4 || parts[0] !== "mock") return null;
-  // Email is parts[1]; name is parts[2..n-1] joined by ":" (in case the
-  // name itself contains a colon); HMAC is the last part.
-  const email = parts[1]!;
-  const hmacHex = parts[parts.length - 1]!;
-  const name = parts.slice(2, parts.length - 1).join(":");
-  if (!email || !name || !hmacHex) return null;
-
-  const expected = createHmac("sha256", secret).update(`${email}:${name}`).digest("hex");
-  if (!timingEqual(expected, hmacHex)) return null;
-
-  return {
-    googleId: `mock-${email}`, // stable identity, isolated namespace
-    email,
-    name,
-    photoUrl: null,
-  };
-}
-
-function timingEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  try {
-    return timingSafeEqual(Buffer.from(a), Buffer.from(b));
-  } catch {
-    return false;
   }
 }
