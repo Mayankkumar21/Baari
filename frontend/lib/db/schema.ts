@@ -73,8 +73,22 @@ export const clinics = pgTable("clinics", {
   noShowThresholdMin: integer("no_show_threshold_min").notNull().default(45),
   retentionDays: integer("retention_days").notNull().default(730),
   setupComplete: boolean("setup_complete").notNull().default(false),
+  // Customer-app discoverability fields. `slug` is a stable URL-safe
+  // handle (auto-generated from name on backfill). `publicListing`
+  // gates whether the workspace appears in /api/v1/clinics/search —
+  // owners opt in explicitly from Settings.
+  // `phone` is the customer-facing contact number (tap-to-call on the
+  // app + booking page). Distinct from `users.mobile` (owner login).
+  // `city` lets us run the "Near you" section without a full geocode.
+  slug: varchar("slug", { length: 80 }),
+  publicListing: boolean("public_listing").notNull().default(false),
+  phone: varchar("phone", { length: 15 }),
+  city: varchar("city", { length: 60 }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => ({
+  uqSlug: uniqueIndex("uq_clinics_slug").on(t.slug),
+  publicListingIdx: index("idx_clinics_public_listing").on(t.publicListing),
+}));
 
 export const users = pgTable(
   "users",
@@ -239,6 +253,36 @@ export const closedDays = pgTable(
   }),
 );
 
+// Customer-app accounts. Global (not per-clinic) — one row per Google
+// account. When a customer books at clinic A, the backend upserts a
+// row in `patients` (clinicId=A) using the customer's mobile as the
+// link. Clinic-side data stays per-clinic-isolated; the customer side
+// follows the same account across every clinic they ever visit.
+//
+// Distinct from `users` (clinic staff with passwords). Customer auth
+// uses Google ID tokens → our Bearer JWT, not cookies.
+export const customers = pgTable(
+  "customers",
+  {
+    id: serial("id").primaryKey(),
+    googleId: varchar("google_id", { length: 64 }).notNull(),
+    email: varchar("email", { length: 200 }).notNull(),
+    name: varchar("name", { length: 80 }).notNull(),
+    photoUrl: text("photo_url"),
+    mobile: varchar("mobile", { length: 15 }),
+    language: varchar("language", { length: 2 }).notNull().default("en"),
+    notifyTurn: boolean("notify_turn").notNull().default(true),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSignInAt: timestamp("last_sign_in_at", { withTimezone: true }),
+  },
+  (t) => ({
+    uqGoogleId: uniqueIndex("uq_customers_google_id").on(t.googleId),
+    emailIdx: index("idx_customers_email").on(t.email),
+    mobileIdx: index("idx_customers_mobile").on(t.mobile),
+  }),
+);
+
 // Short-lived tokens issued when a customer is offered a self-serve booking
 // link — e.g. after a missed call. Customer taps the SMS link, lands on
 // /b/<linkToken>, picks a slot, and the request gets "spent" (bookingId set,
@@ -311,3 +355,5 @@ export type ClosedDay = typeof closedDays.$inferSelect;
 export type NewClosedDay = typeof closedDays.$inferInsert;
 export type BookingRequest = typeof bookingRequests.$inferSelect;
 export type NewBookingRequest = typeof bookingRequests.$inferInsert;
+export type Customer = typeof customers.$inferSelect;
+export type NewCustomer = typeof customers.$inferInsert;

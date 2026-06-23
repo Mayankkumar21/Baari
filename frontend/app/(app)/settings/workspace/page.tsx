@@ -21,6 +21,10 @@ export default async function WorkspaceSettingsPage() {
               slot: sess.clinic.slotLengthMin,
               noShow: sess.clinic.noShowThresholdMin,
               address: sess.clinic.address ?? "",
+              phone: sess.clinic.phone ?? "",
+              city: sess.clinic.city ?? "",
+              slug: sess.clinic.slug ?? "",
+              publicListing: sess.clinic.publicListing ?? false,
             }}
           />
         </CardContent>

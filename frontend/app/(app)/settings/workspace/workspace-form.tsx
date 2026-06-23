@@ -19,7 +19,17 @@ const TYPES = [
 export function WorkspaceForm({
   initial,
 }: {
-  initial: { name: string; tenantType: string; slot: number; noShow: number; address: string };
+  initial: {
+    name: string;
+    tenantType: string;
+    slot: number;
+    noShow: number;
+    address: string;
+    phone: string;
+    city: string;
+    slug: string;
+    publicListing: boolean;
+  };
 }) {
   const [state, action, pending] = useActionState<WorkspaceState, FormData>(
     saveWorkspace,
@@ -88,6 +98,63 @@ export function WorkspaceForm({
         <p className="text-[11px] text-muted-foreground">
           Shown on booking confirmations.
         </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="phone">Phone (for customers)</Label>
+          <Input
+            id="phone"
+            name="phone"
+            defaultValue={initial.phone}
+            maxLength={15}
+            inputMode="numeric"
+            placeholder="10 digits"
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Tap-to-call from your booking page + the customer app.
+          </p>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="city">City</Label>
+          <Input
+            id="city"
+            name="city"
+            defaultValue={initial.city}
+            maxLength={60}
+            placeholder="e.g. Indore"
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Helps customers nearby find you.
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card/40 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1">
+            <div className="text-sm font-semibold">Show on Baari app</div>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              When enabled, customers using the Baari app can find your
+              business by name or by your Baari code{" "}
+              <span className="font-mono font-semibold text-foreground">
+                {initial.slug || "(set after first save)"}
+              </span>
+              . They can book a slot directly without calling. You stay
+              in full control — toggle off any time.
+            </p>
+          </div>
+          <label className="relative inline-flex shrink-0 cursor-pointer items-center">
+            <input
+              type="checkbox"
+              name="public_listing"
+              defaultChecked={initial.publicListing}
+              className="peer sr-only"
+            />
+            <span className="block h-6 w-11 rounded-full bg-secondary transition-colors peer-checked:bg-primary" />
+            <span className="absolute left-0.5 top-0.5 size-5 rounded-full bg-white shadow-md transition-transform peer-checked:translate-x-5" />
+          </label>
+        </div>
       </div>
 
       {state.error ? (

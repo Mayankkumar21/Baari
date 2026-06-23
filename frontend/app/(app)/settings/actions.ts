@@ -6,9 +6,10 @@ import { cookies } from "next/headers";
 import { eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { requireDoctor } from "@/lib/session";
-import { SESSION_COOKIE } from "@/lib/auth";
+import { SESSION_COOKIE, normalizeMobile } from "@/lib/auth";
 import { hashPassword, passwordStrength, verifyPassword } from "@/lib/password";
 import { createBookingRequest } from "@/lib/services/booking-request";
+import { generateUniqueSlug } from "@/lib/slug";
 
 const TENANT_TYPES = ["clinic", "salon", "spa", "dental", "vet", "other"] as const;
 const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
@@ -27,6 +28,9 @@ export async function saveWorkspace(
   const slot = Number(formData.get("slot_length_min") ?? "20");
   const noShow = Number(formData.get("no_show_threshold_min") ?? "45");
   const address = String(formData.get("address") ?? "").trim().slice(0, 300);
+  const phoneRaw = String(formData.get("phone") ?? "").trim();
+  const city = String(formData.get("city") ?? "").trim().slice(0, 60);
+  const publicListing = formData.get("public_listing") === "on";
 
   if (!name) return { error: "Workspace name is required." };
   if (!(TENANT_TYPES as readonly string[]).includes(tenantType)) {
@@ -39,6 +43,26 @@ export async function saveWorkspace(
     return { error: "Invalid no-show threshold." };
   }
 
+  let phone: string | null = null;
+  if (phoneRaw) {
+    const normalised = normalizeMobile(phoneRaw);
+    if (!normalised) {
+      return {
+        error: "Enter a valid Indian phone (10 digits, starting with 6, 7, 8 or 9).",
+      };
+    }
+    phone = normalised;
+  }
+
+  // Lazy slug generation: first time a workspace opts into publicListing
+  // (or saves any settings after launch), we mint a slug. Owners can
+  // rename their workspace later — slug stays stable to keep saved
+  // URLs working.
+  let slug = sess.clinic.slug ?? null;
+  if (!slug) {
+    slug = await generateUniqueSlug(name);
+  }
+
   await db
     .update(schema.clinics)
     .set({
@@ -47,6 +71,10 @@ export async function saveWorkspace(
       slotLengthMin: Math.round(slot),
       noShowThresholdMin: Math.round(noShow),
       address: address || null,
+      phone,
+      city: city || null,
+      slug,
+      publicListing,
     })
     .where(eq(schema.clinics.id, sess.clinic.id));
   revalidatePath("/settings/workspace");
