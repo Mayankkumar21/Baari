@@ -60,6 +60,17 @@ export async function POST(req: Request) {
       }
     }
     console.error("createCustomerBooking failed", err);
+    // Surface the underlying error inline when DEV_AUTH_ENABLED is on so
+    // we don't need Vercel function logs to debug. Stripped automatically
+    // when the env flag is off in prod.
+    if (process.env.DEV_AUTH_ENABLED === "true") {
+      const msg = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack?.split("\n").slice(0, 4) : undefined;
+      return Response.json(
+        { ok: false, error: "Something went wrong.", code: "SERVER", debug: { msg, stack } },
+        { status: 500 },
+      );
+    }
     return ERRORS.SERVER();
   }
 }
