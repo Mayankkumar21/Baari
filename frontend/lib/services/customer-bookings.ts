@@ -31,6 +31,8 @@ export type CustomerBookingRow = {
   clinicSlug: string;
   clinicName: string;
   clinicAddress: string | null;
+  clinicTenantType: string; // used for vertical-icon rendering on confirmation + status
+  clinicPhone: string | null; // tap-to-call on confirmation + status
   reason: string | null;
   createdAt: string;
   completedAt: string | null;
@@ -228,6 +230,8 @@ export async function createCustomerBooking(args: {
     clinicSlug: clinic.slug!,
     clinicName: clinic.name,
     clinicAddress: clinic.address ?? null,
+    clinicTenantType: clinic.tenantType ?? "clinic",
+    clinicPhone: clinic.phone ?? null,
     reason: booking.reason ?? null,
     createdAt: new Date(booking.createdAt).toISOString(),
     completedAt: null,
@@ -252,6 +256,8 @@ export async function listCustomerBookings(customer: Customer) {
       clinicSlug: schema.clinics.slug,
       clinicName: schema.clinics.name,
       clinicAddress: schema.clinics.address,
+      clinicTenantType: schema.clinics.tenantType,
+      clinicPhone: schema.clinics.phone,
     })
     .from(schema.bookings)
     .innerJoin(schema.patients, eq(schema.bookings.patientId, schema.patients.id))
@@ -272,6 +278,8 @@ export async function listCustomerBookings(customer: Customer) {
       clinicSlug: r.clinicSlug ?? "",
       clinicName: r.clinicName,
       clinicAddress: r.clinicAddress ?? null,
+      clinicTenantType: r.clinicTenantType ?? "clinic",
+      clinicPhone: r.clinicPhone ?? null,
       createdAt: new Date(r.createdAt).toISOString(),
       completedAt: r.completedAt ? new Date(r.completedAt).toISOString() : null,
       cancelledAt: r.cancelledAt ? new Date(r.cancelledAt).toISOString() : null,
@@ -305,6 +313,8 @@ export async function getCustomerBooking(
       clinicSlug: schema.clinics.slug,
       clinicName: schema.clinics.name,
       clinicAddress: schema.clinics.address,
+      clinicTenantType: schema.clinics.tenantType,
+      clinicPhone: schema.clinics.phone,
     })
     .from(schema.bookings)
     .innerJoin(schema.patients, eq(schema.bookings.patientId, schema.patients.id))
@@ -326,6 +336,8 @@ export async function getCustomerBooking(
     clinicSlug: row.clinicSlug ?? "",
     clinicName: row.clinicName,
     clinicAddress: row.clinicAddress ?? null,
+    clinicTenantType: row.clinicTenantType ?? "clinic",
+    clinicPhone: row.clinicPhone ?? null,
     createdAt: new Date(row.createdAt).toISOString(),
     completedAt: row.completedAt ? new Date(row.completedAt).toISOString() : null,
     cancelledAt: row.cancelledAt ? new Date(row.cancelledAt).toISOString() : null,

@@ -32,6 +32,7 @@ export async function GET(
       name: schema.clinics.name,
       address: schema.clinics.address,
       phone: schema.clinics.phone,
+      tenantType: schema.clinics.tenantType,
     })
     .from(schema.clinics)
     .where(eq(schema.clinics.slug, booking.clinicSlug))
@@ -56,9 +57,11 @@ export async function GET(
       totalWaiting: pos?.totalWaiting ?? 0,
       estWaitMinutes,
       inSession: pos?.inSession ? { token: pos.inSession.token } : null,
+      clinicSlug: booking.clinicSlug,
       clinicName: clinic.name,
       clinicAddress: clinic.address ?? null,
       clinicPhone: clinic.phone ?? null,
+      clinicTenantType: clinic.tenantType ?? "clinic",
     },
     200,
   );
