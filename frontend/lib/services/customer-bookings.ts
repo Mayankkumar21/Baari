@@ -28,11 +28,23 @@ export type CustomerBookingRow = {
   token: number;
   slotIso: string;
   status: string;
+  // Flat fields — kept for backwards compatibility with code that
+  // reads the legacy shape.
   clinicSlug: string;
   clinicName: string;
   clinicAddress: string | null;
-  clinicTenantType: string; // used for vertical-icon rendering on confirmation + status
-  clinicPhone: string | null; // tap-to-call on confirmation + status
+  clinicTenantType: string;
+  clinicPhone: string | null;
+  // Nested object — what the mobile app expects (booking.clinic.tenantType
+  // etc.). Same data, just structured the way most REST APIs do related
+  // entities.
+  clinic: {
+    slug: string;
+    name: string;
+    address: string | null;
+    tenantType: string;
+    phone: string | null;
+  };
   reason: string | null;
   createdAt: string;
   completedAt: string | null;
@@ -232,6 +244,13 @@ export async function createCustomerBooking(args: {
     clinicAddress: clinic.address ?? null,
     clinicTenantType: clinic.tenantType ?? "clinic",
     clinicPhone: clinic.phone ?? null,
+    clinic: {
+      slug: clinic.slug!,
+      name: clinic.name,
+      address: clinic.address ?? null,
+      tenantType: clinic.tenantType ?? "clinic",
+      phone: clinic.phone ?? null,
+    },
     reason: booking.reason ?? null,
     createdAt: new Date(booking.createdAt).toISOString(),
     completedAt: null,
@@ -280,6 +299,13 @@ export async function listCustomerBookings(customer: Customer) {
       clinicAddress: r.clinicAddress ?? null,
       clinicTenantType: r.clinicTenantType ?? "clinic",
       clinicPhone: r.clinicPhone ?? null,
+      clinic: {
+        slug: r.clinicSlug ?? "",
+        name: r.clinicName,
+        address: r.clinicAddress ?? null,
+        tenantType: r.clinicTenantType ?? "clinic",
+        phone: r.clinicPhone ?? null,
+      },
       createdAt: new Date(r.createdAt).toISOString(),
       completedAt: r.completedAt ? new Date(r.completedAt).toISOString() : null,
       cancelledAt: r.cancelledAt ? new Date(r.cancelledAt).toISOString() : null,
@@ -338,6 +364,13 @@ export async function getCustomerBooking(
     clinicAddress: row.clinicAddress ?? null,
     clinicTenantType: row.clinicTenantType ?? "clinic",
     clinicPhone: row.clinicPhone ?? null,
+    clinic: {
+      slug: row.clinicSlug ?? "",
+      name: row.clinicName,
+      address: row.clinicAddress ?? null,
+      tenantType: row.clinicTenantType ?? "clinic",
+      phone: row.clinicPhone ?? null,
+    },
     createdAt: new Date(row.createdAt).toISOString(),
     completedAt: row.completedAt ? new Date(row.completedAt).toISOString() : null,
     cancelledAt: row.cancelledAt ? new Date(row.cancelledAt).toISOString() : null,

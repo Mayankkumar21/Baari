@@ -57,11 +57,21 @@ export async function GET(
       totalWaiting: pos?.totalWaiting ?? 0,
       estWaitMinutes,
       inSession: pos?.inSession ? { token: pos.inSession.token } : null,
+      // Flat fields kept for back-compat with anything reading the
+      // previous shape.
       clinicSlug: booking.clinicSlug,
       clinicName: clinic.name,
       clinicAddress: clinic.address ?? null,
       clinicPhone: clinic.phone ?? null,
       clinicTenantType: clinic.tenantType ?? "clinic",
+      // Nested object — what the app reads.
+      clinic: {
+        slug: booking.clinicSlug,
+        name: clinic.name,
+        address: clinic.address ?? null,
+        phone: clinic.phone ?? null,
+        tenantType: clinic.tenantType ?? "clinic",
+      },
     },
     200,
   );
