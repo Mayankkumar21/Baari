@@ -5,6 +5,7 @@ import { availableSlots, enumerateSlots, takenSlots } from "@/lib/services/booki
 import { servicesFor } from "@/lib/services/service-types";
 import { clinicToday, fmtDateTime, fmtTime } from "@/lib/time";
 import { QueueBoard } from "@/components/app/queue-board";
+import { AutoRefresh } from "@/components/app/auto-refresh";
 import type { SubToken } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
@@ -91,8 +92,10 @@ export default async function QueuePage() {
     : null;
 
   return (
-    <QueueBoard
-      generatedAtLabel={fmtDateTime(board.generatedAt)}
+    <>
+      <AutoRefresh intervalMs={15_000} />
+      <QueueBoard
+        generatedAtLabel={fmtDateTime(board.generatedAt)}
       counters={board.counters}
       summary={summary}
       nowConsulting={
@@ -126,9 +129,10 @@ export default async function QueuePage() {
         reasonLabel: vocab.reasonLabel,
         entitySingular: vocab.entitySingular,
       }}
-      isClosed={board.isClosed}
-      summaryBanner={summaryRender}
-      isDoctor={isDoctor}
-    />
+        isClosed={board.isClosed}
+        summaryBanner={summaryRender}
+        isDoctor={isDoctor}
+      />
+    </>
   );
 }
