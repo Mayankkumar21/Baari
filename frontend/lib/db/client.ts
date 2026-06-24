@@ -1,9 +1,20 @@
-// Drizzle client — Neon serverless driver (works on Vercel Edge + Node).
-// On local dev, set DATABASE_URL in .env.local to a Neon connection string
-// pointing at a separate branch from the Python stack so we don't pollute
-// prod data. Schema is otherwise identical so the same DB COULD host both.
-import { neon } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-http";
+// Drizzle client — postgres-js driver so transactions actually work.
+//
+// We were previously using @neondatabase/serverless (neon-http) which is
+// HTTP-based and throws "No transactions support in neon-http driver" the
+// moment any code path uses db.transaction(...) — including
+// /api/v1/bookings (customer-app create), /b/[token]/details (missed-call
+// confirm), /settings/account (delete workspace), and customer-side
+// cancel.
+//
+// postgres-js uses a long-lived TCP pool, supports transactions, and runs
+// fine on Vercel's Node.js serverless runtime (we don't use the Edge
+// runtime anywhere except middleware, which doesn't touch the DB).
+//
+// Neon accepts both drivers against the same connection string — no
+// migration needed.
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "./schema";
 
 const url = process.env.DATABASE_URL;
@@ -13,6 +24,17 @@ if (!url) {
   );
 }
 
-const sql = neon(url);
-export const db = drizzle(sql, { schema });
+// Single connection per cold start. Vercel cold starts spin up a new
+// Node.js process per concurrent request, so the pool stays small and
+// short-lived. `prepare: false` because Neon's pooler can't prepare
+// across pgbouncer transaction-mode pooling.
+const queryClient = postgres(url, {
+  prepare: false,
+  ssl: "require",
+  connect_timeout: 10,
+  idle_timeout: 20,
+  max: 1,
+});
+
+export const db = drizzle(queryClient, { schema });
 export { schema };
