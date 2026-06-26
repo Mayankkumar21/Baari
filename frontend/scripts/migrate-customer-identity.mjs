@@ -9,11 +9,20 @@
 // Idempotent — safe to re-run. Uses postgres-js directly because
 // drizzle-kit push is interactive and prefers a TTY.
 
-import "dotenv/config";
+import { config } from "dotenv";
 import postgres from "postgres";
 
+// Next.js stores local secrets in .env.local. Fall back to plain .env
+// for parity with how the app loads.
+config({ path: ".env.local" });
+config({ path: ".env" });
+
 const url = process.env.DATABASE_URL;
-if (!url) throw new Error("DATABASE_URL is required.");
+if (!url) {
+  throw new Error(
+    "DATABASE_URL is required. Add it to frontend/.env.local or export it before running.",
+  );
+}
 const sql = postgres(url, { ssl: "require", prepare: false, max: 1 });
 
 async function run() {
