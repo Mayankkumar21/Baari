@@ -150,6 +150,12 @@ export async function createCustomerBooking(args: {
   // 3. Upsert patient via ON CONFLICT on the (clinic_id, mobile) unique
   //    index. Always returns the row whether it was inserted or
   //    pre-existed. Single roundtrip.
+  //
+  //    customerId links this patient row to the customer-app account so
+  //    a future mobile-change on the customer cascades here. On
+  //    conflict we also CLAIM the row (set customer_id) — handles the
+  //    case where a patient was first created via missed-call / dashboard
+  //    walk-in and is now being identified by the app for the first time.
   const [patient] = await db
     .insert(schema.patients)
     .values({
@@ -158,12 +164,14 @@ export async function createCustomerBooking(args: {
       mobile,
       isNew: args.isNew ?? true,
       whatsappOptOut: false,
+      customerId: args.customer.id,
     })
     .onConflictDoUpdate({
       target: [schema.patients.clinicId, schema.patients.mobile],
-      // Refresh the name in case the customer renamed themselves in
-      // their profile since the last visit.
-      set: { name: customerName },
+      set: {
+        name: customerName,
+        customerId: args.customer.id,
+      },
     })
     .returning();
   if (patient.anonymizedAt) {

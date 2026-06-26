@@ -1,5 +1,6 @@
 // Drizzle schema — direct port of app/models.py (SQLModel).
 // Names + column types preserved so a single Neon branch can host both stacks.
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   serial,
@@ -122,10 +123,19 @@ export const patients = pgTable(
     consentGiven: boolean("consent_given").notNull().default(false),
     anonymizedAt: timestamp("anonymized_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // Optional link to the customer-app account (customers.id) for
+    // cross-clinic identity. Nullable because:
+    //   - patients can be created via the missed-call /b/[token] flow
+    //     before the user signs into the customer app
+    //   - older rows backfilled by mobile match only — some won't link
+    // When set, mobile-change on the customer cascades to update this
+    // row's mobile too (keeps booking history linked).
+    customerId: integer("customer_id").references(() => customers.id),
   },
   (t) => ({
     uniqClinicMobile: uniqueIndex("uq_patients_clinic_mobile").on(t.clinicId, t.mobile),
     clinicIdx: index("patients_clinic_idx").on(t.clinicId),
+    customerIdx: index("patients_customer_idx").on(t.customerId),
   }),
 );
 
@@ -270,6 +280,11 @@ export const customers = pgTable(
     name: varchar("name", { length: 80 }).notNull(),
     photoUrl: text("photo_url"),
     mobile: varchar("mobile", { length: 15 }),
+    // Tracks the last successful change to mobile so we can enforce a
+    // ~30-day cooldown (defends against people reclaiming numbers by
+    // flipping repeatedly). Null = never changed (i.e. either never
+    // set or set once during onboarding).
+    mobileChangedAt: timestamp("mobile_changed_at", { withTimezone: true }),
     language: varchar("language", { length: 2 }).notNull().default("en"),
     notifyTurn: boolean("notify_turn").notNull().default(true),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
@@ -279,7 +294,13 @@ export const customers = pgTable(
   (t) => ({
     uqGoogleId: uniqueIndex("uq_customers_google_id").on(t.googleId),
     emailIdx: index("idx_customers_email").on(t.email),
-    mobileIdx: index("idx_customers_mobile").on(t.mobile),
+    // Partial unique: enforces "one active customer per mobile" but
+    // lets a soft-deleted account release its mobile. NULL mobiles
+    // (account created via Google but mobile not yet entered) are
+    // exempt — Postgres treats NULL as distinct in unique indexes.
+    uqMobileActive: uniqueIndex("uq_customers_mobile_active")
+      .on(t.mobile)
+      .where(sql`deleted_at IS NULL`),
   }),
 );
 
