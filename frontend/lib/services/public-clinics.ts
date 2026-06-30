@@ -52,6 +52,11 @@ export type PublicClinicDetail = PublicClinicSummary & {
   // App renders: "Closed · Opens at 15:00 today" / "...tomorrow 09:00"
   // / "...Mon 09:00". Null if no opening in the next 7 days.
   nextOpenIso: string | null;
+  // Number of bookings in booked|checked_in for today (in_consult and
+  // done are excluded — those aren't waiting). App renders a chip when
+  // openNow=true: "3 waiting · ~45 min". Hide when 0 or closed.
+  waitingNow: number;
+  estWaitMinutes: number;
 };
 
 export type PublicSlot = { iso: string };
@@ -214,15 +219,38 @@ export async function getPublicClinicBySlug(
   const openingHours = (row.openingHours as Record<DayKey, OpeningBlock>) ?? {};
   const base = await summary(row);
   const now = new Date();
+  const slotLen = row.slotLengthMin ?? 20;
+  const waitingNow = await getWaitingNow(row.id);
   return {
     ...base,
     phone: row.phone ?? null,
     services: servicesFor(row.tenantType ?? "clinic"),
     openingHours,
-    slotLengthMin: row.slotLengthMin ?? 20,
+    slotLengthMin: slotLen,
     closesAtIso: getCurrentCloseTime(row, now),
     nextOpenIso: base.openNow ? null : await getNextOpenTime(row, now),
+    waitingNow,
+    estWaitMinutes: waitingNow * slotLen,
   };
+}
+
+// Counts today's bookings in pre-consult states. Excludes in_consult
+// (currently being served, not waiting) and the terminal states. This
+// is what the customer-app shows as "N waiting · ~M min" before they
+// decide whether to book.
+async function getWaitingNow(clinicId: number): Promise<number> {
+  const today = clinicToday();
+  const rows = await db
+    .select({ id: schema.bookings.id })
+    .from(schema.bookings)
+    .where(
+      and(
+        eq(schema.bookings.clinicId, clinicId),
+        eq(schema.bookings.date, today),
+        inArray(schema.bookings.status, ["booked", "checked_in"] as const),
+      ),
+    );
+  return rows.length;
 }
 
 // ─── Open/close time helpers ──────────────────────────────────────────
