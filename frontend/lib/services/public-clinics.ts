@@ -45,6 +45,13 @@ export type PublicClinicDetail = PublicClinicSummary & {
   services: string[];
   openingHours: Record<DayKey, OpeningBlock>;
   slotLengthMin: number;
+  // ISO of when the current open block ends — only set if openNow=true.
+  // App renders: "Open now · Closes at 19:00".
+  closesAtIso: string | null;
+  // ISO of when the clinic next opens — only set if openNow=false.
+  // App renders: "Closed · Opens at 15:00 today" / "...tomorrow 09:00"
+  // / "...Mon 09:00". Null if no opening in the next 7 days.
+  nextOpenIso: string | null;
 };
 
 export type PublicSlot = { iso: string };
@@ -206,13 +213,72 @@ export async function getPublicClinicBySlug(
   if (!row) return null;
   const openingHours = (row.openingHours as Record<DayKey, OpeningBlock>) ?? {};
   const base = await summary(row);
+  const now = new Date();
   return {
     ...base,
     phone: row.phone ?? null,
     services: servicesFor(row.tenantType ?? "clinic"),
     openingHours,
     slotLengthMin: row.slotLengthMin ?? 20,
+    closesAtIso: getCurrentCloseTime(row, now),
+    nextOpenIso: base.openNow ? null : await getNextOpenTime(row, now),
   };
+}
+
+// ─── Open/close time helpers ──────────────────────────────────────────
+// Parses the openingHours JSON to give the customer-app a precise
+// "closes at" (when openNow) or "opens at" (when closed). Logic mirrors
+// isOpenAt — split-shift support, IST anchor, week lookahead.
+
+function dayKeyFor(istDateStr: string): DayKey {
+  const d = new Date(`${istDateStr}T12:00:00+05:30`);
+  return DAY_KEYS[d.getUTCDay()];
+}
+
+function combineIstDateTime(istDateStr: string, hhmm: string): Date {
+  return new Date(`${istDateStr}T${hhmm}:00+05:30`);
+}
+
+// If `now` falls inside one of today's opening blocks, return the close
+// time of THAT block. Otherwise null.
+function getCurrentCloseTime(clinic: Clinic, now: Date): string | null {
+  const istToday = clinicToday();
+  const hours = (clinic.openingHours as Record<DayKey, OpeningBlock>) ?? {};
+  const block = hours[dayKeyFor(istToday)];
+  if (!block || block.closed) return null;
+  const tryBlock = (open?: string, close?: string): string | null => {
+    if (!open || !close) return null;
+    const openDt = combineIstDateTime(istToday, open);
+    const closeDt = combineIstDateTime(istToday, close);
+    if (now >= openDt && now < closeDt) return closeDt.toISOString();
+    return null;
+  };
+  return tryBlock(block.open, block.close) ?? tryBlock(block.open2, block.close2);
+}
+
+// Walks up to 7 IST days forward looking for the next opening time
+// AFTER `now`. Respects closed_days. Handles split shifts (afternoon
+// block when morning is past). Returns null if no opening found in 7d.
+async function getNextOpenTime(clinic: Clinic, now: Date): Promise<string | null> {
+  const istToday = clinicToday();
+  for (let i = 0; i < LOOKAHEAD_DAYS; i++) {
+    const istDate = addIstDays(istToday, i);
+    if (await isClosedDay(clinic.id, istDate)) continue;
+    const hours = (clinic.openingHours as Record<DayKey, OpeningBlock>) ?? {};
+    const block = hours[dayKeyFor(istDate)];
+    if (!block || block.closed) continue;
+    // First block of the day
+    if (block.open) {
+      const openDt = combineIstDateTime(istDate, block.open);
+      if (openDt > now) return openDt.toISOString();
+    }
+    // Second (afternoon) block — useful when we're between blocks today.
+    if (block.open2) {
+      const open2Dt = combineIstDateTime(istDate, block.open2);
+      if (open2Dt > now) return open2Dt.toISOString();
+    }
+  }
+  return null;
 }
 
 // Returns ONLY open slots — past + taken stripped server-side so the
