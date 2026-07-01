@@ -21,9 +21,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <header className="sticky top-0 z-40 border-b border-border/40 bg-background/70 backdrop-blur-xl">
         <div className="container flex h-14 items-center justify-between gap-4">
           <Link href="/queue" className="flex items-center gap-2.5 group">
-            <span className="grid size-7 place-items-center rounded-md bg-primary text-primary-foreground text-xs font-extrabold shadow-[0_0_0_1px_hsl(var(--primary)/0.5),0_8px_24px_-8px_hsl(var(--primary)/0.6)] transition-transform group-hover:scale-105">
-              B
-            </span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="Baari"
+              className="size-7 rounded-md shadow-[0_0_0_1px_hsl(var(--primary)/0.5),0_8px_24px_-8px_hsl(var(--primary)/0.6)] transition-transform group-hover:scale-105"
+            />
             <span className="text-sm font-bold tracking-tight bg-gradient-to-b from-foreground from-30% to-primary/80 bg-clip-text text-transparent">
               {sess.clinic.name}
             </span>
