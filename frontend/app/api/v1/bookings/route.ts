@@ -17,6 +17,11 @@ type CreateBody = {
   slotIso?: string;
   reason?: string;
   isNew?: boolean;
+  // Third-party booking. Booking on someone else's behalf; guestName
+  // required if either is set, guestMobile validated as an Indian
+  // number when non-empty. Both optional overall.
+  guestName?: string;
+  guestMobile?: string;
 };
 
 export async function GET(req: Request) {
@@ -42,6 +47,8 @@ export async function POST(req: Request) {
       slotIso: body.slotIso,
       reason: body.reason?.trim() || null,
       isNew: body.isNew ?? false,
+      guestName: body.guestName ?? null,
+      guestMobile: body.guestMobile ?? null,
     });
     return ok({ booking }, 201);
   } catch (err) {

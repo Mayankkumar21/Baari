@@ -46,6 +46,10 @@ export type CustomerBookingRow = {
     phone: string | null;
   };
   reason: string | null;
+  // Third-party booking — populated when the customer booked on someone
+  // else's behalf. UI renders "For {guestName}" under the service row.
+  guestName: string | null;
+  guestMobile: string | null;
   createdAt: string;
   completedAt: string | null;
   cancelledAt: string | null;
@@ -60,12 +64,20 @@ function formatDate(d: Date): string {
   }).format(d);
 }
 
+// Indian mobile format used across the customer app + backend.
+const GUEST_MOBILE_RE = /^[6-9]\d{9}$/;
+
 export async function createCustomerBooking(args: {
   customer: Customer;
   clinicSlug: string;
   slotIso: string;
   reason?: string | null;
   isNew?: boolean;
+  // Optional third-party fields. If guestName is non-empty after trim,
+  // the booking is stored as a guest booking. guestMobile is validated
+  // against the Indian format when non-empty; blank string → null.
+  guestName?: string | null;
+  guestMobile?: string | null;
 }): Promise<CustomerBookingRow> {
   if (!args.customer.mobile) {
     throw new CustomerBookingError(
@@ -98,6 +110,24 @@ export async function createCustomerBooking(args: {
   const mobile = args.customer.mobile;
   const customerName = args.customer.name;
   const date = formatDate(slotTime);
+
+  // Normalize + validate guest fields (kept together so the invariant
+  // "guestMobile requires guestName" lives in one place).
+  const guestName = args.guestName?.trim() || null;
+  const guestMobileRaw = args.guestMobile?.trim() || "";
+  const guestMobile = guestMobileRaw || null;
+  if (guestMobile && !GUEST_MOBILE_RE.test(guestMobile)) {
+    throw new CustomerBookingError(
+      "BAD_REQUEST",
+      "Guest mobile must be a 10-digit Indian number.",
+    );
+  }
+  if (guestMobile && !guestName) {
+    throw new CustomerBookingError(
+      "BAD_REQUEST",
+      "Add the person's name if you're booking on their behalf.",
+    );
+  }
 
   // Race-safety note: this used to run inside db.transaction(...), but
   // postgres-js's transactions hang on Vercel serverless + Neon for
@@ -218,6 +248,8 @@ export async function createCustomerBooking(args: {
           token,
           slotTime,
           reason: args.reason ?? null,
+          guestName,
+          guestMobile,
           partySize: 1,
           status: "booked",
           createdByUserId: owner.id,
@@ -260,6 +292,8 @@ export async function createCustomerBooking(args: {
       phone: clinic.phone ?? null,
     },
     reason: booking.reason ?? null,
+    guestName: booking.guestName ?? null,
+    guestMobile: booking.guestMobile ?? null,
     createdAt: new Date(booking.createdAt).toISOString(),
     completedAt: null,
     cancelledAt: null,
@@ -277,6 +311,8 @@ export async function listCustomerBookings(customer: Customer) {
       slotTime: schema.bookings.slotTime,
       status: schema.bookings.status,
       reason: schema.bookings.reason,
+      guestName: schema.bookings.guestName,
+      guestMobile: schema.bookings.guestMobile,
       createdAt: schema.bookings.createdAt,
       completedAt: schema.bookings.completedAt,
       cancelledAt: schema.bookings.cancelledAt,
@@ -302,6 +338,8 @@ export async function listCustomerBookings(customer: Customer) {
       slotIso: new Date(r.slotTime).toISOString(),
       status: r.status,
       reason: r.reason ?? null,
+      guestName: r.guestName ?? null,
+      guestMobile: r.guestMobile ?? null,
       clinicSlug: r.clinicSlug ?? "",
       clinicName: r.clinicName,
       clinicAddress: r.clinicAddress ?? null,
@@ -341,6 +379,8 @@ export async function getCustomerBooking(
       slotTime: schema.bookings.slotTime,
       status: schema.bookings.status,
       reason: schema.bookings.reason,
+      guestName: schema.bookings.guestName,
+      guestMobile: schema.bookings.guestMobile,
       createdAt: schema.bookings.createdAt,
       completedAt: schema.bookings.completedAt,
       cancelledAt: schema.bookings.cancelledAt,
@@ -367,6 +407,8 @@ export async function getCustomerBooking(
     slotIso: new Date(row.slotTime).toISOString(),
     status: row.status,
     reason: row.reason ?? null,
+    guestName: row.guestName ?? null,
+    guestMobile: row.guestMobile ?? null,
     clinicSlug: row.clinicSlug ?? "",
     clinicName: row.clinicName,
     clinicAddress: row.clinicAddress ?? null,

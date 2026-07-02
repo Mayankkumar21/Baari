@@ -1,16 +1,18 @@
 // GET /api/v1/clinics/:slug
-// Public. Returns the full clinic detail used by the S4 screen.
+// Public — but reads optional customer auth so the response can include
+// isReturning (used to default "First visit?" on the confirm sheet).
 export const dynamic = "force-dynamic";
 
-import { ERRORS, ok } from "@/lib/api-helpers";
+import { ERRORS, getCustomer, ok } from "@/lib/api-helpers";
 import { getPublicClinicBySlug } from "@/lib/services/public-clinics";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
-  const clinic = await getPublicClinicBySlug(slug);
+  const customer = await getCustomer(req);
+  const clinic = await getPublicClinicBySlug(slug, customer?.mobile);
   if (!clinic) return ERRORS.NOT_FOUND("Clinic not found or not public.");
   return ok({ clinic });
 }

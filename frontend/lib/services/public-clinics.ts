@@ -57,6 +57,11 @@ export type PublicClinicDetail = PublicClinicSummary & {
   // openNow=true: "3 waiting · ~45 min". Hide when 0 or closed.
   waitingNow: number;
   estWaitMinutes: number;
+  // True when the authenticated customer already has a patient record
+  // at this clinic (any prior booking, even not-yet-done). The confirm
+  // sheet uses this to default "First visit?" off. Null-safe: false
+  // when the caller isn't authed or the customer has no mobile.
+  isReturning: boolean;
 };
 
 export type PublicSlot = { iso: string };
@@ -208,6 +213,7 @@ export async function recentPublicClinicsForCustomer(
 
 export async function getPublicClinicBySlug(
   slug: string,
+  customerMobile?: string | null,
 ): Promise<PublicClinicDetail | null> {
   if (!slug || slug.length > 80) return null;
   const [row] = await db
@@ -221,6 +227,23 @@ export async function getPublicClinicBySlug(
   const now = new Date();
   const slotLen = row.slotLengthMin ?? 20;
   const waitingNow = await getWaitingNow(row.id);
+  // A patient row is created on the customer's first booking here, so
+  // "returning" == the row exists. The confirm sheet uses this to
+  // default First visit? off. Cheap: single indexed lookup.
+  let isReturning = false;
+  if (customerMobile) {
+    const [existing] = await db
+      .select({ id: schema.patients.id })
+      .from(schema.patients)
+      .where(
+        and(
+          eq(schema.patients.clinicId, row.id),
+          eq(schema.patients.mobile, customerMobile),
+        ),
+      )
+      .limit(1);
+    isReturning = !!existing;
+  }
   return {
     ...base,
     phone: row.phone ?? null,
@@ -231,6 +254,7 @@ export async function getPublicClinicBySlug(
     nextOpenIso: base.openNow ? null : await getNextOpenTime(row, now),
     waitingNow,
     estWaitMinutes: waitingNow * slotLen,
+    isReturning,
   };
 }
 

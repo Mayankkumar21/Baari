@@ -149,6 +149,11 @@ export const bookings = pgTable(
     token: integer("token").notNull(),
     slotTime: timestamp("slot_time", { withTimezone: true }).notNull(),
     reason: varchar("reason", { length: 200 }),
+    // Third-party booking. Populated when a customer books on behalf
+    // of someone else (grandmother booking for grandson, etc.). Both
+    // are nullable — a first-party booking leaves them null.
+    guestName: varchar("guest_name", { length: 100 }),
+    guestMobile: varchar("guest_mobile", { length: 15 }),
     partySize: integer("party_size").notNull().default(1),
     status: bookingStatus("status").notNull().default("booked"),
     checkedInAt: timestamp("checked_in_at", { withTimezone: true }),
