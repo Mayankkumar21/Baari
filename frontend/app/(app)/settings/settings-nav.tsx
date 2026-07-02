@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, Clock, Lock, Users } from "lucide-react";
+import { Building2, Clock, Lock, Smartphone, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ITEMS = [
   { href: "/settings/workspace", label: "Workspace", icon: Building2 },
   { href: "/settings/hours", label: "Opening hours", icon: Clock },
+  { href: "/settings/bookings", label: "App bookings", icon: Smartphone },
   { href: "/settings/staff", label: "Staff", icon: Users },
   { href: "/settings/account", label: "Account", icon: Lock },
 ];

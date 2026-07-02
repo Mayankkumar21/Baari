@@ -6,7 +6,7 @@ import { fmtDateTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { BookingRow } from "@/lib/services/reports";
 
-type SortKey = "when" | "name" | "phone" | "token" | "service" | "status" | "duration";
+type SortKey = "when" | "name" | "phone" | "token" | "service" | "source" | "status" | "duration";
 type SortDir = "asc" | "desc";
 
 const COLUMNS: { key: SortKey; label: string; align?: "left" | "right" }[] = [
@@ -15,9 +15,26 @@ const COLUMNS: { key: SortKey; label: string; align?: "left" | "right" }[] = [
   { key: "phone", label: "Phone" },
   { key: "token", label: "Token", align: "right" },
   { key: "service", label: "Service" },
+  { key: "source", label: "Source" },
   { key: "status", label: "Status" },
   { key: "duration", label: "Duration", align: "right" },
 ];
+
+// Source badge — visual weight matches the status pill but with a
+// neutral tone; owners scan for the origin without it competing with
+// the status column.
+function SourceBadge({ source }: { source: string }) {
+  const map: Record<string, string> = {
+    app: "App",
+    frontdesk: "Front desk",
+    walkin: "Walk-in",
+  };
+  return (
+    <span className="inline-flex rounded-full border border-border bg-secondary/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+      {map[source] ?? source}
+    </span>
+  );
+}
 
 function fmtMinutes(sec: number | null): string {
   if (sec == null) return "—";
@@ -109,6 +126,9 @@ export function BookingsTable({ rows }: { rows: BookingRow[] }) {
               <td className="px-3 py-2 text-right tabular-nums">T{r.token}</td>
               <td className="px-3 py-2 text-muted-foreground">{r.reason ?? "—"}</td>
               <td className="px-3 py-2">
+                <SourceBadge source={r.source} />
+              </td>
+              <td className="px-3 py-2">
                 <StatusPill status={r.status} />
               </td>
               <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
@@ -134,6 +154,8 @@ function pick(row: BookingRow, key: SortKey): string | number | null {
       return row.token;
     case "service":
       return (row.reason ?? "").toLowerCase();
+    case "source":
+      return row.source;
     case "status":
       return row.status;
     case "duration":

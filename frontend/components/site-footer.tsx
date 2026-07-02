@@ -21,8 +21,8 @@ export function SiteFooter() {
           </FooterColumn>
 
           <FooterColumn title="Stay in touch">
-            <FooterLink href="https://wa.me/919999999999">
-              WhatsApp us — +91 99999 99999
+            <FooterLink href="https://wa.me/919893127527">
+              WhatsApp us — +91 98931 27527
             </FooterLink>
             <FooterLink href="mailto:hello@baari.in">hello@baari.in</FooterLink>
           </FooterColumn>

@@ -153,6 +153,9 @@ export async function confirmBookingAction(
           reason,
           partySize: 1,
           status: "booked",
+          // Missed-call flow is customer-initiated self-serve — bucket
+          // with the mobile app for reporting purposes.
+          source: "app",
           createdByUserId: owner?.id ?? 0,
         })
         .returning();

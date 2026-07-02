@@ -5,6 +5,7 @@ import { Verticals } from "@/components/sections/verticals";
 import { HowItWorks } from "@/components/sections/how-it-works";
 import { Features } from "@/components/sections/features";
 import { MoreFeatures } from "@/components/sections/more-features";
+import { CustomerApp } from "@/components/sections/customer-app";
 import { CtaClosing } from "@/components/sections/cta-closing";
 
 export default function HomePage() {
@@ -20,6 +21,7 @@ export default function HomePage() {
         <Features />
       </section>
       <MoreFeatures />
+      <CustomerApp />
       <CtaClosing />
       <SiteFooter />
     </main>

@@ -14,6 +14,10 @@ export type ReportsBundle = {
     noShows: number;
     cancelled: number;
   };
+  // Bookings by origin — app (customer self-serve incl. missed-call),
+  // frontdesk (dashboard-created), walkin (walk-in flow). Powers the
+  // owner's "where are my bookings coming from?" question.
+  bySource: { app: number; frontdesk: number; walkin: number };
   noShowRate: number; // 0..1
   avgWaitSec: number | null;
   avgSessionSec: number | null;
@@ -30,6 +34,8 @@ export type BookingRow = {
   patientMobile: string;
   reason: string | null;
   status: string;
+  // "app" | "frontdesk" | "walkin" — the origin badge in the table.
+  source: string;
   slotTime: string; // ISO
   checkedInAt: string | null;
   startedAt: string | null;
@@ -55,6 +61,11 @@ export async function loadReports(
       done: sql<number>`count(*) filter (where ${schema.bookings.status} = 'done')`,
       noShow: sql<number>`count(*) filter (where ${schema.bookings.status} = 'no_show')`,
       cancelled: sql<number>`count(*) filter (where ${schema.bookings.status} = 'cancelled')`,
+      // Counts by origin — one round-trip via FILTER predicates so we
+      // don't need a second grouped query for the source breakdown.
+      srcApp: sql<number>`count(*) filter (where ${schema.bookings.source} = 'app')`,
+      srcFrontdesk: sql<number>`count(*) filter (where ${schema.bookings.source} = 'frontdesk')`,
+      srcWalkin: sql<number>`count(*) filter (where ${schema.bookings.source} = 'walkin')`,
       avgWait: sql<number | null>`avg(extract(epoch from (${schema.bookings.startedAt} - ${schema.bookings.checkedInAt}))) filter (where ${schema.bookings.status} = 'done' and ${schema.bookings.startedAt} is not null and ${schema.bookings.checkedInAt} is not null)`,
       avgSession: sql<number | null>`avg(extract(epoch from (${schema.bookings.completedAt} - ${schema.bookings.startedAt}))) filter (where ${schema.bookings.status} = 'done' and ${schema.bookings.completedAt} is not null and ${schema.bookings.startedAt} is not null)`,
     })
@@ -133,6 +144,7 @@ export async function loadReports(
       patientMobile: schema.patients.mobile,
       reason: schema.bookings.reason,
       status: schema.bookings.status,
+      source: schema.bookings.source,
       slotTime: schema.bookings.slotTime,
       checkedInAt: schema.bookings.checkedInAt,
       startedAt: schema.bookings.startedAt,
@@ -151,6 +163,7 @@ export async function loadReports(
     patientMobile: r.patientMobile,
     reason: r.reason,
     status: r.status,
+    source: r.source,
     slotTime: r.slotTime.toISOString(),
     checkedInAt: r.checkedInAt?.toISOString() ?? null,
     startedAt: r.startedAt?.toISOString() ?? null,
@@ -163,6 +176,11 @@ export async function loadReports(
 
   return {
     totals: { bookings: total, completed: done, noShows: noShow, cancelled },
+    bySource: {
+      app: Number(agg?.srcApp ?? 0),
+      frontdesk: Number(agg?.srcFrontdesk ?? 0),
+      walkin: Number(agg?.srcWalkin ?? 0),
+    },
     noShowRate,
     avgWaitSec: agg?.avgWait != null ? Math.round(Number(agg.avgWait)) : null,
     avgSessionSec: agg?.avgSession != null ? Math.round(Number(agg.avgSession)) : null,

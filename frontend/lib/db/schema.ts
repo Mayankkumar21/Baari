@@ -62,6 +62,16 @@ export const notificationStatus = pgEnum("notification_status", [
   "failed",
 ]);
 
+// Where a booking originated. Drives the "Bookings by source" totals on
+// Reports and future differentiated flows (e.g. app-only auto-cancel
+// rules). "app" covers the customer mobile app AND the missed-call
+// WhatsApp link (both are customer-initiated self-serve).
+export const bookingSource = pgEnum("booking_source", [
+  "app",
+  "frontdesk",
+  "walkin",
+]);
+
 export const clinics = pgTable("clinics", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 120 }).notNull(),
@@ -85,6 +95,14 @@ export const clinics = pgTable("clinics", {
   publicListing: boolean("public_listing").notNull().default(false),
   phone: varchar("phone", { length: 15 }),
   city: varchar("city", { length: 60 }),
+  // App-booking controls. Owners can shut off customer-app bookings
+  // entirely (safety valve) or restrict which services are bookable
+  // through the app while leaving the front-desk workflow untouched.
+  // `bookableServices` is null when all services are bookable (default);
+  // an explicit array narrows the confirm-sheet's chip options to that
+  // subset. Enforced server-side in the public listing + POST /bookings.
+  acceptAppBookings: boolean("accept_app_bookings").notNull().default(true),
+  bookableServices: jsonb("bookable_services"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   uqSlug: uniqueIndex("uq_clinics_slug").on(t.slug),
@@ -154,6 +172,9 @@ export const bookings = pgTable(
     // are nullable — a first-party booking leaves them null.
     guestName: varchar("guest_name", { length: 100 }),
     guestMobile: varchar("guest_mobile", { length: 15 }),
+    // Where this booking originated. Existing rows backfill to
+    // "frontdesk" — dashboard is where all pre-app bookings came from.
+    source: bookingSource("source").notNull().default("frontdesk"),
     partySize: integer("party_size").notNull().default(1),
     status: bookingStatus("status").notNull().default("booked"),
     checkedInAt: timestamp("checked_in_at", { withTimezone: true }),

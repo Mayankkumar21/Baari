@@ -106,6 +106,26 @@ export async function createCustomerBooking(args: {
   if (!clinic) {
     throw new CustomerBookingError("NOT_FOUND", "Clinic not found or not public.");
   }
+  // Safety valve — the clinic can pause app bookings without going
+  // fully unlisted. Uses a NOT_FOUND-ish 409 code so the app shows a
+  // clean "not accepting bookings" message rather than a hard error.
+  if (!clinic.acceptAppBookings) {
+    throw new CustomerBookingError(
+      "APP_BOOKINGS_OFF",
+      "This clinic isn't accepting app bookings right now.",
+    );
+  }
+  // Reason-guard against a stale app that offers a service the owner
+  // has since removed from the allowlist. Client filters proactively,
+  // this is the server-side safety net.
+  const allowedServices = clinic.bookableServices as string[] | null;
+  const reasonTrimmed = args.reason?.trim() || null;
+  if (allowedServices && reasonTrimmed && !allowedServices.includes(reasonTrimmed)) {
+    throw new CustomerBookingError(
+      "SERVICE_NOT_BOOKABLE",
+      "That service isn't bookable through the app right now.",
+    );
+  }
 
   const mobile = args.customer.mobile;
   const customerName = args.customer.name;
@@ -252,6 +272,7 @@ export async function createCustomerBooking(args: {
           guestMobile,
           partySize: 1,
           status: "booked",
+          source: "app",
           createdByUserId: owner.id,
         })
         .returning();

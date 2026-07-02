@@ -9,6 +9,7 @@ import { availableSlots, enumerateSlots, takenSlots } from "@/lib/services/booki
 import { isClosedDay } from "@/lib/services/booking-request";
 import { servicesFor } from "@/lib/services/service-types";
 import { clinicToday } from "@/lib/time";
+import { mobileVocabFor } from "@/lib/vocab";
 import type { Clinic } from "@/lib/db/schema";
 
 type DayKey = "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat";
@@ -62,6 +63,15 @@ export type PublicClinicDetail = PublicClinicSummary & {
   // sheet uses this to default "First visit?" off. Null-safe: false
   // when the caller isn't authed or the customer has no mobile.
   isReturning: boolean;
+  // False when the owner has paused app bookings; the app disables the
+  // Book CTA but still shows address / hours / phone so a direct-link
+  // customer can call in.
+  acceptAppBookings: boolean;
+  // Business-type-aware labels served alongside the clinic so the mobile
+  // app doesn't drift from the dashboard's terminology. Backend is the
+  // single source of truth; the mobile map is now fallback for older
+  // builds.
+  vocab: { sessionLabel: string; bookCta: string; tenantLabel: string };
 };
 
 export type PublicSlot = { iso: string };
@@ -114,6 +124,7 @@ export async function searchPublicClinics(args: {
 
   const conditions = [
     eq(schema.clinics.publicListing, true),
+    eq(schema.clinics.acceptAppBookings, true),
     sql`${schema.clinics.slug} IS NOT NULL`,
   ];
 
@@ -156,6 +167,7 @@ export async function featuredPublicClinics(
     .where(
       and(
         eq(schema.clinics.publicListing, true),
+        eq(schema.clinics.acceptAppBookings, true),
         sql`${schema.clinics.slug} IS NOT NULL`,
       ),
     )
@@ -199,6 +211,7 @@ export async function recentPublicClinicsForCustomer(
       and(
         inArray(schema.clinics.id, ids),
         eq(schema.clinics.publicListing, true),
+        eq(schema.clinics.acceptAppBookings, true),
         sql`${schema.clinics.slug} IS NOT NULL`,
       ),
     );
@@ -244,10 +257,19 @@ export async function getPublicClinicBySlug(
       .limit(1);
     isReturning = !!existing;
   }
+  // Apply the owner's bookable-services allowlist. `null` (default) means
+  // the app sees the full service catalogue; an explicit array narrows
+  // it. Empty array is possible when the owner has intentionally
+  // disallowed every service — respected as-is (Book CTA will be off).
+  const allServices = servicesFor(row.tenantType ?? "clinic");
+  const allowed = row.bookableServices as string[] | null;
+  const services = allowed
+    ? allServices.filter((s) => allowed.includes(s))
+    : allServices;
   return {
     ...base,
     phone: row.phone ?? null,
-    services: servicesFor(row.tenantType ?? "clinic"),
+    services,
     openingHours,
     slotLengthMin: slotLen,
     closesAtIso: getCurrentCloseTime(row, now),
@@ -255,6 +277,8 @@ export async function getPublicClinicBySlug(
     waitingNow,
     estWaitMinutes: waitingNow * slotLen,
     isReturning,
+    acceptAppBookings: row.acceptAppBookings,
+    vocab: mobileVocabFor(row.tenantType ?? "clinic"),
   };
 }
 

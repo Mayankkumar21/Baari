@@ -163,6 +163,7 @@ export async function createBooking(args: {
       reason: args.reason || null,
       partySize: args.partySize,
       status: "booked",
+      source: "frontdesk",
       createdByUserId: args.createdByUserId,
     })
     .returning();
@@ -205,6 +206,7 @@ export async function createWalkIn(args: {
       reason: "Walk-in",
       partySize: 1,
       status: "checked_in",
+      source: "walkin",
       checkedInAt: nowUtc(),
       createdByUserId: args.createdByUserId,
     })

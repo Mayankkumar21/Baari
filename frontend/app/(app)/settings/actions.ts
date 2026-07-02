@@ -9,6 +9,7 @@ import { requireDoctor } from "@/lib/session";
 import { SESSION_COOKIE, normalizeMobile } from "@/lib/auth";
 import { hashPassword, passwordStrength, verifyPassword } from "@/lib/password";
 import { createBookingRequest } from "@/lib/services/booking-request";
+import { servicesFor } from "@/lib/services/service-types";
 import { generateUniqueSlug } from "@/lib/slug";
 
 const TENANT_TYPES = ["clinic", "salon", "spa", "dental", "vet", "other"] as const;
@@ -78,6 +79,39 @@ export async function saveWorkspace(
     })
     .where(eq(schema.clinics.id, sess.clinic.id));
   revalidatePath("/settings/workspace");
+  revalidatePath("/queue");
+  return { ok: true };
+}
+
+// ─── App bookings ─────────────────────────────────────────────────────────
+
+export type BookingsState = { ok?: boolean; error?: string };
+
+export async function saveBookingsSettings(
+  _prev: BookingsState,
+  formData: FormData,
+): Promise<BookingsState> {
+  const sess = await requireDoctor();
+  const acceptAppBookings = formData.get("accept_app_bookings") === "on";
+
+  // Build the allowlist from checkbox names "service:<name>". If every
+  // service is ticked we store null (== "all bookable"), so a future
+  // service added to the catalogue is bookable-by-default rather than
+  // silently invisible to customers. Empty allowlist is legal — owner
+  // wants the app clinic listing but no bookable services yet.
+  const catalogue = servicesFor(sess.clinic.tenantType ?? "clinic");
+  const picked = new Set<string>();
+  for (const s of catalogue) {
+    if (formData.get(`service:${s}`) === "on") picked.add(s);
+  }
+  const bookableServices: string[] | null =
+    picked.size === catalogue.length ? null : catalogue.filter((s) => picked.has(s));
+
+  await db
+    .update(schema.clinics)
+    .set({ acceptAppBookings, bookableServices })
+    .where(eq(schema.clinics.id, sess.clinic.id));
+  revalidatePath("/settings/bookings");
   revalidatePath("/queue");
   return { ok: true };
 }

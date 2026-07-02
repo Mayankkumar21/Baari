@@ -123,3 +123,42 @@ export function vocabFor(tenantType: string | null | undefined): Vocab {
   if (tenantType in VOCABS) return VOCABS[tenantType as TenantTypeKey];
   return VOCABS.clinic;
 }
+
+// The subset the mobile app needs — derived from the same map so it
+// can't drift. Served alongside each clinic detail response.
+export type MobileVocab = {
+  sessionLabel: string; // upper-case pill under clinic name in cards
+  bookCta: string;      // button text on the clinic detail screen
+  tenantLabel: string;  // "Clinic" / "Salon" / "Dental" row on cards
+};
+
+const MOBILE_BOOK_CTA: Record<TenantTypeKey, string> = {
+  clinic: "Book a consult",
+  dental: "Book a checkup",
+  salon: "Book a chair",
+  spa: "Book a session",
+  vet: "Book a visit",
+  other: "Book a slot",
+};
+
+const MOBILE_TENANT_LABEL: Record<TenantTypeKey, string> = {
+  clinic: "Clinic",
+  dental: "Dental",
+  salon: "Salon",
+  spa: "Spa",
+  vet: "Vet",
+  other: "Business",
+};
+
+export function mobileVocabFor(tenantType: string | null | undefined): MobileVocab {
+  const key: TenantTypeKey =
+    tenantType && tenantType in VOCABS ? (tenantType as TenantTypeKey) : "clinic";
+  const v = VOCABS[key];
+  return {
+    // v.session is lower-case ("consult", "session", …); mobile card
+    // renders it uppercased.
+    sessionLabel: v.session.toUpperCase(),
+    bookCta: MOBILE_BOOK_CTA[key],
+    tenantLabel: MOBILE_TENANT_LABEL[key],
+  };
+}

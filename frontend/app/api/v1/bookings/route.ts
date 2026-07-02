@@ -59,6 +59,8 @@ export async function POST(req: Request) {
         case "SLOT_TAKEN":
         case "CAP_REACHED":
         case "ANONYMISED":
+        case "APP_BOOKINGS_OFF":
+        case "SERVICE_NOT_BOOKABLE":
           return ERRORS.CONFLICT(err.message, err.code);
         case "NOT_FOUND":
           return ERRORS.NOT_FOUND(err.message);

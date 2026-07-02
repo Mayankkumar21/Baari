@@ -74,6 +74,61 @@ function fmtSecAvg(sec: number | null): string {
   return `${Math.round(sec / 60)}m`;
 }
 
+// Percentage rounded to the nearest whole number, "—" when the total is
+// zero (nothing to divide by).
+function pctOf(part: number, total: number): string {
+  if (total <= 0) return "—";
+  return Math.round((part / total) * 100) + "%";
+}
+
+function SourceStrip({
+  bySource,
+  total,
+}: {
+  bySource: { app: number; frontdesk: number; walkin: number };
+  total: number;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Bookings by source</h3>
+          <span className="text-[11px] text-muted-foreground">
+            Where the bookings came from in this range
+          </span>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <SourceCell label="App" count={bySource.app} total={total} />
+          <SourceCell label="Front desk" count={bySource.frontdesk} total={total} />
+          <SourceCell label="Walk-in" count={bySource.walkin} total={total} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SourceCell({
+  label,
+  count,
+  total,
+}: {
+  label: string;
+  count: number;
+  total: number;
+}) {
+  return (
+    <div className="rounded-md border border-border bg-card/40 p-3">
+      <div className="text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-1 flex items-baseline gap-2">
+        <span className="text-2xl font-semibold tabular-nums">{count}</span>
+        <span className="text-xs text-muted-foreground">{pctOf(count, total)}</span>
+      </div>
+    </div>
+  );
+}
+
 function fmtSecDelta(now: number | null, prev: number | null) {
   if (now == null || prev == null || prev === 0) {
     return { label: "—", tone: "neutral" as const, title: undefined };
@@ -203,6 +258,10 @@ export default async function ReportsPage({
           delta={fmtSecDelta(bundle.avgSessionSec, prev.avgSessionSec)}
         />
       </div>
+
+      {/* Bookings by source — small strip so the owner can spot how
+          much of their volume is customer self-serve vs desk-created. */}
+      <SourceStrip bySource={bundle.bySource} total={bundle.totals.bookings} />
 
       {/* Charts */}
       <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
