@@ -1,0 +1,20 @@
+# Railway build + deploy config for the Baari dashboard/backend.
+#
+# Root Directory in Railway UI must be set to `frontend/` (this repo is
+# a monorepo with the Next.js app under frontend/). Railway auto-detects
+# Next.js via Nixpacks so no explicit builder pin is needed — just the
+# start command + a healthcheck.
+
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+# The health route is cheap (no DB by default) so Railway can decide
+# quickly whether traffic can shift to a new deploy.
+healthcheckPath = "/api/health"
+healthcheckTimeout = 30
+# On failure, wait a few seconds then try one more time before flipping
+# the deploy to a broken state. Prevents a single flaky start from
+# tanking a healthy deploy.
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

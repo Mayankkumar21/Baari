@@ -6,13 +6,17 @@ import { config } from "dotenv";
 config({ path: ".env.local", override: true });
 config({ path: ".env", override: true });
 
+// Prefer DIRECT_URL for migrations when set — pooler URLs (Neon/Railway
+// PgBouncer) don't support the multi-statement DDL that drizzle-kit push
+// emits. DATABASE_URL stays the app's runtime URL (pooled). Falls back
+// to DATABASE_URL when DIRECT_URL isn't set (single-URL setups).
+const migrationUrl = process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? "";
+
 export default {
   schema: "./lib/db/schema.ts",
   out: "./drizzle",
   dialect: "postgresql",
-  dbCredentials: {
-    url: process.env.DATABASE_URL ?? "",
-  },
+  dbCredentials: { url: migrationUrl },
   strict: true,
   verbose: true,
 } satisfies Config;
