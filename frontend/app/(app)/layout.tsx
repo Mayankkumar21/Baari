@@ -19,20 +19,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </div>
 
       <header className="sticky top-0 z-40 border-b border-border/40 bg-background/70 backdrop-blur-xl">
-        <div className="container flex h-14 items-center justify-between gap-4">
-          <Link href="/queue" className="flex items-center gap-2.5 group">
+        <div className="container flex h-14 items-center justify-between gap-2 sm:gap-4">
+          <Link href="/queue" className="flex min-w-0 items-center gap-2.5 group">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/logo.png"
               alt="Baari"
-              className="size-7 rounded-md shadow-[0_0_0_1px_hsl(var(--primary)/0.5),0_8px_24px_-8px_hsl(var(--primary)/0.6)] transition-transform group-hover:scale-105"
+              className="size-7 shrink-0 rounded-md shadow-[0_0_0_1px_hsl(var(--primary)/0.5),0_8px_24px_-8px_hsl(var(--primary)/0.6)] transition-transform group-hover:scale-105"
             />
-            <span className="text-sm font-bold tracking-tight bg-gradient-to-b from-foreground from-30% to-primary/80 bg-clip-text text-transparent">
+            {/* truncate keeps long workspace names from pushing the actions
+                off-screen on narrow viewports. min-w-0 on the link makes the
+                truncation actually take effect inside the flex parent. */}
+            <span className="truncate text-sm font-bold tracking-tight bg-gradient-to-b from-foreground from-30% to-primary/80 bg-clip-text text-transparent">
               {sess.clinic.name}
             </span>
           </Link>
           <AppNav isDoctor={isDoctor} vocab={vocab} />
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <ThemeToggle />
             <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
               <span className="font-medium text-foreground">{sess.user.name}</span>
@@ -43,7 +46,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </header>
 
-      <main className="container py-6 animate-page-in">{children}</main>
+      {/* Slightly tighter vertical padding on mobile so the hero heading
+          on each page starts higher and more of the queue is visible
+          without scrolling. */}
+      <main className="container py-4 sm:py-6 animate-page-in">{children}</main>
     </div>
   );
 }

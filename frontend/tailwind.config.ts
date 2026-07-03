@@ -10,7 +10,13 @@ const config: Config = {
   theme: {
     container: {
       center: true,
-      padding: "1.5rem",
+      // Tighter side-padding on mobile so the queue/reports pages don't
+      // waste ~50px of horizontal real estate on 375px viewports.
+      // Steps back up to 1.5rem at sm+ where there's room to breathe.
+      padding: {
+        DEFAULT: "1rem",
+        sm: "1.5rem",
+      },
       screens: { "2xl": "1180px" },
     },
     extend: {

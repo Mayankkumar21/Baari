@@ -1,0 +1,32 @@
+{
+  "name": "Baari — Queue & Bookings",
+  "short_name": "Baari",
+  "description": "The paper register your front desk replaces. A live queue and booking dashboard.",
+  "start_url": "/queue",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#4c4cde",
+  "categories": ["business", "productivity", "medical"],
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
