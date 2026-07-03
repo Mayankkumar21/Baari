@@ -11,6 +11,71 @@ below).
 
 ---
 
+## 🆕 Recent updates (through 2026-07-03)
+
+The root [AGENTS.md](../AGENTS.md) has a longer "Recent updates" section
+covering the product-level delta. This is the Next.js-specific summary
+of what changed here:
+
+- **Deployed to both Vercel + Railway in parallel run** (see root doc for cutover plan). `frontend/railway.toml` pins Nixpacks builder + `/api/health` healthcheck. Nothing Vercel-specific was broken — same repo builds cleanly on both.
+- **`/api/health` endpoint** — public, excluded from middleware auth. `?db=1` runs `select 1` so a GitHub-Actions cron can keep Neon warm.
+- **`drizzle.config.ts`** now prefers `DIRECT_URL ?? DATABASE_URL` so migrations work while runtime uses the pooled URL.
+- **Customer app v1 API** — everything under `app/api/v1/*`. Bearer-JWT auth via `verifyCustomerJwt` (`lib/customer-auth.ts`). See root doc for the endpoint inventory.
+- **Owner app v1 API** — new `app/api/v1/owner/{login,me,queue}` for the mobile app's owner/receptionist segment. `lib/owner-auth.ts` mirrors customer-auth with a distinct `type: "owner"` claim. `lib/api-helpers.ts` gains `requireOwner()` alongside `requireCustomer()`.
+- **New schema columns** (all via `db:push`):
+  - `bookings.guest_name` / `bookings.guest_mobile` (varchar, nullable) — third-party bookings
+  - `bookings.source` (enum `booking_source: app | frontdesk | walkin`, default `frontdesk`) — Reports "by source" strip
+  - `clinics.accept_app_bookings` (bool, default true) — safety valve
+  - `clinics.bookable_services` (jsonb array, nullable) — per-clinic allowlist for the confirm sheet
+- **New service enum:** `bookingSource` in `lib/db/schema.ts`.
+- **`lib/vocab.ts`** — added `mobileVocabFor(tenantType)` that returns the label triple the mobile app needs. Embedded in `getPublicClinicBySlug` response so mobile has a single source of truth.
+- **New dashboard page** — `/settings/bookings` (owner-facing) for the accept-app-bookings toggle + bookable-services checkbox list. Server action `saveBookingsSettings` in `app/(app)/settings/actions.ts`.
+- **Reports** now includes a "Bookings by source" card strip + a Source column on the bookings table. Query lives in `lib/services/reports.ts`.
+- **`components/app/app-nav.tsx`** — hamburger + drawer for mobile widths. The dashboard is now navigable on a phone browser.
+- **`components/theme-toggle.tsx`** — icons only (no "Light"/"Dark" text).
+- **PWA:** `public/manifest.webmanifest`, `app/layout.tsx` root has `viewport` + `themeColor` + `manifest` metadata. Installable to home screen with standalone display.
+- **`components/site-header.tsx` + `app/(app)/layout.tsx`** — logo now serves `/logo.png` (mobile app's rounded-square "b" mark). `app/icon.png` file for browser favicon.
+- **`components/sections/customer-app.tsx`** (new) — the "Your customers can book themselves" section on the marketing landing.
+
+### Files worth knowing about (added since the 2026-06-18 snapshot)
+
+```
+frontend/
+├── app/
+│   ├── icon.png                       # Browser favicon
+│   ├── api/
+│   │   ├── health/route.ts            # Railway healthcheck + Neon warm target
+│   │   └── v1/
+│   │       ├── auth/google/route.ts   # Customer Google Sign-in exchange
+│   │       ├── bookings/              # Customer POST + GET list + [id] + status + cancel
+│   │       ├── clinics/               # featured / search / recent / [slug] / [slug]/slots
+│   │       ├── me/                    # /me + /me/mobile change flow
+│   │       └── owner/                 # login / me / queue (new 2026-07-03)
+│   └── (app)/settings/bookings/       # New settings page for the app allowlist
+├── lib/
+│   ├── api-helpers.ts                 # ok / fail / bearerToken / requireCustomer / requireOwner
+│   ├── customer-auth.ts               # verifyCustomerJwt (bearer, type: "customer", 60d)
+│   ├── owner-auth.ts                  # verifyOwnerJwt (bearer, type: "owner", 30d) — new
+│   ├── rate-limit.ts                  # DB-backed fixed-window buckets (login, signup)
+│   ├── services/
+│   │   ├── customer-bookings.ts       # POST /bookings service — guest fields, allowlist, source tagging
+│   │   ├── public-clinics.ts          # summary + detail + isReturning
+│   │   └── reports.ts                 # + bookingsBySource + source column
+│   └── vocab.ts                       # + mobileVocabFor(tenantType)
+├── public/
+│   ├── logo.png                       # Mobile-app-matching mark
+│   └── manifest.webmanifest           # PWA manifest
+└── railway.toml                       # Nixpacks + healthcheck config
+```
+
+### What section 12 ("Common pitfalls") should also warn about (2026-07-03)
+
+- **Never assume `DATABASE_URL` == direct URL.** Runtime code should tolerate the pooled URL (it does — postgres-js works fine through pgBouncer transaction mode with `prepare: false` set in `lib/db/client.ts`). Migrations MUST use direct URL — set `DIRECT_URL` in env and drizzle.config picks it up automatically.
+- **`/api/health` and `/api/v1/*` are excluded from the auth middleware.** New API routes under `/api` that need public access must either be under `/api/v1/*` or explicitly added to `middleware.ts` `PUBLIC_PREFIXES`.
+- **Owner JWT ≠ customer JWT.** A stolen customer token cannot access `/api/v1/owner/*` because `verifyOwnerJwt` rejects tokens where `type !== "owner"`. Don't try to unify — the whole point is isolation.
+
+---
+
 ## 0. Product brief (one paragraph)
 
 Baari is a multi-tenant SaaS that replaces paper registers at appointment-

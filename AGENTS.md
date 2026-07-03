@@ -12,6 +12,109 @@ Everything you need to make safe, in-style changes is here.
 
 ---
 
+## 🆕 Recent updates (through 2026-07-03)
+
+Substantial delta since the 2026-06-19 rewrite. Anything below overrides
+older sections when they conflict — the audit sections (§19) are
+snapshots from a specific date and are not being kept in sync.
+
+### Hosting is now Vercel + Railway (parallel run)
+
+- **Vercel** (`baari-tech.vercel.app`) — still prod, still auto-deploys `main`.
+- **Railway** (`baari-production.up.railway.app`) — new staging, also auto-deploys `main`. Singapore region, persistent Node.js container, no cold starts. `frontend/railway.toml` pins Nixpacks + healthcheck. Cutover to Railway is planned once `baari.tech` / `mybaari.in` are registered and DNS lands.
+- Same Neon DB behind both — no data divergence during parallel run.
+- **Neon warm-keep cron** at `.github/workflows/neon-warm.yml` pings `/api/health?db=1` every 4 min so Neon compute never idles into scale-to-zero. Needs repo secret `NEON_WARM_URL`.
+- **`/api/health`** returns fast 200 (no DB by default); `?db=1` executes `select 1`. Excluded from middleware auth via both matcher and `PUBLIC_PREFIXES` list.
+- `drizzle.config.ts` reads `DIRECT_URL ?? DATABASE_URL` — pooled URLs on Railway/Neon can't run migrations, so `DIRECT_URL` is used for `db:push` while `DATABASE_URL` (pooled) serves the app.
+
+### Customer-facing mobile app is real
+
+The sibling repo `Baari-app` (Expo React Native) now backs the Baari mobile app. All customer-app endpoints live at `/api/v1/*` on this backend. Two auth modes:
+
+- **Customer bearer JWT** — `verifyCustomerJwt` in `lib/customer-auth.ts`. `type: "customer"` claim, 60-day expiry.
+- **Owner bearer JWT** (new, 2026-07-03) — `verifyOwnerJwt` in `lib/owner-auth.ts`. `type: "owner"` claim, 30-day expiry. Separate token spaces — a customer token can never satisfy an owner endpoint and vice versa.
+
+### New API v1 endpoints
+
+Under `frontend/app/api/v1/`:
+
+- **Clinics (public):**
+  - `GET /clinics/featured` — landing rail; filters `acceptAppBookings=true`
+  - `GET /clinics/search?q=&type=` — same filters
+  - `GET /clinics/recent` — customer's booked-before clinics (auth)
+  - `GET /clinics/:slug` — full detail. Now returns:
+    - `services` filtered by `bookableServices` allowlist (if set)
+    - `waitingNow` + `estWaitMinutes` (live queue snapshot)
+    - `closesAtIso` / `nextOpenIso` (dynamic status copy)
+    - `nextSlotIso` (drives "Next slot 10:30" card row)
+    - `isReturning` (patient row exists for auth customer at this clinic)
+    - `acceptAppBookings` (safety-valve toggle)
+    - `vocab` (backend-derived per-tenant-type labels — mobile app single source of truth)
+- **Bookings (customer):**
+  - `POST /bookings` — customer creates. Now accepts `guestName` + `guestMobile` for third-party bookings; validates via `^[6-9]\d{9}$`. Rejects when `clinic.acceptAppBookings=false` or `reason` not in `bookableServices`. Tags with `source: "app"`.
+  - `GET /bookings` → `{active, past}` split by status
+  - `GET /bookings/:id` (single) + `POST /bookings/:id/cancel` + `GET /bookings/:id/status` (polled live status)
+- **Auth (customer):**
+  - `POST /auth/google` — verify Google ID token → issue customer JWT
+- **Me (customer):**
+  - `GET /me` / `PATCH /me` / `POST /me/mobile` (mobile-change flow)
+- **Owner (new 2026-07-03):**
+  - `POST /owner/login` — mobile + password against `users` table. Reuses `login_per_ip` + `login_per_mobile` rate-limit buckets. Returns 30-day bearer JWT.
+  - `GET /owner/me` — authed user + clinic details.
+  - `GET /owner/queue` — today's queue via `buildBoard()`, reshaped for mobile. Read-only for first draft; check-in / start / done actions land in a follow-up.
+- **Health:**
+  - `GET /api/health` — Railway healthcheck + Neon-warm target.
+
+### Schema additions
+
+Recent DB columns (all via `db:push`, no migration files):
+
+- `bookings.guest_name` (varchar 100, nullable)
+- `bookings.guest_mobile` (varchar 15, nullable)
+- `bookings.source` (enum `app | frontdesk | walkin`, default `frontdesk`)
+- `clinics.accept_app_bookings` (bool, default true)
+- `clinics.bookable_services` (jsonb array, nullable — null = all allowed)
+
+New enum: `booking_source` — used for the "Bookings by source" strip on Reports.
+
+### Dashboard updates
+
+- **Settings → App bookings** (new page at `/settings/bookings`): toggle for `acceptAppBookings` + checkbox list for `bookableServices`. Owner-facing safety valves for the mobile-app booking flow. Navigated via new item in `settings-nav.tsx`.
+- **Reports → Bookings by source** strip up top; new **Source** column in the bookings table.
+- **Hamburger menu** at `md:hidden` on the receptionist dashboard (`components/app/app-nav.tsx`) — dashboard is now usable on a phone browser. Body-scroll lock while open, closes on route change / ESC / backdrop.
+- **Theme toggle icons-only** — `Light`/`Dark` labels removed from the pill, sun + moon icons kept.
+- **Header logo** (dashboard + landing) is the mobile app's rounded-square "b" mark. Same file lands at `app/icon.png` for browser-tab favicon.
+- **PWA** — `public/manifest.webmanifest` + `viewport` + `themeColor` metadata on the root layout. Dashboard installs to home screen on iOS + Android with standalone display.
+- **Landing** — new "Your customers can book themselves" section (`components/sections/customer-app.tsx`) between MoreFeatures and CtaClosing. Footer WhatsApp is the real number now (`+91 98931 27527`).
+
+### Cron
+
+- `.github/workflows/cron-tick.yml` — existing, unchanged (no-show sweeps + day-close every 5 min).
+- `.github/workflows/neon-warm.yml` — new (2026-07-03), 4-min interval, hits `/api/health?db=1` to keep Neon compute node warm.
+
+### Env vars (delta)
+
+Add to `frontend/.env.local` / Vercel / Railway:
+
+- `DIRECT_URL` — direct (non-pooled) Neon URL, used only by `drizzle-kit push`. Optional if `DATABASE_URL` is already direct.
+- `NEXT_PUBLIC_APP_URL` — public base URL. Currently `baari-tech.vercel.app` on Vercel; will move to `baari.tech` / `mybaari.in` on cutover.
+
+Add as GitHub repo secret:
+
+- `NEON_WARM_URL` — full URL the warm cron pings (e.g. `https://baari-production.up.railway.app/api/health?db=1`).
+
+### What's NOT in yet (open work)
+
+- Owner-side write actions on mobile (check-in, start, mark-done, walk-in creation).
+- Google Sign-in on the dashboard (link-first flow — task tracked).
+- Rate-limit wrapper on public discovery endpoints (infra exists in `lib/rate-limit.ts`, not yet applied).
+- Slug → clinicId lookup optimisation in `/bookings/:id/status`.
+- DB uniqueness constraints for the documented 2-active-cap + slot-time races.
+- Composite index on `bookings(clinicId, date, status)` for Reports.
+- Distance / "Near you" ranking on Discover (needs clinic lat/lng capture first).
+
+---
+
 ## 1. What Baari is
 
 A multi-tenant SaaS that replaces the **paper register** at the front desk
