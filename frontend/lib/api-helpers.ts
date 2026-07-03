@@ -6,6 +6,7 @@
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { verifyCustomerJwt } from "@/lib/customer-auth";
+import { verifyOwnerJwt } from "@/lib/owner-auth";
 import type { Customer } from "@/lib/db/schema";
 
 // ─── JSON response shapes ──────────────────────────────────────────────
@@ -102,4 +103,45 @@ export function customerToPublic(c: Customer) {
 export function maskMobile(m: string | null): string | null {
   if (!m || m.length < 6) return m;
   return `${m.slice(0, 2)}••••${m.slice(-4)}`;
+}
+
+// ─── Owner (mobile-app receptionist/doctor side) auth ────────────────────
+//
+// Mirrors requireCustomer above. Distinct code path because owner JWTs
+// carry a different `type` claim and resolve to a different table
+// (`users` + `clinics`, not `customers`).
+
+export type OwnerAuth = {
+  user: typeof schema.users.$inferSelect;
+  clinic: typeof schema.clinics.$inferSelect;
+};
+
+export async function getOwner(req: Request): Promise<OwnerAuth | null> {
+  const token = bearerToken(req);
+  if (!token) return null;
+  const session = await verifyOwnerJwt(token);
+  if (!session) return null;
+  const [user] = await db
+    .select()
+    .from(schema.users)
+    .where(eq(schema.users.id, session.uid))
+    .limit(1);
+  if (!user || !user.active) return null;
+  const [clinic] = await db
+    .select()
+    .from(schema.clinics)
+    .where(eq(schema.clinics.id, session.cid))
+    .limit(1);
+  if (!clinic) return null;
+  // Belt-and-braces: the JWT's cid must still match the user's current
+  // clinicId. Prevents a token issued when the user belonged to clinic A
+  // from continuing to grant access after they were re-assigned to B.
+  if (user.clinicId !== clinic.id) return null;
+  return { user, clinic };
+}
+
+export async function requireOwner(req: Request): Promise<OwnerAuth | Response> {
+  const owner = await getOwner(req);
+  if (!owner) return ERRORS.UNAUTHORIZED();
+  return owner;
 }
