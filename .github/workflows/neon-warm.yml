@@ -1,0 +1,51 @@
+name: neon-warm
+
+# Keeps Neon's serverless compute warm by pinging /api/health?db=1 every
+# 4 minutes. The endpoint runs a bare `select 1` — cheapest possible query
+# that still counts as activity against Neon's 5-minute idle-to-zero timer.
+#
+# Why this exists: on Neon Free, the compute node suspends after 5 min of
+# inactivity. First query after suspend costs ~500–1500ms to wake it up —
+# noticeable slowness for the first user of the morning or after a lull.
+# This cron floors that cost.
+#
+# Interval is 4 min (not 5) so a delayed GitHub tick doesn't slip past
+# Neon's idle window. Runs against Railway prod; the cron-tick workflow
+# still runs its own DB writes against APP_URL every 5 min for no-show
+# sweeps, so if Railway is briefly down we still have a fallback pinger.
+#
+# Endpoint is public (skipped in middleware) — no secret needed.
+#
+# Required repository secret:
+#   NEON_WARM_URL   full URL to /api/health?db=1 on whichever host we
+#                   want to keep warm. Currently Railway; swap on cutover.
+
+on:
+  schedule:
+    - cron: "*/4 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    # 60s cap — if the ping doesn't return in that time something is
+    # very wrong, and we'd rather the run fail than hold a runner slot.
+    timeout-minutes: 1
+    steps:
+      - name: GET /api/health?db=1
+        env:
+          NEON_WARM_URL: ${{ secrets.NEON_WARM_URL }}
+        run: |
+          if [ -z "$NEON_WARM_URL" ]; then
+            echo "::error::NEON_WARM_URL secret is missing"
+            exit 1
+          fi
+          # --fail returns non-zero on 4xx/5xx so a broken deploy shows
+          # up as a red workflow run instead of silently succeeding.
+          # --retry 2 with 5s delay covers a transient hiccup without
+          # spamming the endpoint.
+          curl --fail --silent --show-error \
+            --max-time 15 \
+            --retry 2 --retry-delay 5 \
+            -w "HTTP %{http_code} in %{time_total}s\n" \
+            "$NEON_WARM_URL"
