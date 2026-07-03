@@ -292,7 +292,7 @@ function BookPanel({
             <X className="size-4" />
           </Button>
         </div>
-        <div className="p-5">
+        <div className="p-4 sm:p-5">
           <BookForm
             slots={inputs.slots}
             freeCount={inputs.freeCount}

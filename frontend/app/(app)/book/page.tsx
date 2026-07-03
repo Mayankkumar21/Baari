@@ -27,7 +27,7 @@ export default async function BookPage() {
       </div>
 
       <Card>
-        <CardContent className="p-6">
+        <CardContent className="p-4 sm:p-6">
           <BookForm
             slots={slots}
             freeCount={freeCount}

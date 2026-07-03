@@ -166,7 +166,12 @@ export function BookForm({
             No slots today. Check opening hours in Settings.
           </div>
         ) : (
-          <div className="grid max-h-56 grid-cols-4 gap-1.5 overflow-y-auto sm:grid-cols-6">
+          // Mobile: 3-column grid, flows into the page's scroll — no inner
+          // scroll-box (which used to nest under the panel's own scroll and
+          // felt broken). Bigger touch targets (py-3, text-sm) — WCAG-ish
+          // 44px min. sm+ tightens back to a compact 6-col grid with the
+          // max-height + inner scroll it always had on desktop.
+          <div className="grid grid-cols-3 gap-2 sm:max-h-56 sm:grid-cols-4 sm:gap-1.5 sm:overflow-y-auto md:grid-cols-6">
             {slots.map(({ iso, status }) => {
               const isOpen = status === "open";
               const isTaken = status === "taken";
@@ -184,7 +189,7 @@ export function BookForm({
                   }
                   onClick={() => isOpen && setSlot(iso)}
                   className={cn(
-                    "rounded-md border px-2 py-2 text-xs font-medium transition-all backdrop-blur",
+                    "rounded-md border px-2 py-3 text-sm font-medium transition-all backdrop-blur sm:py-2 sm:text-xs",
                     isOpen && slot === iso
                       ? "border-primary bg-primary/15 text-foreground shadow-[0_0_0_1px_hsl(var(--primary)/0.5)]"
                       : isOpen
