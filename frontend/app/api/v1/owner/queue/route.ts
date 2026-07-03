@@ -39,6 +39,7 @@ type OwnerQueuePayload = {
     runningLate: number;
   };
   nowConsulting: {
+    bookingId: number;
     label: string;
     patientName: string;
     reason: string | null;
@@ -98,6 +99,7 @@ export async function GET(req: Request) {
     },
     nowConsulting: board.nowConsulting
       ? {
+          bookingId: board.nowConsulting.booking.id,
           label: board.nowConsulting.label,
           patientName: board.nowConsulting.patientName,
           reason: board.nowConsulting.reason,
