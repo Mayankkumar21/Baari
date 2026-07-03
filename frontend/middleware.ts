@@ -14,16 +14,18 @@ const PUBLIC = new Set([
 ]);
 
 // Path PREFIXES that are public regardless of session:
-//   /api/v1/*  — customer API, uses Bearer-token auth not cookies
-//   /api/cron  — already excluded by matcher, kept here for clarity
-//   /b/        — public missed-call/SMS booking flow (token in URL is the auth)
-const PUBLIC_PREFIXES = ["/api/v1/", "/b/"];
+//   /api/v1/*    — customer API, uses Bearer-token auth not cookies
+//   /api/cron    — already excluded by matcher, kept here for clarity
+//   /api/health  — Railway healthcheck + Neon-warm-keep cron; never
+//                  redirect these to /login or the healthcheck fails
+//   /b/          — public missed-call/SMS booking flow (token in URL is the auth)
+const PUBLIC_PREFIXES = ["/api/v1/", "/api/health", "/b/"];
 
-// Exclude /api/v1 + /api/cron from the matcher entirely so they don't even
-// hit this middleware. (Belt + braces with PUBLIC_PREFIXES — if Next ever
-// changes matcher semantics, the in-fn check is the fallback.)
+// Exclude these from the matcher entirely so they don't even hit this
+// middleware. Belt + braces with PUBLIC_PREFIXES — if Next ever changes
+// matcher semantics, the in-fn check is the fallback.
 export const config = {
-  matcher: ["/((?!_next|api/cron|api/v1|favicon|.*\\.).*)"],
+  matcher: ["/((?!_next|api/cron|api/v1|api/health|favicon|.*\\.).*)"],
 };
 
 export async function middleware(req: NextRequest) {
