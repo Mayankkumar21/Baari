@@ -23,7 +23,7 @@ import { normalizeMobile } from "@/lib/auth";
 import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
 import { ERRORS, fail, ok, readJson } from "@/lib/api-helpers";
 import { CODE_TTL_MINUTES, codeExpiry, generateOtpCode, hashOtpCode } from "@/lib/otp";
-import { sendEmail } from "@/lib/email/resend";
+import { sendEmailWithLimits } from "@/lib/email/resend";
 import { passwordResetEmail } from "@/lib/email/templates";
 
 type Body = { mobile?: string };
@@ -75,19 +75,26 @@ export async function POST(req: Request) {
       code,
       expiresInMinutes: CODE_TTL_MINUTES,
     });
-    const result = await sendEmail({
+    const result = await sendEmailWithLimits({
       to: user.email,
       subject: email.subject,
       html: email.html,
       text: email.text,
     });
     if (!result.ok) {
-      console.error("[owner/forgot-password] resend failed:", result.error);
-      if (process.env.DEV_AUTH_ENABLED === "true") {
-        return Response.json(
-          { ok: false, error: "Email send failed.", code: "SERVER", debug: result.error },
-          { status: 500 },
-        );
+      // Recipient-scoped rate limits stay non-oracle: don't tell the
+      // caller whether it was "no such user" vs "we're throttling that
+      // mailbox". Global cap is worth surfacing in dev so we notice.
+      if (result.reason === "rate_limit") {
+        console.warn(`[owner/forgot-password] rate-limited scope=${result.scope}`);
+      } else {
+        console.error("[owner/forgot-password] resend failed:", result.error);
+        if (process.env.DEV_AUTH_ENABLED === "true") {
+          return Response.json(
+            { ok: false, error: "Email send failed.", code: "SERVER", debug: result.error },
+            { status: 500 },
+          );
+        }
       }
     }
 

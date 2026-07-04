@@ -14,7 +14,7 @@ import { normalizeEmail } from "@/lib/auth";
 import { requireSession } from "@/lib/session";
 import { CODE_TTL_MINUTES, codeExpiry, generateOtpCode, hashOtpCode } from "@/lib/otp";
 import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
-import { sendEmail } from "@/lib/email/resend";
+import { sendEmailWithLimits } from "@/lib/email/resend";
 import { emailVerifyEmail } from "@/lib/email/templates";
 
 type Body = { email?: string };
@@ -37,12 +37,26 @@ export async function POST(req: Request) {
     const email = normalizeEmail(body?.email);
     if (!email) return ERRORS.VALIDATION("Enter a valid email like you@example.com.");
 
-    // Rate-limit by IP so a compromised session can't spam a target
-    // inbox — the reset buckets are already tight enough for this too.
+    // Layered rate limits:
+    //   IP    — reuses the reset bucket so a shared attacker across
+    //           both flows can't multiply their budget.
+    //   user  — a compromised session can't grind through Resend
+    //           quota by pounding /email/start over and over.
+    // Per-recipient caps run inside sendEmailWithLimits below so
+    // multiple flows (reset + verify) share the same target-inbox
+    // budget.
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "0.0.0.0";
     const ipCheck = await checkAndIncrement(LIMITS.reset_per_ip, "email_verify_ip", ip);
     if (!ipCheck.ok) {
       return fail(429, "Too many attempts. Try again in an hour.", "RATE_LIMITED");
+    }
+    const userCheck = await checkAndIncrement(
+      LIMITS.email_user_hour,
+      "email_verify_user",
+      String(sess.user.id),
+    );
+    if (!userCheck.ok) {
+      return fail(429, "Too many verification attempts. Try again in an hour.", "RATE_LIMITED");
     }
 
     // Duplicate guard — friendlier than the Postgres unique-index trip.
@@ -79,13 +93,24 @@ export async function POST(req: Request) {
       expiresInMinutes: CODE_TTL_MINUTES,
       kind,
     });
-    const result = await sendEmail({
+    const result = await sendEmailWithLimits({
       to: email,
       subject: message.subject,
       html: message.html,
       text: message.text,
     });
     if (!result.ok) {
+      if (result.reason === "rate_limit") {
+        // The candidate email itself is being throttled — surface as
+        // 429 so the UI knows to back off. This endpoint is session-
+        // authed so we're not leaking anything by naming the reason.
+        console.warn(`[owner/email/start] rate-limited scope=${result.scope}`);
+        return fail(
+          429,
+          "This address just received a code. Wait a bit and try again.",
+          "RATE_LIMITED",
+        );
+      }
       console.error("[owner/email/start] resend failed:", result.error);
       if (process.env.DEV_AUTH_ENABLED === "true") {
         return Response.json(
