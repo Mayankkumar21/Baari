@@ -1,15 +1,8 @@
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { LoginForm } from "./login-form";
+import { ForgotForm } from "./forgot-form";
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ next?: string; reset?: string }>;
-}) {
-  const sp = await searchParams;
-  const next = sp.next && sp.next.startsWith("/") ? sp.next : "/queue";
-  const justReset = sp.reset === "1";
+export default function ForgotPage() {
   return (
     <div className="relative grid min-h-screen place-items-center px-4">
       <div className="orb -top-32 -left-32 size-[480px] bg-primary/30" />
@@ -24,26 +17,18 @@ export default async function LoginPage({
               <span className="text-sm font-semibold tracking-tight">Baari</span>
             </Link>
             <h1 className="pt-2 text-2xl font-bold tracking-tight text-gradient">
-              Welcome back
+              Forgot password
             </h1>
             <p className="text-sm text-muted-foreground">
-              Sign in to your workspace dashboard.
+              We'll email you a link to set a new one.
             </p>
           </div>
-          {justReset ? (
-            <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
-              Password updated. Sign in with your new password.
-            </div>
-          ) : null}
-          <LoginForm next={next} />
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <Link href="/forgot" className="text-primary hover:underline font-medium">
-              Forgot password?
+          <ForgotForm />
+          <p className="text-center text-xs text-muted-foreground">
+            <Link href="/login" className="text-primary hover:underline font-medium">
+              ← Back to sign in
             </Link>
-            <Link href="/signup" className="text-primary hover:underline font-medium">
-              Create a workspace →
-            </Link>
-          </div>
+          </p>
         </CardContent>
       </Card>
     </div>

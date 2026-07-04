@@ -118,6 +118,12 @@ export const users = pgTable(
     mobile: varchar("mobile", { length: 15 }).notNull(),
     passwordHash: varchar("password_hash", { length: 255 }).notNull(),
     name: varchar("name", { length: 80 }).notNull(),
+    // Owner email. Optional at row-creation to keep manual onboarding cheap,
+    // but required for the "forgot password" flow — password reset sends
+    // a magic link here. Global uniqueness (partial, ignoring NULLs) so
+    // one owner can't accidentally register two workspaces on the same
+    // inbox without deliberately re-using the address.
+    email: varchar("email", { length: 254 }),
     active: boolean("active").notNull().default(true),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -125,6 +131,34 @@ export const users = pgTable(
   (t) => ({
     uniqClinicMobile: uniqueIndex("uq_users_clinic_mobile").on(t.clinicId, t.mobile),
     clinicIdx: index("users_clinic_idx").on(t.clinicId),
+    uqEmail: uniqueIndex("uq_users_email")
+      .on(t.email)
+      .where(sql`${t.email} IS NOT NULL`),
+  }),
+);
+
+// Password reset tokens for the owner-side "Forgot password?" flow.
+// The raw token is 32 random bytes → base64url; only its SHA-256 hash
+// lives here so a DB dump can't be replayed as a valid link. Rows are
+// short-lived (15 min) — a nightly gc job (or lazy cleanup at issue-time)
+// evicts expired rows.
+export const passwordResets = pgTable(
+  "password_resets",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").notNull().references(() => users.id),
+    tokenHash: varchar("token_hash", { length: 128 }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    // Stamped when the reset actually succeeds — nulls out a token
+    // from further use without needing a delete. Also lets the audit
+    // trail survive after the row is technically consumed.
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uqTokenHash: uniqueIndex("uq_password_resets_token_hash").on(t.tokenHash),
+    userIdx: index("password_resets_user_idx").on(t.userId),
+    expiresIdx: index("password_resets_expires_idx").on(t.expiresAt),
   }),
 );
 

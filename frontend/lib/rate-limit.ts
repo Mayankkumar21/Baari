@@ -10,6 +10,10 @@ export const LIMITS: Record<string, LimitSpec> = {
   signup_per_mobile: { limit: 3, windowSeconds: 3600 },
   login_per_ip: { limit: 30, windowSeconds: 600 },
   login_per_mobile: { limit: 10, windowSeconds: 600 },
+  // Forgot-password: tighter than login. Owners rarely reset — a
+  // burst almost always means enumeration or spamming a mailbox.
+  reset_per_ip: { limit: 5, windowSeconds: 3600 },
+  reset_per_mobile: { limit: 3, windowSeconds: 3600 },
 };
 
 export async function checkAndIncrement(

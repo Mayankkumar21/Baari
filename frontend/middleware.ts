@@ -8,6 +8,8 @@ const PUBLIC = new Set([
   "/",
   "/login",
   "/signup",
+  "/forgot",
+  "/reset",
   "/workspace-deleted",
   "/legal/privacy",
   "/legal/terms",
