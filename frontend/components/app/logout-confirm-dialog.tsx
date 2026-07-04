@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { LogOut, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { logoutAction } from "@/app/login/actions";
@@ -18,6 +19,15 @@ export function LogoutConfirmDialog({
 }) {
   const [pending, start] = useTransition();
   const confirmRef = useRef<HTMLButtonElement>(null);
+  // Portal target — bound after mount so we don't touch `document`
+  // during SSR. Rendering to document.body escapes ancestor stacking
+  // contexts (the sticky header uses backdrop-blur, which creates a
+  // containing block for fixed descendants; without a portal the
+  // dialog gets centered INSIDE the header rather than the viewport).
+  const [portalHost, setPortalHost] = useState<Element | null>(null);
+  useEffect(() => {
+    setPortalHost(document.body);
+  }, []);
 
   // Focus the confirm button once the dialog mounts so keyboard users
   // can press Enter immediately.
@@ -42,9 +52,9 @@ export function LogoutConfirmDialog({
     };
   }, [open, pending, onClose]);
 
-  if (!open) return null;
+  if (!open || !portalHost) return null;
 
-  return (
+  return createPortal(
     <>
       {/* Backdrop — clickable to close when not submitting. Rendered as
           a button so keyboard users can also dismiss with Enter/Space. */}
@@ -53,13 +63,13 @@ export function LogoutConfirmDialog({
         aria-label="Close dialog"
         onClick={() => !pending && onClose()}
         disabled={pending}
-        className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+        className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm"
       />
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="logout-dialog-title"
-        className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-6 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-150"
+        className="fixed left-1/2 top-1/2 z-[101] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-6 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-150"
       >
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -111,6 +121,7 @@ export function LogoutConfirmDialog({
           </Button>
         </div>
       </div>
-    </>
+    </>,
+    portalHost,
   );
 }
