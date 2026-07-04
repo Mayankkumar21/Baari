@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Noto_Sans_Devanagari } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
+import { PostHogProvider } from "@/components/posthog-provider";
+import { getSession } from "@/lib/session";
 import "./globals.css";
 
 const inter = Inter({
@@ -51,9 +53,23 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // Read the session server-side so we can hand a stable identity to
+  // PostHog on first paint. Null when not signed in — provider stays
+  // anonymous until the next navigation after login.
+  const sess = await getSession();
+  const identity = sess
+    ? {
+        userId: sess.user.id,
+        clinicId: sess.clinic.id,
+        role: sess.user.role,
+        name: sess.user.name,
+        mobile: sess.user.mobile,
+      }
+    : null;
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body
@@ -65,7 +81,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <PostHogProvider identity={identity}>{children}</PostHogProvider>
         </ThemeProvider>
       </body>
     </html>

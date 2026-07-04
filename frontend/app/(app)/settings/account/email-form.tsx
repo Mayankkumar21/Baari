@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { removeEmail } from "../actions";
+import { capture } from "@/components/posthog-provider";
 
 type Phase =
   | { kind: "idle" }                             // showing input, no code sent yet
@@ -52,6 +53,7 @@ export function EmailForm({ currentEmail }: { currentEmail: string | null }) {
         setPhase({ kind: "idle" });
         return;
       }
+      capture("email_verify_started", { surface: "web" });
       setPhase({ kind: "code", email });
       setCode("");
     } catch (e) {
@@ -81,6 +83,7 @@ export function EmailForm({ currentEmail }: { currentEmail: string | null }) {
         setPhase({ kind: "code", email: phase.email });
         return;
       }
+      capture("email_verify_completed", { surface: "web" });
       setSavedEmail(phase.email);
       setPendingEmail("");
       setCode("");

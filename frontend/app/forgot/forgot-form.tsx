@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { capture } from "@/components/posthog-provider";
 
 type Phase =
   | { kind: "mobile" }
@@ -50,6 +51,7 @@ export function ForgotForm() {
       // Non-oracle: we advance to step 2 either way. If sent:false (no
       // email on file / no such user), the "Wrong code" error in step 2
       // will surface consistently.
+      capture("password_reset_started", { surface: "web" });
       setPhase({ kind: "code", mobile: m });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error.");
@@ -86,6 +88,7 @@ export function ForgotForm() {
         setPhase({ kind: "code", mobile: phase.mobile });
         return;
       }
+      capture("password_reset_completed", { surface: "web" });
       router.push("/login?reset=1");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error.");
