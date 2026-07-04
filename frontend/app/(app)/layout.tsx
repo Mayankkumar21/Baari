@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { ShieldCheck } from "lucide-react";
 import { requireSession } from "@/lib/session";
+import { isAdmin } from "@/lib/admin";
 import { vocabFor } from "@/lib/vocab";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LogoutButton } from "@/components/app/logout-button";
@@ -9,6 +11,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const sess = await requireSession();
   const vocab = vocabFor(sess.clinic.tenantType);
   const isDoctor = sess.user.role === "doctor";
+  const showAdminLink = isAdmin(sess);
 
   return (
     <div className="relative min-h-screen">
@@ -36,6 +39,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </Link>
           <AppNav isDoctor={isDoctor} vocab={vocab} />
           <div className="flex shrink-0 items-center gap-2">
+            {showAdminLink ? (
+              <Link
+                href="/admin"
+                className="hidden sm:inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/5 px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/10"
+                title="Internal admin"
+              >
+                <ShieldCheck className="size-3" /> Admin
+              </Link>
+            ) : null}
             <ThemeToggle />
             <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
               <span className="font-medium text-foreground">{sess.user.name}</span>
