@@ -5,31 +5,99 @@
 
 type PasswordResetArgs = {
   name: string;
-  resetUrl: string;
+  code: string;
   expiresInMinutes: number;
 };
 
+// Password-reset OTP. No clickable link — the code goes back into the
+// same UI the reset was triggered from, so nothing to phish.
 export function passwordResetEmail(args: PasswordResetArgs): {
   subject: string;
   html: string;
   text: string;
 } {
-  const { name, resetUrl, expiresInMinutes } = args;
-  const subject = "Reset your Baari password";
+  const { name, code, expiresInMinutes } = args;
+  const subject = `Your Baari reset code: ${code}`;
   const text = [
     `Hi ${name},`,
     "",
-    "Someone asked to reset the password on your Baari owner account. If it was you, open the link below:",
+    `Your Baari password-reset code is: ${code}`,
     "",
-    resetUrl,
+    `Enter it on the reset screen to set a new password. The code expires in ${expiresInMinutes} minutes.`,
     "",
-    `The link expires in ${expiresInMinutes} minutes.`,
-    "",
-    "If you didn't ask for this, you can ignore this email — nothing will change.",
+    "If you didn't ask for this, ignore this email — nothing will change.",
     "",
     "— Baari",
   ].join("\n");
-  const html = `<!DOCTYPE html>
+  const html = codeEmailHtml({
+    subject,
+    intro: `Hi ${escapeHtml(name)}, someone (hopefully you) asked to reset the password on your Baari owner account.`,
+    code,
+    codeLabel: "Enter this code on the reset screen:",
+    expiresInMinutes,
+    footer: "If you didn't ask for this, ignore this email — nothing will change.",
+  });
+  return { subject, html, text };
+}
+
+type EmailVerifyArgs = {
+  name: string;
+  code: string;
+  expiresInMinutes: number;
+  // 'add' when the account had no email before; 'change' when replacing
+  // one. Copy differs slightly so the message stays honest about what
+  // clicking through will do.
+  kind: "add" | "change";
+};
+
+// Verification OTP for the "add / change email" flow. Sent to the
+// candidate address so ownership is proved before we save.
+export function emailVerifyEmail(args: EmailVerifyArgs): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const { name, code, expiresInMinutes, kind } = args;
+  const subject = `Your Baari verification code: ${code}`;
+  const intro =
+    kind === "change"
+      ? `Hi ${escapeHtml(name)}, someone asked to change your Baari account email to this address.`
+      : `Hi ${escapeHtml(name)}, someone asked to add this address as the recovery email on your Baari account.`;
+  const text = [
+    `Hi ${name},`,
+    "",
+    `Your Baari verification code is: ${code}`,
+    "",
+    `Enter it on the Baari dashboard to confirm this email address. The code expires in ${expiresInMinutes} minutes.`,
+    "",
+    "If you didn't ask for this, ignore this email — no email is stored on your account until the code is entered.",
+    "",
+    "— Baari",
+  ].join("\n");
+  const html = codeEmailHtml({
+    subject,
+    intro,
+    code,
+    codeLabel: "Enter this code on the Baari dashboard:",
+    expiresInMinutes,
+    footer:
+      "If you didn't ask for this, ignore this email — no email is stored on your account until the code is entered.",
+  });
+  return { subject, html, text };
+}
+
+// ─── Shared HTML shell ──────────────────────────────────────────────────
+
+function codeEmailHtml(args: {
+  subject: string;
+  intro: string;
+  code: string;
+  codeLabel: string;
+  expiresInMinutes: number;
+  footer: string;
+}): string {
+  const { subject, intro, code, codeLabel, expiresInMinutes, footer } = args;
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -46,15 +114,11 @@ export function passwordResetEmail(args: PasswordResetArgs): {
                 <span style="display:inline-block;width:28px;height:28px;line-height:28px;text-align:center;background-color:#4c4cde;color:#f5efdf;border-radius:6px;font-weight:700;">B</span>
                 <span style="font-size:15px;font-weight:600;color:#151417;">Baari</span>
               </div>
-              <h1 style="font-size:22px;font-weight:600;margin:0 0 12px;">Reset your password</h1>
-              <p style="font-size:15px;line-height:22px;color:#3a3a40;margin:0 0 20px;">Hi ${escapeHtml(name)}, someone (hopefully you) asked to reset the password on your Baari owner account.</p>
-              <p style="margin:0 0 24px;">
-                <a href="${escapeAttr(resetUrl)}" style="display:inline-block;background-color:#4c4cde;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;font-size:15px;">Set a new password</a>
-              </p>
-              <p style="font-size:13px;line-height:20px;color:#6b6a71;margin:0 0 8px;">Or paste this link into your browser:</p>
-              <p style="font-size:13px;line-height:20px;word-break:break-all;margin:0 0 20px;"><a href="${escapeAttr(resetUrl)}" style="color:#4c4cde;">${escapeHtml(resetUrl)}</a></p>
-              <p style="font-size:13px;line-height:20px;color:#6b6a71;margin:0 0 4px;">The link expires in ${expiresInMinutes} minutes.</p>
-              <p style="font-size:13px;line-height:20px;color:#6b6a71;margin:0;">If you didn't ask for this, you can ignore this email — nothing will change.</p>
+              <p style="font-size:15px;line-height:22px;color:#3a3a40;margin:0 0 20px;">${intro}</p>
+              <p style="font-size:13px;line-height:20px;color:#6b6a71;margin:0 0 8px;">${escapeHtml(codeLabel)}</p>
+              <div style="font-family:'SF Mono',ui-monospace,Menlo,monospace;font-size:34px;font-weight:600;letter-spacing:8px;color:#151417;background-color:#f6f5f0;border:1px solid #e5e3d8;border-radius:10px;padding:16px 24px;text-align:center;margin:0 0 20px;">${escapeHtml(code)}</div>
+              <p style="font-size:13px;line-height:20px;color:#6b6a71;margin:0 0 8px;">The code expires in ${expiresInMinutes} minutes.</p>
+              <p style="font-size:13px;line-height:20px;color:#6b6a71;margin:0;">${footer}</p>
             </td>
           </tr>
         </table>
@@ -64,11 +128,10 @@ export function passwordResetEmail(args: PasswordResetArgs): {
   </table>
 </body>
 </html>`;
-  return { subject, html, text };
 }
 
-// Minimal HTML escaping. We only interpolate name and URLs — enough
-// coverage without pulling in a full sanitizer.
+// Minimal HTML escaping — enough for the interpolations we do (name,
+// codes, subjects). Not a general-purpose sanitizer.
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -76,8 +139,4 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
-}
-
-function escapeAttr(s: string): string {
-  return escapeHtml(s);
 }

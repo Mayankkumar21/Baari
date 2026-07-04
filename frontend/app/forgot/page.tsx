@@ -20,7 +20,7 @@ export default function ForgotPage() {
               Forgot password
             </h1>
             <p className="text-sm text-muted-foreground">
-              We'll email you a link to set a new one.
+              We'll email a 6-digit code to your registered address.
             </p>
           </div>
           <ForgotForm />

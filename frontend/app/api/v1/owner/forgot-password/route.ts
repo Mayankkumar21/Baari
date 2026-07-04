@@ -1,23 +1,19 @@
-// POST /api/v1/owner/forgot-password — start a password reset.
+// POST /api/v1/owner/forgot-password — start the OTP reset flow.
 //
 // Body: { mobile }
 // Behaviour:
-//   1. Rate-limit by IP + mobile so the endpoint can't be used to
-//      enumerate users or spam a real owner's inbox.
+//   1. Rate-limit by IP + mobile so the endpoint can't enumerate users
+//      or spam a real owner's inbox.
 //   2. Look up an active user by mobile. If missing / has no email /
-//      inactive → return 200 anyway. Never leak account existence.
-//   3. Generate a raw token (32 bytes → base64url), store its SHA-256
-//      hash + expiry in `password_resets`, send the raw token in a
-//      Resend email.
+//      inactive → return 200 with sent:false. Never leak account
+//      existence.
+//   3. Generate a 6-digit code, store its SHA-256 hash + 10-min expiry
+//      in `password_resets`, email the RAW code to user.email via
+//      Resend.
 //   4. Return { ok, sent: true|false } where `sent` reflects whether
-//      the caller has a real user with an email on file — used only by
-//      the mobile app to shape the success copy; not a security oracle
-//      because rate-limits stop enumeration long before this signal is
+//      we actually sent — used only by the client to shape success
+//      copy; rate-limits stop enumeration long before this signal is
 //      useful.
-//
-// Not a security oracle: the shape is intentionally sparse. If the
-// mobile matches an active user with an email, we email. If not, we
-// respond identically otherwise.
 
 export const dynamic = "force-dynamic";
 
@@ -26,12 +22,7 @@ import { db, schema } from "@/lib/db/client";
 import { normalizeMobile } from "@/lib/auth";
 import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
 import { ERRORS, fail, ok, readJson } from "@/lib/api-helpers";
-import {
-  generateResetToken,
-  resetTokenExpiry,
-  resetUrlFor,
-  RESET_TTL_MINUTES,
-} from "@/lib/password-reset";
+import { CODE_TTL_MINUTES, codeExpiry, generateOtpCode, hashOtpCode } from "@/lib/otp";
 import { sendEmail } from "@/lib/email/resend";
 import { passwordResetEmail } from "@/lib/email/templates";
 
@@ -58,36 +49,31 @@ export async function POST(req: Request) {
       return fail(429, "Too many reset attempts on this number. Try again later.", "RATE_LIMITED");
     }
 
-    // Find active owner. Multi-clinic owners can exist on the same
-    // mobile — we email the FIRST matching row's email. In practice
-    // owners re-use the same mobile within a single clinic; if this
-    // ever bites, we'll switch to sending one email per clinic match.
+    // Multi-clinic owners can exist on the same mobile — we send to
+    // the first matching row's email. Every clinic under that mobile
+    // will accept the same reset code because they all resolve to the
+    // same user row for verification.
     const [user] = await db
       .select()
       .from(schema.users)
       .where(and(eq(schema.users.mobile, mobile), eq(schema.users.active, true)))
       .limit(1);
 
-    // No user OR no email on file → succeed silently. Same shape as
-    // the sent-branch so behaviour doesn't leak. `sent: false` is only
-    // a UX signal for the mobile app to phrase the toast differently
-    // — the rate limits above prevent this from being an oracle.
     if (!user || !user.email) {
       return ok({ sent: false });
     }
 
-    const { raw, hash } = generateResetToken();
-    const expiresAt = resetTokenExpiry();
+    const code = generateOtpCode();
     await db.insert(schema.passwordResets).values({
       userId: user.id,
-      tokenHash: hash,
-      expiresAt,
+      tokenHash: hashOtpCode(code),
+      expiresAt: codeExpiry(),
     });
 
     const email = passwordResetEmail({
       name: user.name,
-      resetUrl: resetUrlFor(raw),
-      expiresInMinutes: RESET_TTL_MINUTES,
+      code,
+      expiresInMinutes: CODE_TTL_MINUTES,
     });
     const result = await sendEmail({
       to: user.email,
@@ -96,9 +82,6 @@ export async function POST(req: Request) {
       text: email.text,
     });
     if (!result.ok) {
-      // Log but still return 200 to the client — the token row is
-      // written, so a retry-send job could pick this up later. For
-      // now we surface a 500 in dev so the developer sees the fault.
       console.error("[owner/forgot-password] resend failed:", result.error);
       if (process.env.DEV_AUTH_ENABLED === "true") {
         return Response.json(

@@ -137,28 +137,58 @@ export const users = pgTable(
   }),
 );
 
-// Password reset tokens for the owner-side "Forgot password?" flow.
-// The raw token is 32 random bytes → base64url; only its SHA-256 hash
-// lives here so a DB dump can't be replayed as a valid link. Rows are
-// short-lived (15 min) — a nightly gc job (or lazy cleanup at issue-time)
-// evicts expired rows.
+// Password reset codes for the owner-side "Forgot password?" flow.
+// Stores a SHA-256 of a 6-digit OTP the user has to paste back — the raw
+// code never lives here so a DB dump can't be replayed. Rows are short-
+// lived (10 min); `attempts` caps wrong-code entries so an attacker
+// can't brute-force the 1-in-a-million per code by grinding requests.
 export const passwordResets = pgTable(
   "password_resets",
   {
     id: serial("id").primaryKey(),
     userId: integer("user_id").notNull().references(() => users.id),
+    // SHA-256 of the 6-digit OTP. Column name kept from the earlier
+    // link-based scheme so the migration is additive rather than a
+    // rename.
     tokenHash: varchar("token_hash", { length: 128 }).notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-    // Stamped when the reset actually succeeds — nulls out a token
-    // from further use without needing a delete. Also lets the audit
-    // trail survive after the row is technically consumed.
+    // Stamped when the reset actually succeeds. Also lets the audit
+    // trail survive after a row is technically consumed.
     usedAt: timestamp("used_at", { withTimezone: true }),
+    // Wrong-code counter. Endpoint rejects further guesses on the same
+    // row once we cross the threshold — forces the user to request a
+    // new code rather than grind through 1M combinations.
+    attempts: integer("attempts").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
-    uqTokenHash: uniqueIndex("uq_password_resets_token_hash").on(t.tokenHash),
     userIdx: index("password_resets_user_idx").on(t.userId),
     expiresIdx: index("password_resets_expires_idx").on(t.expiresAt),
+  }),
+);
+
+// Email verification codes for the "add / change email" flow. Sent to
+// the CANDIDATE email — not the currently-stored one — so ownership of
+// the new inbox is proved before we write it to users.email. Same shape
+// as passwordResets except we also carry the pending email so the
+// verify endpoint doesn't need a second round-trip.
+export const emailVerifications = pgTable(
+  "email_verifications",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").notNull().references(() => users.id),
+    // Normalised (lowercase, trimmed) target email. Once verified, this
+    // is what we copy into users.email.
+    pendingEmail: varchar("pending_email", { length: 254 }).notNull(),
+    codeHash: varchar("code_hash", { length: 128 }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    attempts: integer("attempts").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    userIdx: index("email_verifications_user_idx").on(t.userId),
+    expiresIdx: index("email_verifications_expires_idx").on(t.expiresAt),
   }),
 );
 

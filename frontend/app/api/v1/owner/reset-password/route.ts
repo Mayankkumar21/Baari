@@ -1,80 +1,89 @@
-// GET  /api/v1/owner/reset-password?token=xxx — validate a reset link
-// POST /api/v1/owner/reset-password — { token, password } → set new password
+// POST /api/v1/owner/reset-password — { mobile, code, password } → set new password.
 //
-// The web reset page hits GET first so it can render either the form
-// or an "expired / already used" message without a wasted user
-// interaction. POST does the actual password change and marks the
-// token used so the same link can't be redeemed twice.
-//
-// Both operations look up by the raw token's SHA-256 hash — the raw
-// token never lives in the DB.
+// The forgot-password endpoint emails a 6-digit code; this endpoint
+// verifies (mobile, code) against the newest unused reset row for that
+// user and updates the bcrypt hash.
 
 export const dynamic = "force-dynamic";
 
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { ERRORS, fail, ok, readJson } from "@/lib/api-helpers";
+import { normalizeMobile } from "@/lib/auth";
 import { hashPassword, passwordStrength } from "@/lib/password";
-import { hashResetToken } from "@/lib/password-reset";
+import { hashOtpCode, MAX_ATTEMPTS } from "@/lib/otp";
+import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
 
-type PostBody = { token?: string; password?: string };
-
-// Shared token lookup — returns the user + reset row when a raw token
-// is still redeemable, otherwise null. Also filters on user.active so
-// disabled owners can't recover.
-async function findValidReset(rawToken: string) {
-  const hash = hashResetToken(rawToken);
-  const now = new Date();
-  const [row] = await db
-    .select({
-      reset: schema.passwordResets,
-      user: schema.users,
-    })
-    .from(schema.passwordResets)
-    .innerJoin(schema.users, eq(schema.users.id, schema.passwordResets.userId))
-    .where(
-      and(
-        eq(schema.passwordResets.tokenHash, hash),
-        isNull(schema.passwordResets.usedAt),
-        gt(schema.passwordResets.expiresAt, now),
-        eq(schema.users.active, true),
-      ),
-    )
-    .limit(1);
-  return row ?? null;
-}
-
-export async function GET(req: Request) {
-  try {
-    const url = new URL(req.url);
-    const token = url.searchParams.get("token")?.trim();
-    if (!token) return ERRORS.BAD_REQUEST("Token required.");
-    const row = await findValidReset(token);
-    if (!row) return fail(410, "This link has expired or was already used.", "TOKEN_INVALID");
-    return ok({ name: row.user.name });
-  } catch (err) {
-    console.error("[owner/reset-password GET] crashed:", err);
-    return ERRORS.SERVER();
-  }
-}
+type Body = { mobile?: string; code?: string; password?: string };
 
 export async function POST(req: Request) {
   try {
-    const body = await readJson<PostBody>(req);
-    if (!body?.token || !body?.password) {
-      return ERRORS.BAD_REQUEST("Token and password required.");
+    const body = await readJson<Body>(req);
+    if (!body?.mobile || !body?.code || !body?.password) {
+      return ERRORS.BAD_REQUEST("Mobile, code, and password required.");
     }
+    const mobile = normalizeMobile(body.mobile);
+    if (!mobile) return ERRORS.BAD_REQUEST("Enter a valid 10-digit mobile.");
+
     const strengthErr = passwordStrength(body.password);
     if (strengthErr) return ERRORS.VALIDATION(strengthErr);
 
-    const row = await findValidReset(body.token);
-    if (!row) return fail(410, "This link has expired or was already used.", "TOKEN_INVALID");
+    // Rate-limit code-check attempts by mobile so brute-forcing across
+    // multiple concurrently-issued rows is capped globally too.
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "0.0.0.0";
+    const ipCheck = await checkAndIncrement(LIMITS.reset_per_ip, "reset_ip", ip);
+    if (!ipCheck.ok) {
+      return fail(429, "Too many reset attempts. Try again in an hour.", "RATE_LIMITED");
+    }
+
+    // Find the newest still-valid reset row for this mobile+active user.
+    const [row] = await db
+      .select({ reset: schema.passwordResets, user: schema.users })
+      .from(schema.passwordResets)
+      .innerJoin(schema.users, eq(schema.users.id, schema.passwordResets.userId))
+      .where(
+        and(
+          eq(schema.users.mobile, mobile),
+          eq(schema.users.active, true),
+          isNull(schema.passwordResets.usedAt),
+          gt(schema.passwordResets.expiresAt, new Date()),
+        ),
+      )
+      .orderBy(desc(schema.passwordResets.createdAt))
+      .limit(1);
+
+    if (!row) {
+      // No code, expired, or already used — same message for all three
+      // so we don't leak state.
+      return fail(410, "Code expired or invalid. Request a new one.", "CODE_INVALID");
+    }
+
+    if (row.reset.attempts >= MAX_ATTEMPTS) {
+      return fail(
+        429,
+        "Too many wrong attempts on this code. Request a new one.",
+        "CODE_LOCKED",
+      );
+    }
+
+    if (row.reset.tokenHash !== hashOtpCode(body.code)) {
+      // Bump attempts. When we cross MAX_ATTEMPTS this row is dead —
+      // the next check above will lock it out for the caller.
+      await db
+        .update(schema.passwordResets)
+        .set({ attempts: row.reset.attempts + 1 })
+        .where(eq(schema.passwordResets.id, row.reset.id));
+      const left = Math.max(0, MAX_ATTEMPTS - row.reset.attempts - 1);
+      return fail(
+        401,
+        left > 0
+          ? `Wrong code. ${left} attempt${left === 1 ? "" : "s"} left.`
+          : "Too many wrong attempts on this code. Request a new one.",
+        "CODE_WRONG",
+      );
+    }
 
     const newHash = await hashPassword(body.password);
-    // Mark used first, then update password — either both stick or the
-    // row shows "not used" if the password write crashes, giving the
-    // user another shot with the same link. Not wrapped in a
-    // transaction because either half is safe to re-run.
     await db
       .update(schema.passwordResets)
       .set({ usedAt: new Date() })
@@ -86,7 +95,7 @@ export async function POST(req: Request) {
 
     return ok({ reset: true });
   } catch (err) {
-    console.error("[owner/reset-password POST] crashed:", err);
+    console.error("[owner/reset-password] crashed:", err);
     if (process.env.DEV_AUTH_ENABLED === "true") {
       const msg = err instanceof Error ? err.message : String(err);
       const stack = err instanceof Error ? err.stack?.split("\n").slice(0, 5) : undefined;
