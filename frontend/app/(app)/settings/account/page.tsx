@@ -2,6 +2,7 @@ import { requireDoctor } from "@/lib/session";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChangePasswordForm } from "./change-password-form";
 import { DeleteWorkspaceForm } from "./delete-workspace-form";
+import { EmailForm } from "./email-form";
 import { LogoutButton } from "./logout-button";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,20 @@ export default async function AccountSettingsPage() {
   const sess = await requireDoctor();
   return (
     <div className="space-y-5">
+      <Card>
+        <CardHeader className="p-6 pb-3">
+          <CardTitle>Email</CardTitle>
+          <p className="pt-1 text-xs text-muted-foreground">
+            We'll email a reset link here if you ever tap "Forgot password?"
+            Without an email set, you'll have to contact support to recover
+            your account.
+          </p>
+        </CardHeader>
+        <CardContent className="p-6 pt-0">
+          <EmailForm currentEmail={sess.user.email ?? null} />
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader className="p-6 pb-3">
           <CardTitle>Change password</CardTitle>

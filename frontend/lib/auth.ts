@@ -34,6 +34,21 @@ export function normalizeMobile(raw: string | null | undefined): string | null {
   return m ? m[1] : null;
 }
 
+// Deliberately loose regex — not RFC-5322 strict (that's a monster). Catches
+// the vast majority of typos while accepting anything a real inbox actually
+// uses. Structure: <local>@<host>.<tld ≥ 2 chars>. Trimmed + lowercased so
+// duplicate detection ("Alice@Foo.com" vs "alice@foo.com") is meaningful.
+const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/;
+export function normalizeEmail(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const cleaned = raw.trim().toLowerCase();
+  if (cleaned.length === 0 || cleaned.length > 254) return null;
+  if (!EMAIL_RE.test(cleaned)) return null;
+  // Guard against double-dot payloads regex doesn't catch ("a..b@c.com").
+  if (cleaned.includes("..")) return null;
+  return cleaned;
+}
+
 export async function issueSession(
   payload: SessionPayload,
 ): Promise<{ token: string; maxAge: number }> {

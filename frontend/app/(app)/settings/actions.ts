@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 import { eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { requireDoctor } from "@/lib/session";
-import { SESSION_COOKIE, normalizeMobile } from "@/lib/auth";
+import { SESSION_COOKIE, normalizeEmail, normalizeMobile } from "@/lib/auth";
 import { hashPassword, passwordStrength, verifyPassword } from "@/lib/password";
 import { createBookingRequest } from "@/lib/services/booking-request";
 import { servicesFor } from "@/lib/services/service-types";
@@ -153,6 +153,57 @@ export async function saveHours(
   revalidatePath("/settings/hours");
   revalidatePath("/queue");
   return { ok: true };
+}
+
+// ─── Account: email ───────────────────────────────────────────────────────
+//
+// Email is nullable and only used by the "Forgot password?" flow — no
+// verification-link step yet. If deliverability ever becomes noisy, we'll
+// add a verify-token round-trip; for now, format check + partial-unique
+// index in the schema are enough at pilot scale.
+
+export type SaveEmailState = { ok?: boolean; error?: string; email?: string | null };
+
+export async function saveEmail(
+  _prev: SaveEmailState,
+  formData: FormData,
+): Promise<SaveEmailState> {
+  const sess = await requireDoctor();
+  const raw = String(formData.get("email") ?? "");
+  const remove = formData.get("remove") === "1";
+
+  if (remove) {
+    await db
+      .update(schema.users)
+      .set({ email: null })
+      .where(eq(schema.users.id, sess.user.id));
+    revalidatePath("/settings/account");
+    return { ok: true, email: null };
+  }
+
+  const email = normalizeEmail(raw);
+  if (!email) {
+    return { error: "Enter a valid email like you@example.com." };
+  }
+
+  // Duplicate guard — the partial-unique index catches this at the DB
+  // level too, but a friendly error message beats a Postgres constraint
+  // violation string bubbling up to the user.
+  const [dup] = await db
+    .select({ id: schema.users.id })
+    .from(schema.users)
+    .where(eq(schema.users.email, email))
+    .limit(1);
+  if (dup && dup.id !== sess.user.id) {
+    return { error: "Another Baari account is already using this email." };
+  }
+
+  await db
+    .update(schema.users)
+    .set({ email })
+    .where(eq(schema.users.id, sess.user.id));
+  revalidatePath("/settings/account");
+  return { ok: true, email };
 }
 
 // ─── Account: change password ─────────────────────────────────────────────
