@@ -18,11 +18,16 @@ function client(): Resend | null {
   return cached;
 }
 
-// From address. Must be verified on the Resend side; keeping it in env
-// lets us swap noreply@baari.tech ↔ noreply@getbaari.in without a code
-// change once the domain question settles.
+// From address. Defaults to Resend's pre-verified sandbox
+// (`onboarding@resend.dev`) so the flow works out of the box on a
+// fresh account without any domain DNS work. Sandbox restriction:
+// mail only delivers to the email you registered with Resend — fine
+// for internal testing, useless for real owners.
+//
+// Once we own + verify a real domain in Resend (getbaari.in probably),
+// set RESEND_FROM=Baari <noreply@getbaari.in> in the deploy env.
 function fromAddress(): string {
-  return process.env.RESEND_FROM ?? "Baari <noreply@baari.tech>";
+  return process.env.RESEND_FROM ?? "Baari <onboarding@resend.dev>";
 }
 
 export type EmailArgs = {

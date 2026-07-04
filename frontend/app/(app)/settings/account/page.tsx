@@ -13,11 +13,11 @@ export default async function AccountSettingsPage() {
     <div className="space-y-5">
       <Card>
         <CardHeader className="p-6 pb-3">
-          <CardTitle>Email</CardTitle>
+          <CardTitle>Recovery email</CardTitle>
           <p className="pt-1 text-xs text-muted-foreground">
-            We'll email a reset link here if you ever tap "Forgot password?"
-            Without an email set, you'll have to contact support to recover
-            your account.
+            We'll email a 6-digit reset code here if you ever tap "Forgot
+            password?" Without an email on file, you'll have to contact
+            support to recover your account.
           </p>
         </CardHeader>
         <CardContent className="p-6 pt-0">
