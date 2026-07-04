@@ -4,7 +4,7 @@
 // counts.
 
 import Link from "next/link";
-import { and, desc, eq, gte, inArray, notInArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, notInArray, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { normalizeMobile } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -97,7 +97,7 @@ async function loadKpis(excludeIds: number[]) {
     .from(schema.users)
     .where(
       and(
-        sql`${schema.users.lastLoginAt} >= ${oneDayAgo}`,
+        gte(schema.users.lastLoginAt, oneDayAgo),
         userNotAdmin,
       ),
     );
@@ -107,7 +107,7 @@ async function loadKpis(excludeIds: number[]) {
   const [totalCustomers] = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(schema.customers)
-    .where(sql`${schema.customers.deletedAt} IS NULL`);
+    .where(isNull(schema.customers.deletedAt));
 
   return {
     totalClinics: totalClinics?.n ?? 0,
