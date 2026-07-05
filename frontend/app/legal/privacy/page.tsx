@@ -14,17 +14,23 @@ const LAST_UPDATED = "5 July 2026";
 export default function PrivacyPage() {
   return (
     <>
+      <div className="mb-8 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        Legal · Privacy
+      </div>
       <h1>Privacy Policy</h1>
-      <p className="text-sm text-muted-foreground">
-        Last updated: {LAST_UPDATED}
-      </p>
+      <div className="mt-4 mb-10 flex flex-wrap items-center gap-2 rounded-md border border-border/60 bg-muted/30 px-3.5 py-2 text-[13px] text-muted-foreground">
+        <span className="font-semibold text-foreground">Last updated</span>
+        <span>·</span>
+        <span>{LAST_UPDATED}</span>
+        <span>·</span>
+        <a href="/legal/terms" className="hover:text-foreground">Terms →</a>
+      </div>
 
-      <p>
-        Baari (&quot;we&quot;, &quot;us&quot;) provides a queue and appointment
-        management service for local businesses. This policy explains what
-        information we collect, how we use it, and the choices you have. It
-        is aligned with the Digital Personal Data Protection Act, 2023 (DPDP
-        Act, India).
+      <p className="text-lg leading-relaxed text-foreground/95">
+        Baari provides a queue and appointment management service for local
+        businesses in India. This policy explains what information we
+        collect, how we use it, and the choices you have — aligned with the
+        Digital Personal Data Protection Act, 2023 (DPDP Act).
       </p>
 
       <h2>Who&apos;s covered</h2>

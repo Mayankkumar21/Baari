@@ -16,13 +16,13 @@ const ITEMS: MiniFeature[] = [
     icon: Users,
   },
   {
-    title: "End-of-day reports",
-    body: "A summary lands in the owner's report.",
+    title: "End-of-day report",
+    body: "Bookings, no-shows, wait times, source breakdown — one page.",
     icon: BarChart3,
   },
   {
     title: "English + हिन्दी",
-    body: "Both scripts, every screen. Toggle once.",
+    body: "Customer-facing screens work in both scripts. Customer picks once.",
     icon: Globe,
   },
 ];

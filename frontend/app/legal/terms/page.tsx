@@ -11,10 +11,19 @@ const LAST_UPDATED = "5 July 2026";
 export default function TermsPage() {
   return (
     <>
+      <div className="mb-8 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        Legal · Terms
+      </div>
       <h1>Terms of Service</h1>
-      <p className="text-sm text-muted-foreground">Last updated: {LAST_UPDATED}</p>
+      <div className="mt-4 mb-10 flex flex-wrap items-center gap-2 rounded-md border border-border/60 bg-muted/30 px-3.5 py-2 text-[13px] text-muted-foreground">
+        <span className="font-semibold text-foreground">Last updated</span>
+        <span>·</span>
+        <span>{LAST_UPDATED}</span>
+        <span>·</span>
+        <a href="/legal/privacy" className="hover:text-foreground">Privacy →</a>
+      </div>
 
-      <p>
+      <p className="text-lg leading-relaxed text-foreground/95">
         By creating an account, using the Baari dashboard, using the mobile
         app, or booking through a Baari-powered flow, you agree to these
         Terms.

@@ -27,9 +27,9 @@ export function Features() {
       visual: <MixedQueueVisual />,
     },
     {
-      eyebrow: "No-show automation",
+      eyebrow: "Late + no-show",
       title: "Late patients, handled before they call.",
-      body: "Anyone past their slot is automatically marked late. After your set threshold, they're a no-show — and the next customer moves up. If they walk in five minutes later, one tap restores them.",
+      body: "Anyone past their slot is automatically flagged as late. When it's time, one tap marks them no-show — the next customer moves up. If they walk in five minutes later, one tap restores them.",
       visual: <NoShowVisual />,
     },
   ];
