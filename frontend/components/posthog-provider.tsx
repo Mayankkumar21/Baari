@@ -36,6 +36,10 @@ function ensureInit() {
     // EU cloud handles GDPR/DPDP scope for us. Owner + customer PII
     // stays in-region.
     capture_pageview: true,
+    // Pair with pageleave so PostHog can calculate accurate bounce
+    // rate and session duration. Without pageleave, sessions look
+    // artificially short.
+    capture_pageleave: true,
     autocapture: true,
     // Session recordings are ON per pilot decision. When we onboard
     // real customers in the app we'll switch input masking on for the
