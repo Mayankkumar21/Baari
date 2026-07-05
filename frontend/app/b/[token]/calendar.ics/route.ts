@@ -36,7 +36,9 @@ export async function GET(
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "BEGIN:VEVENT",
-    `UID:baari-${booking.id}@baari-tech.vercel.app`,
+    // Per RFC 5545, UID must be globally unique across all calendars.
+    // The domain is a namespace, not a URL — doesn't need to resolve.
+    `UID:baari-${booking.id}@getbaari.in`,
     `DTSTAMP:${fmtIcsDate(new Date())}`,
     `DTSTART:${fmtIcsDate(start)}`,
     `DTEND:${fmtIcsDate(end)}`,

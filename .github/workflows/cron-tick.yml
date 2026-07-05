@@ -1,11 +1,12 @@
 name: cron-tick
 
 # Hits Baari's /api/cron/tick endpoint every 5 minutes.
-# Replaces Vercel Cron (which on the Hobby plan is limited to daily schedules).
+# GitHub Actions is the scheduler because it runs regardless of host —
+# same job worked when we were on Vercel and works now on Railway.
 #
 # Required GitHub repository secrets (Settings → Secrets and variables → Actions):
-#   APP_URL       e.g. https://baari-app.vercel.app  (no trailing slash)
-#   CRON_SECRET   identical to the CRON_SECRET env var set in Vercel
+#   APP_URL       your deployed origin, e.g. https://getbaari.in (no trailing slash)
+#   CRON_SECRET   matches the CRON_SECRET env var set on the deploy host
 #
 # Note: GitHub Actions scheduled workflows can be delayed by up to ~10 minutes
 # under load. Acceptable for no-show sweeps; end-of-day auto-close still fires
