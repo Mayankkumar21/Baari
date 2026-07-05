@@ -6,9 +6,10 @@ export const dynamic = "force-dynamic";
 
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
-import { ERRORS, ok, requireCustomer } from "@/lib/api-helpers";
+import { ERRORS, fail, ok, requireCustomer } from "@/lib/api-helpers";
 import { getCustomerBooking } from "@/lib/services/customer-bookings";
 import { queuePosition } from "@/lib/services/booking-request";
+import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
 
 export async function GET(
   req: Request,
@@ -16,6 +17,19 @@ export async function GET(
 ) {
   const auth = await requireCustomer(req);
   if (auth instanceof Response) return auth;
+
+  // Poll cap — the live-status screen refetches every 15s. 240/hr
+  // means one continuous hour of polling per customer, more than any
+  // realistic single wait. Stops a runaway loop / stuck retry from
+  // pounding the DB.
+  const pollCheck = await checkAndIncrement(
+    LIMITS.poll_per_user,
+    "status_poll",
+    String(auth.id),
+  );
+  if (!pollCheck.ok) {
+    return fail(429, "Too many status refreshes. Try again in a bit.", "RATE_LIMITED");
+  }
 
   const { id } = await params;
   const bookingId = Number(id);

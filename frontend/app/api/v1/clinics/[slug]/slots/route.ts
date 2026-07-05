@@ -1,15 +1,28 @@
 // GET /api/v1/clinics/:slug/slots?date=YYYY-MM-DD
 // Public. Returns only OPEN slots — past + taken filtered server-side.
+//
+// Rate-limited per IP because there's no auth. NOT HTTP-cached: slot
+// availability is real-time (a booking just went through must
+// immediately disappear from the picker on the next request) — a 30s
+// cache would let two customers see + book the same slot.
+
 export const dynamic = "force-dynamic";
 
 import { clinicToday } from "@/lib/time";
-import { ERRORS, ok } from "@/lib/api-helpers";
+import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
+import { ERRORS, fail, ok } from "@/lib/api-helpers";
 import { getPublicSlots } from "@/lib/services/public-clinics";
 
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ slug: string }> },
 ) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "0.0.0.0";
+  const ipCheck = await checkAndIncrement(LIMITS.public_get_per_ip, "pub_get_ip", ip);
+  if (!ipCheck.ok) {
+    return fail(429, "Slow down — too many requests. Try again in a minute.", "RATE_LIMITED");
+  }
+
   const { slug } = await params;
   const url = new URL(req.url);
   const dateParam = url.searchParams.get("date") ?? clinicToday();

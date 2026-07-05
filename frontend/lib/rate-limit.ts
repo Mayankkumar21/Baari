@@ -59,6 +59,18 @@ export const LIMITS: Record<string, LimitSpec> = {
   // accounts from spinning up customers all day and inflating stats.
   signup_google_per_ip: { limit: 10, windowSeconds: 3600 },
   signup_google_per_email: { limit: 5, windowSeconds: 86_400 },
+  // Public GETs — clinics list/search/detail/slots. No auth, so an
+  // aggressive scraper could otherwise pound them. 60/min is far above
+  // any human's discover-flow rate (Discover screen ~2 requests, clinic
+  // detail 1 request, slot fetch 1 per day-tap → maybe 10 in a
+  // browsing session).
+  public_get_per_ip: { limit: 60, windowSeconds: 60 },
+  // Polling GETs — /owner/queue polled every 30s, /bookings/[id]/status
+  // polled every ~15s while a customer waits. Cap at rates that leave
+  // headroom for both polling intervals PLUS a screen refocus refetch.
+  // 240/hr = one poll every 15s continuously — enough for real use,
+  // stops a runaway loop from a compromised session.
+  poll_per_user: { limit: 240, windowSeconds: 3600 },
 };
 
 export async function checkAndIncrement(

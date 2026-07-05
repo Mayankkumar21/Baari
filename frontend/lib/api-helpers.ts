@@ -17,8 +17,15 @@ import type { Customer } from "@/lib/db/schema";
 // CAP_REACHED, MOBILE_REQUIRED, etc.) and falls back to `error` for
 // the toast text.
 
-export function ok<T extends Record<string, unknown>>(data: T, status = 200) {
-  return Response.json({ ok: true, ...data }, { status });
+export function ok<T extends Record<string, unknown>>(
+  data: T,
+  status = 200,
+  extraHeaders?: HeadersInit,
+) {
+  return Response.json(
+    { ok: true, ...data },
+    { status, ...(extraHeaders ? { headers: extraHeaders } : {}) },
+  );
 }
 
 export function fail(status: number, error: string, code?: string) {

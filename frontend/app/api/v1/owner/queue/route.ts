@@ -8,7 +8,8 @@
 export const dynamic = "force-dynamic";
 
 import { buildBoard } from "@/lib/services/queue";
-import { ok, requireOwner } from "@/lib/api-helpers";
+import { fail, ok, requireOwner } from "@/lib/api-helpers";
+import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
 
 // Booking status the mobile app understands. Same string the dashboard
 // stores in the DB — kept as a plain string over the wire so the client
@@ -52,6 +53,20 @@ type OwnerQueuePayload = {
 export async function GET(req: Request) {
   const auth = await requireOwner(req);
   if (auth instanceof Response) return auth;
+
+  // Poll cap per user — mobile refetches every 30s and browser tab
+  // polls at similar cadence. 240/hr = one poll every 15s continuously
+  // for an hour, well above legitimate use but stops a runaway loop
+  // (misbehaving custom client, stuck retry, script) from burning
+  // compute.
+  const pollCheck = await checkAndIncrement(
+    LIMITS.poll_per_user,
+    "queue_poll",
+    String(auth.user.id),
+  );
+  if (!pollCheck.ok) {
+    return fail(429, "Too many queue refreshes. Slow down.", "RATE_LIMITED");
+  }
 
   const { user: _user, clinic } = auth;
   const board = await buildBoard(clinic.id);
