@@ -76,7 +76,7 @@ export function Hero() {
             transition={{ duration: 0.8, delay: 0.36 }}
             className="mt-6 text-xs text-muted-foreground"
           >
-            Free during early access. No card. Two quick screens and you&apos;re in.
+            Free during early access. Built for Tier-2 and Tier-3 India — SMBs where the receptionist is doing six things at once.
           </motion.p>
         </div>
 
@@ -119,7 +119,7 @@ function CompactQueuePreview() {
         </div>
         <div className="ml-2 flex items-center gap-1.5 rounded-md border border-border bg-background/70 px-2 py-0.5 text-[9px] text-muted-foreground">
           <div className="size-1.5 rounded-full bg-emerald-500" />
-          app.baari.in/queue
+          getbaari.in/queue
         </div>
       </div>
 

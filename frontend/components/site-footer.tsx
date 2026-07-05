@@ -14,7 +14,7 @@ export function SiteFooter() {
           </FooterColumn>
 
           <FooterColumn title="Company">
-            <FooterLink href="mailto:hello@baari.in">Contact</FooterLink>
+            <FooterLink href="mailto:hello@getbaari.in">Contact</FooterLink>
             <FooterLink href="/legal/privacy">Privacy</FooterLink>
             <FooterLink href="/legal/terms">Terms</FooterLink>
           </FooterColumn>
@@ -23,7 +23,7 @@ export function SiteFooter() {
             <FooterLink href="https://wa.me/919893127527">
               WhatsApp us — +91 98931 27527
             </FooterLink>
-            <FooterLink href="mailto:hello@baari.in">hello@baari.in</FooterLink>
+            <FooterLink href="mailto:hello@getbaari.in">hello@getbaari.in</FooterLink>
           </FooterColumn>
         </div>
 
