@@ -12,9 +12,10 @@ export const dynamic = "force-dynamic";
 
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
-import { ERRORS, ok, readJson, customerToPublic } from "@/lib/api-helpers";
+import { ERRORS, fail, ok, readJson, customerToPublic } from "@/lib/api-helpers";
 import { verifyGoogleIdToken } from "@/lib/google-verify";
 import { issueCustomerJwt } from "@/lib/customer-auth";
+import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
 
 type Body = { idToken?: string };
 
@@ -23,8 +24,30 @@ export async function POST(req: Request) {
   const idToken = body?.idToken?.trim();
   if (!idToken) return ERRORS.BAD_REQUEST("idToken is required.");
 
+  // Per-IP fuse first — stops bots from spinning up customers with N
+  // valid Google accounts they control. Google verification below is
+  // strong but doesn't prevent inflation of the customers table.
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "0.0.0.0";
+  const ipCheck = await checkAndIncrement(LIMITS.signup_google_per_ip, "gauth_ip", ip);
+  if (!ipCheck.ok) {
+    return fail(429, "Too many sign-in attempts. Try again in an hour.", "RATE_LIMITED");
+  }
+
   const identity = await verifyGoogleIdToken(idToken);
   if (!identity) return ERRORS.UNAUTHORIZED();
+
+  // Per-email fuse only kicks in AFTER Google verifies the token
+  // (otherwise an attacker could probe /auth/google to enumerate
+  // valid email formats). Legitimate users hit this once when they
+  // first sign in; anything more is retry/refresh.
+  const emailCheck = await checkAndIncrement(
+    LIMITS.signup_google_per_email,
+    "gauth_email",
+    identity.email.toLowerCase(),
+  );
+  if (!emailCheck.ok) {
+    return fail(429, "Too many sign-in attempts on this account. Try again tomorrow.", "RATE_LIMITED");
+  }
 
   // Upsert customer by googleId.
   const [existing] = await db

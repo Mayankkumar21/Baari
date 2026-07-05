@@ -39,6 +39,26 @@ export const LIMITS: Record<string, LimitSpec> = {
   email_recipient_day: { limit: 8, windowSeconds: 86_400 },
   email_user_hour: { limit: 4, windowSeconds: 3600 },
   email_global_day: { limit: 500, windowSeconds: 86_400 },
+  // Booking-flow caps — mostly to stop a compromised customer session
+  // from spamming the DB with fake bookings or grinding the T-token
+  // uniqueness retry loop.
+  //   booking_create_per_customer — a normal user creates maybe 1-3
+  //     bookings a day. 10 in an hour is well past legitimate use.
+  //   booking_create_per_ip       — catches unauth'd requests hitting
+  //     the /b/[token] missed-call flow and abuse of shared IPs.
+  //   b_confirm_per_ip            — /b/[token] confirmation is public
+  //     (only the URL token gates it), so IP-level is the only signal.
+  booking_create_per_customer: { limit: 10, windowSeconds: 3600 },
+  booking_create_per_ip: { limit: 30, windowSeconds: 3600 },
+  b_confirm_per_ip: { limit: 20, windowSeconds: 3600 },
+  // Customer profile mutations. Mobile-changes trigger a patient-row
+  // cascade update — expensive, and abusable to force churn.
+  profile_update_per_customer: { limit: 5, windowSeconds: 3600 },
+  // Customer signup via Google. Google verification is strong (real
+  // audience+sub check) but nothing stops a bot with N real Google
+  // accounts from spinning up customers all day and inflating stats.
+  signup_google_per_ip: { limit: 10, windowSeconds: 3600 },
+  signup_google_per_email: { limit: 5, windowSeconds: 86_400 },
 };
 
 export async function checkAndIncrement(

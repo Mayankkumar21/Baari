@@ -127,7 +127,8 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
   jar.set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    // See login/actions.ts for rationale — strict guards against CSRF.
+    sameSite: "strict",
     path: "/",
     maxAge,
   });

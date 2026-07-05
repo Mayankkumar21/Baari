@@ -5,12 +5,13 @@
 
 export const dynamic = "force-dynamic";
 
-import { ERRORS, ok, readJson, requireCustomer } from "@/lib/api-helpers";
+import { ERRORS, fail, ok, readJson, requireCustomer } from "@/lib/api-helpers";
 import {
   CustomerBookingError,
   createCustomerBooking,
   listCustomerBookings,
 } from "@/lib/services/customer-bookings";
+import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
 
 type CreateBody = {
   clinicSlug?: string;
@@ -38,6 +39,23 @@ export async function POST(req: Request) {
   const body = await readJson<CreateBody>(req);
   if (!body?.clinicSlug || !body?.slotIso) {
     return ERRORS.BAD_REQUEST("clinicSlug and slotIso are required.");
+  }
+
+  // Rate-limit dimensions: per-customer stops a compromised session
+  // from spamming; per-IP catches a botnet using one account across
+  // many boxes. Legitimate users book a handful a day at most.
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "0.0.0.0";
+  const custCheck = await checkAndIncrement(
+    LIMITS.booking_create_per_customer,
+    "book_cust",
+    String(auth.id),
+  );
+  if (!custCheck.ok) {
+    return fail(429, "Too many booking attempts. Wait an hour and try again.", "RATE_LIMITED");
+  }
+  const ipCheck = await checkAndIncrement(LIMITS.booking_create_per_ip, "book_ip", ip);
+  if (!ipCheck.ok) {
+    return fail(429, "Too many booking attempts from this network.", "RATE_LIMITED");
   }
 
   try {

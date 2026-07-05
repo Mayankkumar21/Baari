@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { and, eq, ne } from "drizzle-orm";
@@ -13,6 +14,7 @@ import {
   ACTIVE_BOOKING_CAP,
   cancelBookingFromRequest,
 } from "@/lib/services/booking-request";
+import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
 
 export type ConfirmState = { error?: string; ok?: boolean };
 
@@ -26,6 +28,16 @@ export async function confirmBookingAction(
   const reason = String(formData.get("reason") ?? "").trim() || null;
   const isNew = formData.get("is_new") === "on";
   const lang = formData.get("lang") === "hi" ? "hi" : "en";
+
+  // Per-IP fuse. This endpoint is public — only the URL token gates
+  // it — so IP is the only signal we have to stop a bot from
+  // grinding the T-token retry loop or spamming the DB.
+  const hdrs = await headers();
+  const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "0.0.0.0";
+  const rl = await checkAndIncrement(LIMITS.b_confirm_per_ip, "b_confirm", ip);
+  if (!rl.ok) {
+    return { error: "Too many attempts. Please wait a bit and try again." };
+  }
 
   if (name.length < 2) return { error: "Enter your name." };
   if (!slotIso) return { error: "Pick a time." };

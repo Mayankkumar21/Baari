@@ -56,7 +56,12 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   jar.set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    // Strict: cookie is NEVER sent on cross-site navigation. Prevents
+    // CSRF attacks that rely on a doctor visiting a malicious page and
+    // that page triggering a request back to Baari with the session
+    // cookie riding along. Safe here because there's no OAuth callback
+    // or cross-origin redirect flow that would break under strict.
+    sameSite: "strict",
     path: "/",
     maxAge,
   });

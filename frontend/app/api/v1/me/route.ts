@@ -11,11 +11,13 @@ import { db, schema } from "@/lib/db/client";
 import {
   customerToPublic,
   ERRORS,
+  fail,
   ok,
   readJson,
   requireCustomer,
 } from "@/lib/api-helpers";
 import { normalizeMobile } from "@/lib/auth";
+import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
 
 const COOLDOWN_DAYS = 30;
 
@@ -36,6 +38,18 @@ type PatchBody = {
 export async function PATCH(req: Request) {
   const auth = await requireCustomer(req);
   if (auth instanceof Response) return auth;
+
+  // Profile updates are cheap by themselves but a mobile-change
+  // triggers a patient-row cascade (line ~124 below) which is
+  // expensive to run in a hot loop. Cap it per customer.
+  const rl = await checkAndIncrement(
+    LIMITS.profile_update_per_customer,
+    "profile_upd",
+    String(auth.id),
+  );
+  if (!rl.ok) {
+    return fail(429, "Too many profile updates. Try again in an hour.", "RATE_LIMITED");
+  }
 
   const body = await readJson<PatchBody>(req);
   if (!body) return ERRORS.BAD_REQUEST("Body must be JSON.");
