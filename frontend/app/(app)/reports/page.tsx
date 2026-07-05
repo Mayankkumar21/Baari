@@ -131,7 +131,10 @@ function SourceCell({
 
 function fmtSecDelta(now: number | null, prev: number | null) {
   if (now == null || prev == null || prev === 0) {
-    return { label: "—", tone: "neutral" as const, title: undefined };
+    // Mirror the string fmtPctDelta uses so every "no comparison
+    // possible" cell reads the same across the reports grid — no more
+    // "— —" next to "— no data".
+    return { label: "no data", tone: "neutral" as const, title: "Nothing in this range yet." };
   }
   const delta = Math.round(((now - prev) / prev) * 100);
   if (Math.abs(delta) < 1) {

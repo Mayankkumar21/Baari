@@ -141,6 +141,24 @@ export function SignupForm({ initialType }: { initialType?: string }) {
       </div>
 
       <div className="space-y-1.5">
+        <Label htmlFor="email">Recovery email</Label>
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          inputMode="email"
+          required
+          maxLength={254}
+          autoComplete="email"
+          placeholder="you@example.com"
+        />
+        <p className="text-[11px] text-muted-foreground pt-1">
+          Used if you tap &quot;Forgot password?&quot; later. You can verify it
+          from Settings after signup.
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
         <Label htmlFor="password">Password</Label>
         <Input
           id="password"

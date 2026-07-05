@@ -6,6 +6,7 @@ import { servicesFor } from "@/lib/services/service-types";
 import { clinicToday, fmtDateTime, fmtTime } from "@/lib/time";
 import { QueueBoard } from "@/components/app/queue-board";
 import { AutoRefresh } from "@/components/app/auto-refresh";
+import { OnboardingTour } from "@/components/app/onboarding-tour";
 import type { SubToken } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +53,11 @@ export default async function QueuePage() {
   const sess = await requireSetup();
   const vocab = vocabFor(sess.clinic.tenantType);
   const board = await buildBoard(sess.clinic.id);
+  // Show the coach-mark tour once per user — after they dismiss it we
+  // stamp onboarded_at so subsequent visits skip it. Server-computed
+  // rather than client-localStorage so the tour also doesn't reappear
+  // when the same owner logs in on a second device.
+  const showTour = sess.user.onboardedAt == null;
 
   const today = clinicToday();
   const taken = await takenSlots(sess.clinic.id, today);
@@ -133,6 +139,7 @@ export default async function QueuePage() {
         summaryBanner={summaryRender}
         isDoctor={isDoctor}
       />
+      <OnboardingTour initialShow={showTour} />
     </>
   );
 }

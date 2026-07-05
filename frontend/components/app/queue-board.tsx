@@ -165,10 +165,18 @@ export function QueueBoard({
           <h1 className="mt-1 text-2xl font-bold tracking-tight">Queue</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {!isClosed && isDoctor ? <CloseDayButton /> : null}
+          {!isClosed && isDoctor ? (
+            <div data-tour-id="close-day">
+              <CloseDayButton />
+            </div>
+          ) : null}
           {!isClosed ? <WalkInButton /> : null}
           {!isClosed ? (
-            <Button variant="glow" onClick={() => setBookOpen(true)}>
+            <Button
+              data-tour-id="new-booking"
+              variant="glow"
+              onClick={() => setBookOpen(true)}
+            >
               <Plus className="size-4" /> New booking
             </Button>
           ) : null}
@@ -179,7 +187,11 @@ export function QueueBoard({
       {isClosed && summaryBanner ? <DayClosedBanner summary={summaryBanner} /> : null}
 
       {/* Summary strip */}
-      {!isClosed ? <SummaryStrip s={summary} vocab={vocab} /> : null}
+      {!isClosed ? (
+        <div data-tour-id="counters">
+          <SummaryStrip s={summary} vocab={vocab} />
+        </div>
+      ) : null}
 
       {/* Two-column layout */}
       <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">

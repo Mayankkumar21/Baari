@@ -126,6 +126,11 @@ export const users = pgTable(
     email: varchar("email", { length: 254 }),
     active: boolean("active").notNull().default(true),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+    // Stamped when the owner first dismisses the /queue coach-mark
+    // tour. Null = tour hasn't been seen. Persisting per-user (rather
+    // than per-device localStorage) means the tour only fires once
+    // even if the owner logs in on a second device.
+    onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
@@ -346,9 +351,17 @@ export const closedDays = pgTable(
     clinicId: integer("clinic_id").notNull().references(() => clinics.id),
     date: date("date").notNull(),
     reason: varchar("reason", { length: 120 }),
+    // Nullable FK — schema hook for per-doctor availability later.
+    // Today every row leaves this NULL (workspace-wide closure). When
+    // multi-doctor booking ships, non-null values will mean "this
+    // specific doctor is unavailable but the rest are open" and the
+    // unique-index strategy will get revisited then.
+    userId: integer("user_id").references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
+    // Kept as (clinic_id, date) for pilot: only one closure per date
+    // per workspace. Multi-doctor era will need to widen this.
     uq: uniqueIndex("uq_closed_clinic_date").on(t.clinicId, t.date),
   }),
 );

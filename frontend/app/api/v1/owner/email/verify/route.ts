@@ -7,7 +7,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { and, desc, eq, gt, isNull } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, ne, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { ERRORS, fail, ok, readJson } from "@/lib/api-helpers";
 import { normalizeEmail } from "@/lib/auth";
@@ -69,6 +69,30 @@ export async function POST(req: Request) {
           ? `Wrong code. ${left} attempt${left === 1 ? "" : "s"} left.`
           : "Too many wrong attempts on this code. Request a new one.",
         "CODE_WRONG",
+      );
+    }
+
+    // Re-check for collisions right before writing. /email/start already
+    // checked but another user could have raced through their own
+    // verify() in the ~10 min window between our start() and this
+    // verify(). Handle it here with a friendly error instead of a raw
+    // Postgres unique-constraint 500.
+    const [collision] = await db
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(
+        and(
+          eq(schema.users.email, email),
+          ne(schema.users.id, sess.user.id),
+          sql`${schema.users.email} IS NOT NULL`,
+        ),
+      )
+      .limit(1);
+    if (collision) {
+      return fail(
+        409,
+        "Another Baari account just claimed this email. Try a different one.",
+        "EMAIL_TAKEN",
       );
     }
 

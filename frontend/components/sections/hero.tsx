@@ -65,7 +65,7 @@ export function Hero() {
                 Start free <ArrowRight className="size-5" />
               </Link>
             </Button>
-            <Button variant="ghost" asChild>
+            <Button variant="outline" size="xl" asChild>
               <Link href="/login">I already have an account</Link>
             </Button>
           </motion.div>

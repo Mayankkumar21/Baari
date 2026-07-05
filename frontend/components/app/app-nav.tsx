@@ -45,6 +45,10 @@ export function AppNav({ isDoctor, vocab: _vocab }: { isDoctor: boolean; vocab: 
             <Link
               key={href}
               href={href}
+              // data-tour-id lets the first-signup coach-mark tour
+              // anchor a step to the Settings nav item without the
+              // tour needing to know CSS internals of the header.
+              data-tour-id={href === "/settings" ? "settings-link" : undefined}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all",
                 active

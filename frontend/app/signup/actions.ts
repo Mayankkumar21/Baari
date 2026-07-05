@@ -2,9 +2,9 @@
 
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
-import { SESSION_COOKIE, issueSession, normalizeMobile } from "@/lib/auth";
+import { SESSION_COOKIE, issueSession, normalizeEmail, normalizeMobile } from "@/lib/auth";
 import { hashPassword, passwordStrength } from "@/lib/password";
 import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
 
@@ -34,6 +34,7 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
   const businessName = String(formData.get("business_name") ?? "").trim();
   const ownerName = String(formData.get("owner_name") ?? "").trim();
   const mobileRaw = String(formData.get("mobile") ?? "");
+  const emailRaw = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
   const tenantTypeRaw = String(formData.get("tenant_type") ?? "clinic");
   const tenantType: TenantType = (TENANT_TYPES as readonly string[]).includes(tenantTypeRaw)
@@ -48,6 +49,8 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
   }
   const mobile = normalizeMobile(mobileRaw);
   if (!mobile) return { error: "Enter a valid Indian mobile (10 digits, starting with 6, 7, 8 or 9)." };
+  const email = normalizeEmail(emailRaw);
+  if (!email) return { error: "Enter a valid recovery email like you@example.com." };
   const pwErr = passwordStrength(password);
   if (pwErr) return { error: pwErr };
 
@@ -70,6 +73,19 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
     return {
       duplicate: true,
       error: "This number already has a workspace. Sign in instead?",
+    };
+  }
+
+  // Same pre-check on email — partial-unique index rejects at INSERT
+  // time otherwise, and we want a friendly error not a Postgres string.
+  const [emailOwner] = await db
+    .select({ id: schema.users.id })
+    .from(schema.users)
+    .where(and(eq(schema.users.email, email), sql`${schema.users.email} IS NOT NULL`))
+    .limit(1);
+  if (emailOwner) {
+    return {
+      error: "That recovery email is already tied to another workspace. Use a different one, or sign in to the account that owns it.",
     };
   }
 
@@ -98,6 +114,11 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
         clinicId,
         role: "doctor",
         mobile,
+        // Email is stored unverified on signup — user verifies via OTP from
+        // /settings/account before it's usable for password reset. Storing
+        // upfront still guarantees we have SOMETHING to recover with, and
+        // the duplicate check above prevents cross-account collision.
+        email,
         passwordHash: await hashPassword(password),
         name: ownerName,
         active: true,
@@ -105,14 +126,24 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
       .returning();
     userId = user.id;
   } catch (err) {
-    // Race with another signup using the same mobile — return the friendly
-    // duplicate state rather than the generic 500-style error.
+    // Race window: another signup wins the mobile OR email between our
+    // pre-checks and the INSERT. Unique index rejects the loser; map the
+    // Postgres error string back to a friendly UI state.
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("uq_users_clinic_mobile") || msg.includes("duplicate key")) {
+    if (msg.includes("uq_users_clinic_mobile")) {
       return {
         duplicate: true,
         error: "This number already has a workspace. Sign in instead?",
       };
+    }
+    if (msg.includes("uq_users_email")) {
+      return {
+        error: "That recovery email is already tied to another workspace. Use a different one.",
+      };
+    }
+    if (msg.includes("duplicate key")) {
+      // Fallback — some other unique constraint. Rare.
+      return { error: "Some detail is already registered. Try again with a different one." };
     }
     console.error("signup error:", err);
     return { error: "Could not create workspace. Try again." };

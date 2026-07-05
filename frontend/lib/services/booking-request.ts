@@ -148,12 +148,21 @@ export function requestStatus(
   return { kind: "ready", expiresAt: new Date(req.expiresAt) };
 }
 
-// Closed-day check used by the booking page.
+// Closed-day check — workspace-wide only. Per-doctor rows (user_id set)
+// don't affect the whole-clinic view; they'd only apply once the booking
+// flow can pick a doctor. Enforced with `user_id IS NULL` so those rows
+// stay invisible to today's single-doctor semantics.
 export async function isClosedDay(clinicId: number, date: string): Promise<boolean> {
   const [row] = await db
     .select({ id: schema.closedDays.id })
     .from(schema.closedDays)
-    .where(and(eq(schema.closedDays.clinicId, clinicId), eq(schema.closedDays.date, date)))
+    .where(
+      and(
+        eq(schema.closedDays.clinicId, clinicId),
+        eq(schema.closedDays.date, date),
+        sql`${schema.closedDays.userId} IS NULL`,
+      ),
+    )
     .limit(1);
   return !!row;
 }

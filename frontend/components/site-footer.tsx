@@ -14,10 +14,9 @@ export function SiteFooter() {
           </FooterColumn>
 
           <FooterColumn title="Company">
-            <FooterLink href="#">About</FooterLink>
             <FooterLink href="mailto:hello@baari.in">Contact</FooterLink>
-            <FooterLink href="#">Privacy</FooterLink>
-            <FooterLink href="#">DPDP compliance</FooterLink>
+            <FooterLink href="/legal/privacy">Privacy</FooterLink>
+            <FooterLink href="/legal/terms">Terms</FooterLink>
           </FooterColumn>
 
           <FooterColumn title="Stay in touch">

@@ -67,6 +67,13 @@ export type PublicClinicDetail = PublicClinicSummary & {
   // Book CTA but still shows address / hours / phone so a direct-link
   // customer can call in.
   acceptAppBookings: boolean;
+  // Upcoming YYYY-MM-DD dates the owner has explicitly marked closed
+  // (holidays, staff leave). Distinct from the weekly openingHours
+  // shape: those describe recurring days-of-week, these are one-off
+  // dates. The mobile day picker uses this to skip closed dates
+  // proactively instead of showing them and returning empty slots.
+  // Capped at the next N days so the payload stays small.
+  closedDates: string[];
   // Business-type-aware labels served alongside the clinic so the mobile
   // app doesn't drift from the dashboard's terminology. Backend is the
   // single source of truth; the mobile map is now fallback for older
@@ -266,6 +273,25 @@ export async function getPublicClinicBySlug(
   const services = allowed
     ? allServices.filter((s) => allowed.includes(s))
     : allServices;
+
+  // Upcoming closed dates (workspace-wide only for pilot — user_id
+  // rows are ignored). Range matches the mobile picker's lookahead so
+  // we don't ship more data than it can display.
+  const todayIso = clinicToday();
+  const horizon = addIstDays(todayIso, LOOKAHEAD_DAYS);
+  const closedRows = await db
+    .select({ date: schema.closedDays.date })
+    .from(schema.closedDays)
+    .where(
+      sql`${schema.closedDays.clinicId} = ${row.id}
+        AND ${schema.closedDays.date} >= ${todayIso}
+        AND ${schema.closedDays.date} <= ${horizon}
+        AND ${schema.closedDays.userId} IS NULL`,
+    );
+  const closedDates = closedRows.map((r) =>
+    typeof r.date === "string" ? r.date : new Date(r.date).toISOString().slice(0, 10),
+  );
+
   return {
     ...base,
     phone: row.phone ?? null,
@@ -278,6 +304,7 @@ export async function getPublicClinicBySlug(
     estWaitMinutes: waitingNow * slotLen,
     isReturning,
     acceptAppBookings: row.acceptAppBookings,
+    closedDates,
     vocab: mobileVocabFor(row.tenantType ?? "clinic"),
   };
 }
