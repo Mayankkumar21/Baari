@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { eq, inArray, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { requireDoctor } from "@/lib/session";
 import { SESSION_COOKIE, normalizeMobile } from "@/lib/auth";
@@ -222,20 +222,6 @@ export async function deleteWorkspace(
   // or via booking_id / user_id) must be drained before the parent. All
   // wrapped in a transaction so a partial failure leaves the workspace intact.
   await db.transaction(async (tx) => {
-    const childBookingIds = await tx
-      .select({ id: schema.bookings.id })
-      .from(schema.bookings)
-      .where(eq(schema.bookings.clinicId, cid));
-    if (childBookingIds.length > 0) {
-      await tx
-        .delete(schema.subTokens)
-        .where(
-          inArray(
-            schema.subTokens.bookingId,
-            childBookingIds.map((r) => r.id),
-          ),
-        );
-    }
     await tx.delete(schema.notifications).where(eq(schema.notifications.clinicId, cid));
     await tx.delete(schema.auditLog).where(eq(schema.auditLog.clinicId, cid));
     await tx.delete(schema.dailySummaries).where(eq(schema.dailySummaries.clinicId, cid));

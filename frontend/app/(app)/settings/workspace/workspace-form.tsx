@@ -1,11 +1,16 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { saveWorkspace, type WorkspaceState } from "../actions";
+
+const SLOT_OPTIONS = [15, 20, 30, 45, 60] as const;
+const SLOT_MIN = 5;
+const SLOT_MAX = 240;
 
 const TYPES = [
   { key: "clinic", label: "Clinic" },
@@ -35,6 +40,7 @@ export function WorkspaceForm({
     saveWorkspace,
     {},
   );
+  const [slotLength, setSlotLength] = useState<number>(initial.slot);
   return (
     <form action={action} className="space-y-5">
       <div className="space-y-1.5">
@@ -65,14 +71,39 @@ export function WorkspaceForm({
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label htmlFor="slot_length_min">Slot length (min)</Label>
+          <div className="grid grid-cols-5 gap-1.5">
+            {SLOT_OPTIONS.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => setSlotLength(opt)}
+                className={cn(
+                  "rounded-md border px-2 py-2 text-sm font-medium transition-all",
+                  slotLength === opt
+                    ? "border-primary bg-primary/10 text-foreground shadow-[0_0_0_1px_hsl(var(--primary)/0.5)]"
+                    : "border-border bg-card/60 text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                )}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
           <Input
             id="slot_length_min"
             name="slot_length_min"
             type="number"
-            min={5}
-            max={240}
-            defaultValue={initial.slot}
+            min={SLOT_MIN}
+            max={SLOT_MAX}
+            value={slotLength}
+            onChange={(e) => {
+              const n = Number(e.target.value);
+              if (Number.isFinite(n)) setSlotLength(n);
+            }}
+            className="mt-1"
           />
+          <p className="text-[11px] text-muted-foreground">
+            Pick a common value or type your own ({SLOT_MIN}–{SLOT_MAX}).
+          </p>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="no_show_threshold_min">No-show threshold (min)</Label>

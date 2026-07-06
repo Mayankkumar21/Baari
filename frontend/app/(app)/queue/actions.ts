@@ -8,7 +8,6 @@ import {
   checkIn,
   markDone,
   markNoShowManual,
-  promoteAfterSubDone,
   reopenBooking,
   restoreNoShow,
   startConsult,
@@ -21,13 +20,6 @@ import {
   BookingError,
 } from "@/lib/services/booking";
 import { dispatchWhatsapp } from "@/lib/whatsapp";
-import {
-  addSubToken,
-  cancelSubToken,
-  markSubTokenDone,
-  startSubToken,
-  SubTokenError,
-} from "@/lib/services/sub-token";
 import { closeDay, DayCloseError } from "@/lib/services/day-close";
 
 type Result = { ok: true } | { ok: false; error: string };
@@ -93,68 +85,6 @@ export async function cancelAction(bookingId: number): Promise<Result> {
     return { ok: true };
   } catch (err) {
     if (err instanceof BookingError) return { ok: false, error: err.message };
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
-  }
-}
-
-export async function addSubTokenAction(
-  bookingId: number,
-  formData: FormData,
-): Promise<Result> {
-  const sess = await requireSetup();
-  try {
-    const name = String(formData.get("name") ?? "").trim();
-    const reason = String(formData.get("reason") ?? "").trim() || null;
-    await addSubToken({
-      clinicId: sess.clinic.id,
-      bookingId,
-      name,
-      reason,
-    });
-    revalidatePath("/queue");
-    return { ok: true };
-  } catch (err) {
-    if (err instanceof SubTokenError) return { ok: false, error: err.message };
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
-  }
-}
-
-export async function startSubTokenAction(subTokenId: number): Promise<Result> {
-  const sess = await requireSetup();
-  try {
-    await startSubToken({ clinicId: sess.clinic.id, subTokenId });
-    revalidatePath("/queue");
-    return { ok: true };
-  } catch (err) {
-    if (err instanceof SubTokenError) return { ok: false, error: err.message };
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
-  }
-}
-
-export async function markSubDoneAction(subTokenId: number): Promise<Result> {
-  const sess = await requireSetup();
-  try {
-    const { bookingId } = await markSubTokenDone({
-      clinicId: sess.clinic.id,
-      subTokenId,
-    });
-    await promoteAfterSubDone(sess.clinic.id, bookingId);
-    revalidatePath("/queue");
-    return { ok: true };
-  } catch (err) {
-    if (err instanceof SubTokenError) return { ok: false, error: err.message };
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
-  }
-}
-
-export async function cancelSubTokenAction(subTokenId: number): Promise<Result> {
-  const sess = await requireSetup();
-  try {
-    await cancelSubToken({ clinicId: sess.clinic.id, subTokenId });
-    revalidatePath("/queue");
-    return { ok: true };
-  } catch (err) {
-    if (err instanceof SubTokenError) return { ok: false, error: err.message };
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }

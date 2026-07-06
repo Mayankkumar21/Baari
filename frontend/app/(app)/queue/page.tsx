@@ -1,13 +1,12 @@
 import { requireSetup } from "@/lib/session";
 import { vocabFor } from "@/lib/vocab";
-import { buildBoard, type QueueRowVM, type SubTokenVM } from "@/lib/services/queue";
+import { buildBoard, type QueueRowVM } from "@/lib/services/queue";
 import { availableSlots, enumerateSlots, takenSlots } from "@/lib/services/booking";
 import { servicesFor } from "@/lib/services/service-types";
 import { clinicToday, fmtDateTime, fmtTime } from "@/lib/time";
 import { QueueBoard } from "@/components/app/queue-board";
 import { AutoRefresh } from "@/components/app/auto-refresh";
 import { OnboardingTour } from "@/components/app/onboarding-tour";
-import type { SubToken } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -34,18 +33,6 @@ function serializeRow(r: QueueRowVM, noShowThresholdMin: number, now: Date) {
     minutesLate,
     isUndoable: r.isUndoable,
     completedAt: r.booking.completedAt?.toISOString() ?? null,
-    subTokens: r.subTokens.map((s) => serializeSub(s, r.booking.token)),
-  };
-}
-
-function serializeSub(s: SubToken, token: number) {
-  return {
-    id: s.id,
-    suffix: s.suffix,
-    name: s.name,
-    reason: s.reason,
-    status: s.status,
-    label: `T${token}.${s.suffix}`,
   };
 }
 
@@ -111,15 +98,7 @@ export default async function QueuePage() {
               patientName: board.nowConsulting.patientName,
               reason: board.nowConsulting.reason,
               bookingId: board.nowConsulting.booking.id,
-              subTokenId: board.nowConsulting.subToken?.id ?? null,
-              startedAt: board.nowConsulting.subToken?.startedAt?.toISOString()
-                ?? board.nowConsulting.booking.startedAt?.toISOString()
-                ?? null,
-              pendingSubs: board.nowConsulting.pendingSubs.map((p: SubTokenVM) => ({
-                id: p.subToken.id,
-                label: p.label,
-                name: p.subToken.name,
-              })),
+              startedAt: board.nowConsulting.booking.startedAt?.toISOString() ?? null,
             }
           : null
       }

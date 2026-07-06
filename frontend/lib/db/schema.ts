@@ -37,15 +37,6 @@ export const bookingStatus = pgEnum("booking_status", [
   "cancelled",
 ]);
 
-export const subTokenStatus = pgEnum("sub_token_status", [
-  "booked",
-  "checked_in",
-  "in_consult",
-  "done",
-  "cancelled",
-  "no_show",
-]);
-
 export const notificationTrigger = pgEnum("notification_trigger", [
   "booking_confirmed",
   "youre_next",
@@ -278,33 +269,12 @@ export const bookings = pgTable(
   }),
 );
 
-export const subTokens = pgTable(
-  "sub_tokens",
-  {
-    id: serial("id").primaryKey(),
-    bookingId: integer("booking_id").notNull().references(() => bookings.id),
-    suffix: integer("suffix").notNull(),
-    name: varchar("name", { length: 80 }).notNull(),
-    reason: varchar("reason", { length: 200 }),
-    status: subTokenStatus("status").notNull().default("booked"),
-    startedAt: timestamp("started_at", { withTimezone: true }),
-    completedAt: timestamp("completed_at", { withTimezone: true }),
-    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => ({
-    uniqBookingSuffix: uniqueIndex("uq_subtokens_booking_suffix").on(t.bookingId, t.suffix),
-    bookingIdx: index("subtokens_booking_idx").on(t.bookingId),
-  }),
-);
-
 export const notifications = pgTable(
   "notifications",
   {
     id: serial("id").primaryKey(),
     clinicId: integer("clinic_id").notNull().references(() => clinics.id),
     bookingId: integer("booking_id").references(() => bookings.id),
-    subTokenId: integer("sub_token_id").references(() => subTokens.id),
     patientId: integer("patient_id").notNull().references(() => patients.id),
     trigger: notificationTrigger("trigger").notNull(),
     channel: varchar("channel", { length: 20 }).notNull().default("whatsapp"),
@@ -478,8 +448,6 @@ export type Patient = typeof patients.$inferSelect;
 export type NewPatient = typeof patients.$inferInsert;
 export type Booking = typeof bookings.$inferSelect;
 export type NewBooking = typeof bookings.$inferInsert;
-export type SubToken = typeof subTokens.$inferSelect;
-export type NewSubToken = typeof subTokens.$inferInsert;
 export type DailySummary = typeof dailySummaries.$inferSelect;
 export type NewDailySummary = typeof dailySummaries.$inferInsert;
 export type ClosedDay = typeof closedDays.$inferSelect;

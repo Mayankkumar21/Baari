@@ -9,6 +9,8 @@ import { setupAction, type SetupState } from "./actions";
 import { cn } from "@/lib/utils";
 
 const SLOT_OPTIONS = [15, 20, 30, 45, 60] as const;
+const SLOT_MIN = 5;
+const SLOT_MAX = 240;
 
 const DAYS: { key: string; label: string; defaultOpen?: string; defaultClose?: string }[] = [
   { key: "mon", label: "Monday", defaultOpen: "09:00", defaultClose: "19:00" },
@@ -35,14 +37,10 @@ export function SetupForm({
   const [state, action, pending] = useActionState<SetupState, FormData>(setupAction, {});
   const formRef = useRef<HTMLFormElement>(null);
 
-  // Snap incoming slotLength to the closest dropdown option so a value of
-  // e.g. 25 (from a future setting) doesn't drop to 0.
-  const initialSlotInOptions = (SLOT_OPTIONS as readonly number[]).includes(initial.slotLength)
-    ? initial.slotLength
-    : SLOT_OPTIONS.reduce((a, b) =>
-        Math.abs(b - initial.slotLength) < Math.abs(a - initial.slotLength) ? b : a,
-      );
-  const [slotLength, setSlotLength] = useState<number>(initialSlotInOptions);
+  // Custom values are allowed via the number input. The pill picker is
+  // just a shortcut for the common values — pill click writes into
+  // slotLength, typing overrides the pill selection.
+  const [slotLength, setSlotLength] = useState<number>(initial.slotLength);
 
   // Allow the "copy Monday hours" button to flow values into the other
   // weekday inputs without forcing a controlled-component rewrite.
@@ -68,7 +66,7 @@ export function SetupForm({
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label htmlFor="slot_length_min">Slot length</Label>
+          <Label htmlFor="slot_length_min">Slot length (min)</Label>
           <div className="grid grid-cols-5 gap-1.5">
             {SLOT_OPTIONS.map((opt) => (
               <button
@@ -86,9 +84,21 @@ export function SetupForm({
               </button>
             ))}
           </div>
-          <input type="hidden" name="slot_length_min" value={slotLength} />
+          <Input
+            id="slot_length_min"
+            name="slot_length_min"
+            type="number"
+            min={SLOT_MIN}
+            max={SLOT_MAX}
+            value={slotLength}
+            onChange={(e) => {
+              const n = Number(e.target.value);
+              if (Number.isFinite(n)) setSlotLength(n);
+            }}
+            className="mt-1"
+          />
           <p className="text-[11px] text-muted-foreground">
-            How long is one appointment? Used to space out bookings.
+            Pick a common value or type your own ({SLOT_MIN}–{SLOT_MAX}).
           </p>
         </div>
         <div className="space-y-1.5">

@@ -33,34 +33,21 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { BookForm, type SlotInfo } from "@/app/(app)/book/book-form";
 import {
-  addSubTokenAction,
   cancelAction,
-  cancelSubTokenAction,
   checkInAction,
   closeDayAction,
   markDoneAction,
   markNoShowAction,
-  markSubDoneAction,
   reopenAction,
   rescheduleAction,
   restoreNoShowAction,
   sendReminderAction,
   startConsultAction,
-  startSubTokenAction,
   undoDoneAction,
   walkInAction,
 } from "@/app/(app)/queue/actions";
 
 // ─── types ────────────────────────────────────────────────────────────────
-
-type SubTokenRow = {
-  id: number;
-  suffix: number;
-  name: string;
-  reason: string | null;
-  status: string;
-  label: string;
-};
 
 type Row = {
   bookingId: number;
@@ -75,7 +62,6 @@ type Row = {
   minutesLate: number;
   isUndoable: boolean;
   completedAt: string | null;
-  subTokens: SubTokenRow[];
 };
 
 type NowConsulting = {
@@ -83,9 +69,7 @@ type NowConsulting = {
   patientName: string;
   reason: string | null;
   bookingId: number;
-  subTokenId: number | null;
   startedAt: string | null;
-  pendingSubs: { id: number; label: string; name: string }[];
 };
 
 type Summary = {
@@ -545,41 +529,16 @@ function NowCard({
         ) : null}
       </div>
 
-      {nc.pendingSubs.length ? (
-        <div className="relative mt-3 flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
-            Next in family:
-          </span>
-          {nc.pendingSubs.map((s) => (
-            <span
-              key={s.id}
-              className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/60 px-2 py-0.5 text-[11px] font-medium"
-            >
-              {s.label} · {s.name}
-            </span>
-          ))}
-        </div>
-      ) : null}
-
       {!readOnly ? (
         <div className="relative mt-6 flex flex-wrap gap-2">
           <Button
             variant="success"
             size="lg"
             disabled={pending}
-            onClick={() =>
-              start(async () => {
-                if (nc.subTokenId != null) {
-                  await markSubDoneAction(nc.subTokenId);
-                } else {
-                  await markDoneAction(nc.bookingId);
-                }
-              })
-            }
+            onClick={() => start(async () => void (await markDoneAction(nc.bookingId)))}
           >
             <CheckCircle2 className="size-4" /> Mark done
           </Button>
-          <AddFamilyPopover bookingId={nc.bookingId} compact />
         </div>
       ) : null}
     </div>
@@ -719,19 +678,6 @@ function WaitingRow({
         </div>
       </div>
 
-      {row.subTokens.length ? (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-[68px]">
-          {row.subTokens.map((s) => (
-            <SubTokenChip
-              key={s.id}
-              sub={s}
-              readOnly={readOnly}
-              parentInConsult={false}
-            />
-          ))}
-        </div>
-      ) : null}
-
       {error ? (
         <div className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-[11px] text-destructive">
           {error}
@@ -800,137 +746,6 @@ function WaitingOverflowMenu({
   );
 }
 
-// ─── sub-token chip ──────────────────────────────────────────────────────
-
-function SubTokenChip({
-  sub,
-  readOnly,
-  parentInConsult,
-}: {
-  sub: SubTokenRow;
-  readOnly: boolean;
-  parentInConsult: boolean;
-}) {
-  const [pending, start] = useTransition();
-
-  const stateClass =
-    sub.status === "done"
-      ? "border-emerald-400/40 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
-      : sub.status === "in_consult"
-        ? "border-primary/40 bg-primary/15 text-foreground"
-        : sub.status === "cancelled"
-          ? "border-border bg-secondary/60 line-through opacity-60"
-          : "border-border bg-secondary/60";
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium",
-        stateClass,
-      )}
-    >
-      {sub.status === "done" ? <CheckCircle2 className="size-3" /> : null}
-      {sub.status === "in_consult" ? <Stethoscope className="size-3" /> : null}
-      <span>
-        {sub.label} · {sub.name}
-      </span>
-      {!readOnly && sub.status === "booked" && parentInConsult ? (
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => start(async () => void (await startSubTokenAction(sub.id)))}
-          className="text-primary hover:underline"
-          title="Start this sub-token's consult"
-        >
-          start
-        </button>
-      ) : null}
-      {!readOnly && sub.status === "booked" ? (
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => start(async () => void (await cancelSubTokenAction(sub.id)))}
-          className="text-muted-foreground hover:text-destructive"
-          title="Cancel this sub-token"
-        >
-          <X className="size-3" />
-        </button>
-      ) : null}
-    </span>
-  );
-}
-
-// ─── add-family popover (unchanged) ──────────────────────────────────────
-
-function AddFamilyPopover({
-  bookingId,
-  compact,
-}: {
-  bookingId: number;
-  compact?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const [pending, start] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  return (
-    <div className="relative">
-      <Button
-        size={compact ? "default" : "sm"}
-        variant={compact ? "outline" : "ghost"}
-        onClick={() => setOpen((v) => !v)}
-        title="Add family member"
-      >
-        <UserPlus className="size-3.5" /> {compact ? "Add family" : ""}
-      </Button>
-      {open ? (
-        <form
-          action={(fd) => {
-            setError(null);
-            start(async () => {
-              const r = await addSubTokenAction(bookingId, fd);
-              if (r.ok) setOpen(false);
-              else if (r.error) setError(r.error);
-            });
-          }}
-          className="absolute right-0 top-full z-20 mt-2 w-72 rounded-lg border border-border bg-card/95 p-3 shadow-xl backdrop-blur"
-        >
-          <div className="space-y-2">
-            <div>
-              <Label htmlFor="sub_name" className="mb-1 block">
-                Family member name
-              </Label>
-              <Input id="sub_name" name="name" required maxLength={80} autoFocus />
-            </div>
-            <div>
-              <Label htmlFor="sub_reason" className="mb-1 block">
-                Reason (optional)
-              </Label>
-              <Input id="sub_reason" name="reason" maxLength={200} />
-            </div>
-            {error ? (
-              <div className="rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-[11px] text-destructive">
-                {error}
-              </div>
-            ) : null}
-            <div className="flex justify-end gap-2 pt-1">
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={() => setOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" size="sm" variant="glow" disabled={pending}>
-                <Plus className="size-3.5" /> Add
-              </Button>
-            </div>
-          </div>
-        </form>
-      ) : null}
-    </div>
-  );
-}
 
 // ─── reschedule popover (standalone, controlled by parent) ────────────────
 
