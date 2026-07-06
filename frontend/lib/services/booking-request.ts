@@ -4,7 +4,7 @@
 import { and, eq, ne, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { db, schema } from "@/lib/db/client";
-import { clinicToday, nowUtc } from "@/lib/time";
+import { nowUtc } from "@/lib/time";
 import type { Clinic } from "@/lib/db/schema";
 import { normalizeMobile } from "@/lib/auth";
 
@@ -211,7 +211,10 @@ export async function cancelBookingFromRequest(args: {
 }
 
 // Position lookup for the live-status screen. Number of waiting bookings
-// (booked + checked_in) AHEAD of this booking, by token order.
+// (booked + checked_in) AHEAD of this booking, ordered by slot_time
+// (then token as tie-breaker). Slot-time ordering matters because a
+// booking created later can have an earlier slot — token order alone
+// would mis-position them and mis-estimate the wait.
 export async function queuePosition(
   clinicId: number,
   bookingId: number,
@@ -220,13 +223,13 @@ export async function queuePosition(
   totalWaiting: number;
   inSession: { token: number; bookingId: number } | null;
 } | null> {
-  const today = clinicToday();
   const [me] = await db
     .select({
       id: schema.bookings.id,
       token: schema.bookings.token,
       status: schema.bookings.status,
       date: schema.bookings.date,
+      slotTime: schema.bookings.slotTime,
     })
     .from(schema.bookings)
     .where(eq(schema.bookings.id, bookingId))
@@ -244,6 +247,10 @@ export async function queuePosition(
       ),
     );
 
+  // "Ahead of me" = strictly earlier slot_time, OR same slot with a
+  // smaller token (deterministic tie-break). This handles the case
+  // where two bookings share a slot (party of 2, walk-in) — the older
+  // token wins.
   const [aheadRow] = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(schema.bookings)
@@ -252,17 +259,20 @@ export async function queuePosition(
         eq(schema.bookings.clinicId, clinicId),
         eq(schema.bookings.date, me.date),
         sql`${schema.bookings.status} IN ('booked','checked_in')`,
-        sql`${schema.bookings.token} < ${me.token}`,
+        sql`(${schema.bookings.slotTime}, ${schema.bookings.token}) < (${me.slotTime}, ${me.token})`,
       ),
     );
 
+  // in_consult check is scoped to the booking's own date (not
+  // clinicToday()) so a same-day poll for a future booking doesn't
+  // report someone from a different day as "in session".
   const [inSession] = await db
     .select({ id: schema.bookings.id, token: schema.bookings.token })
     .from(schema.bookings)
     .where(
       and(
         eq(schema.bookings.clinicId, clinicId),
-        eq(schema.bookings.date, today),
+        eq(schema.bookings.date, me.date),
         eq(schema.bookings.status, "in_consult"),
         ne(schema.bookings.id, bookingId),
       ),

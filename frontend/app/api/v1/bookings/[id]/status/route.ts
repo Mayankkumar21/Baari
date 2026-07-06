@@ -4,7 +4,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { ERRORS, fail, ok, requireCustomer } from "@/lib/api-helpers";
 import { getCustomerBooking } from "@/lib/services/customer-bookings";
@@ -56,10 +56,47 @@ export async function GET(
   const pos = await queuePosition(clinic.id, booking.id);
   const slotLen = clinic.slotLengthMin ?? 20;
 
+  // Wait estimate is the max of two lower bounds:
+  //   1. minutes until the booking's own slot_time — you won't be
+  //      seen before your appointment even if the queue is empty
+  //   2. position * slot_length — you won't be seen before the
+  //      people ahead of you
+  // Fixes the "position 0, est 2 min" lie when earlier bookings cancel
+  // for a slot that's still hours away.
   let estWaitMinutes: number | null = null;
   if (booking.status === "booked" || booking.status === "checked_in") {
-    estWaitMinutes = Math.max(2, (pos?.position ?? 0) * slotLen);
+    const minutesUntilSlot = Math.max(
+      0,
+      Math.round(
+        (new Date(booking.slotIso).getTime() - Date.now()) / 60000,
+      ),
+    );
+    const positionWait = (pos?.position ?? 0) * slotLen;
+    estWaitMinutes = Math.max(2, minutesUntilSlot, positionWait);
   }
+
+  // Clinic closed the day? Let the app show a "closed early" state
+  // instead of counting down a queue that isn't moving. Uses the
+  // booking's own IST date (not clinicToday) so a poll for tomorrow's
+  // booking doesn't get marked closed because the clinic ended today's
+  // shift early.
+  const bookingDateIst = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(booking.slotIso));
+  const [dayRow] = await db
+    .select({ closedAt: schema.dailySummaries.closedAt })
+    .from(schema.dailySummaries)
+    .where(
+      and(
+        eq(schema.dailySummaries.clinicId, clinic.id),
+        eq(schema.dailySummaries.date, bookingDateIst),
+      ),
+    )
+    .limit(1);
+  const clinicClosed = Boolean(dayRow?.closedAt);
 
   return ok(
     {
@@ -70,6 +107,7 @@ export async function GET(
       position: pos?.position ?? 0,
       totalWaiting: pos?.totalWaiting ?? 0,
       estWaitMinutes,
+      clinicClosed,
       inSession: pos?.inSession ? { token: pos.inSession.token } : null,
       // Flat fields kept for back-compat with anything reading the
       // previous shape.

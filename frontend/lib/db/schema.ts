@@ -264,6 +264,13 @@ export const bookings = pgTable(
       t.date,
       t.token,
     ),
+    // Partial unique index: one live booking per (clinic, slot) pair.
+    // Excludes cancelled / done / no_show so slots free up when the
+    // booking is resolved. Closes the concurrent-booking race that the
+    // application-level takenSlots() check leaves open.
+    uniqClinicSlotLive: uniqueIndex("uq_bookings_clinic_slot_live")
+      .on(t.clinicId, t.slotTime)
+      .where(sql`status IN ('booked','checked_in','in_consult')`),
     clinicIdx: index("bookings_clinic_idx").on(t.clinicId),
     dateIdx: index("bookings_date_idx").on(t.date),
     statusIdx: index("bookings_status_idx").on(t.status),

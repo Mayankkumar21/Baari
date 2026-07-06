@@ -156,11 +156,11 @@ export async function createCustomerBooking(args: {
   //   • The patients (clinic_id, mobile) unique index → safe upsert
   //   • The bookings (clinic_id, date, token) unique index → catches
   //     concurrent token collisions, we retry with nextToken()
-  //   • The cap + slot checks have a narrow race window; for two
-  //     simultaneous bookings the worst case is one extra booking past
-  //     the cap or a same-slot double-book, both small and acceptable
-  //     for a pilot. Add a (clinic_id, slot_time) unique index later
-  //     to close the slot race at the DB level.
+  //   • The bookings (clinic_id, slot_time) partial unique index (WHERE
+  //     status IN booked/checked_in/in_consult) → catches concurrent
+  //     bookings for the same slot; we surface SLOT_TAKEN.
+  //   • The cap check has a narrow race window (worst case: one extra
+  //     booking past the cap per burst) — acceptable at pilot scale.
 
   // 1. Active-bookings cap.
   const active = await db
@@ -280,9 +280,18 @@ export async function createCustomerBooking(args: {
       break;
     } catch (err) {
       lastErr = err;
-      // Unique violation on (clinic_id, date, token) → retry.
-      // Anything else → bubble.
       const msg = err instanceof Error ? err.message : String(err);
+      // Unique violation on the slot partial index → someone else took
+      // this slot in the same millisecond we did. Surface a clean
+      // SLOT_TAKEN instead of retrying, since another attempt won't help.
+      if (/uq_bookings_clinic_slot_live/i.test(msg)) {
+        throw new CustomerBookingError(
+          "SLOT_TAKEN",
+          "That time was just taken — pick another.",
+        );
+      }
+      // Unique violation on (clinic_id, date, token) → token collision
+      // with a parallel insert; retry with a fresh max+1.
       if (!/uq_bookings_clinic_date_token|duplicate key/i.test(msg)) throw err;
     }
   }

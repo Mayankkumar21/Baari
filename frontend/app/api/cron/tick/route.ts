@@ -2,7 +2,7 @@
 // buckets. Mirrors app/services/cron_jobs.py. Authenticate via CRON_SECRET header
 // when wired to GitHub Actions in production (see STATUS.md).
 import { NextResponse } from "next/server";
-import { and, eq, lt } from "drizzle-orm";
+import { and, eq, inArray, lt } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { clinicToday } from "@/lib/time";
 import { gcOldBuckets } from "@/lib/rate-limit";
@@ -40,7 +40,28 @@ export async function GET(req: Request) {
     noShowed += (result as { rowCount?: number }).rowCount ?? 0;
   }
 
+  // Zombie sweep — any booking on a past date that's still in a live
+  // status (booked / checked_in) never got resolved. Convert to
+  // no_show so it stops appearing in customer status polls and owner
+  // "waiting" counts. Runs across all clinics in one UPDATE.
+  const zombie = await db
+    .update(schema.bookings)
+    .set({ status: "no_show", noShowAt: now, updatedAt: now })
+    .where(
+      and(
+        lt(schema.bookings.date, today),
+        inArray(schema.bookings.status, ["booked", "checked_in"]),
+      ),
+    );
+  const zombieSwept = (zombie as { rowCount?: number }).rowCount ?? 0;
+
   const gc = await gcOldBuckets();
 
-  return NextResponse.json({ ok: true, noShowed, gcBuckets: gc, at: now.toISOString() });
+  return NextResponse.json({
+    ok: true,
+    noShowed,
+    zombieSwept,
+    gcBuckets: gc,
+    at: now.toISOString(),
+  });
 }

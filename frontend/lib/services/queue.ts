@@ -73,7 +73,11 @@ async function nextCheckedIn(clinicId: number, date: string): Promise<Booking | 
         eq(schema.bookings.status, "checked_in"),
       ),
     )
-    .orderBy(asc(schema.bookings.restoredAt), asc(schema.bookings.token));
+    .orderBy(
+      asc(schema.bookings.restoredAt),
+      asc(schema.bookings.slotTime),
+      asc(schema.bookings.token),
+    );
   return rows[0];
 }
 
@@ -310,11 +314,17 @@ export async function buildBoard(clinicId: number): Promise<QueueBoardVM> {
   const today = clinicToday();
   const now = nowUtc();
 
+  // Order by slot_time first so the owner sees appointments in the
+  // order they'll be served. Token is only a display label — it
+  // reflects creation order, not scheduling order. A late-created
+  // booking for an earlier slot (walk-in for 1:00 PM at 11:30 AM)
+  // should sit BEFORE a T-lower booking for 3:00 PM. Token is the
+  // deterministic tie-breaker when two bookings share a slot_time.
   const bookings = await db
     .select()
     .from(schema.bookings)
     .where(and(eq(schema.bookings.clinicId, clinicId), eq(schema.bookings.date, today)))
-    .orderBy(asc(schema.bookings.token));
+    .orderBy(asc(schema.bookings.slotTime), asc(schema.bookings.token));
 
   const patientIds = Array.from(new Set(bookings.map((b) => b.patientId)));
   const patients = patientIds.length
@@ -409,14 +419,19 @@ export async function buildBoard(clinicId: number): Promise<QueueBoardVM> {
     if (b.status !== "cancelled") counters.booked += 1;
   }
 
-  // Restored patients sort to the end of waiting (PRD §10.5).
+  // Restored patients sort to the end of waiting (PRD §10.5). Within
+  // non-restored, order by slot_time (then token as tie-break) so the
+  // board mirrors the queuePosition math used by the customer app.
   waiting.sort((a, b) => {
     const aR = a.booking.restoredAt ? 1 : 0;
     const bR = b.booking.restoredAt ? 1 : 0;
     if (aR !== bR) return aR - bR;
-    const aT = a.booking.restoredAt?.getTime() ?? 0;
-    const bT = b.booking.restoredAt?.getTime() ?? 0;
-    if (aT !== bT) return aT - bT;
+    const aRT = a.booking.restoredAt?.getTime() ?? 0;
+    const bRT = b.booking.restoredAt?.getTime() ?? 0;
+    if (aRT !== bRT) return aRT - bRT;
+    const aSlot = new Date(a.booking.slotTime).getTime();
+    const bSlot = new Date(b.booking.slotTime).getTime();
+    if (aSlot !== bSlot) return aSlot - bSlot;
     return a.booking.token - b.booking.token;
   });
 

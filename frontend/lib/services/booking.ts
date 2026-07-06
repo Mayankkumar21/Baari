@@ -152,21 +152,34 @@ export async function createBooking(args: {
     args.whatsappOptOut,
   );
   const token = await nextToken(args.clinic.id, on);
-  const [booking] = await db
-    .insert(schema.bookings)
-    .values({
-      clinicId: args.clinic.id,
-      patientId: patient.id,
-      date: on,
-      token,
-      slotTime: args.slotTime,
-      reason: args.reason || null,
-      partySize: args.partySize,
-      status: "booked",
-      source: "frontdesk",
-      createdByUserId: args.createdByUserId,
-    })
-    .returning();
+  let booking: Booking;
+  try {
+    const [row] = await db
+      .insert(schema.bookings)
+      .values({
+        clinicId: args.clinic.id,
+        patientId: patient.id,
+        date: on,
+        token,
+        slotTime: args.slotTime,
+        reason: args.reason || null,
+        partySize: args.partySize,
+        status: "booked",
+        source: "frontdesk",
+        createdByUserId: args.createdByUserId,
+      })
+      .returning();
+    booking = row;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // Slot partial-unique caught a concurrent booking — same friendly
+    // message as the pre-check. Token collision means we lost a race
+    // and should just retry the whole request.
+    if (/uq_bookings_clinic_slot_live/i.test(msg)) {
+      throw new BookingError("That slot was just taken. Please pick another.");
+    }
+    throw err;
+  }
   return booking;
 }
 
@@ -194,23 +207,50 @@ export async function createWalkIn(args: {
   const slotTime = new Date(slots[0]);
 
   const patient = await upsertPatient(args.clinic.id, name, mobile, false, false);
-  const token = await nextToken(args.clinic.id, on);
-  const [booking] = await db
-    .insert(schema.bookings)
-    .values({
-      clinicId: args.clinic.id,
-      patientId: patient.id,
-      date: on,
-      token,
-      slotTime,
-      reason: "Walk-in",
-      partySize: 1,
-      status: "checked_in",
-      source: "walkin",
-      checkedInAt: nowUtc(),
-      createdByUserId: args.createdByUserId,
-    })
-    .returning();
+  // Slot collision retry — the first open slot may race against a
+  // parallel booking. On slot-uniq violation, refresh availableSlots
+  // and try the next open one; capped so we don't spin.
+  let booking: Booking | undefined;
+  let currentSlot = slotTime;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const token = await nextToken(args.clinic.id, on);
+    try {
+      const [row] = await db
+        .insert(schema.bookings)
+        .values({
+          clinicId: args.clinic.id,
+          patientId: patient.id,
+          date: on,
+          token,
+          slotTime: currentSlot,
+          reason: "Walk-in",
+          partySize: 1,
+          status: "checked_in",
+          source: "walkin",
+          checkedInAt: nowUtc(),
+          createdByUserId: args.createdByUserId,
+        })
+        .returning();
+      booking = row;
+      break;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/uq_bookings_clinic_slot_live/i.test(msg)) {
+        const nextTaken = await takenSlots(args.clinic.id, on);
+        const nextOpen = availableSlots(args.clinic, on, nextTaken);
+        if (!nextOpen.length) {
+          throw new BookingError("No open slots today. Try tomorrow.");
+        }
+        currentSlot = new Date(nextOpen[0]);
+        continue;
+      }
+      if (/uq_bookings_clinic_date_token|duplicate key/i.test(msg)) continue;
+      throw err;
+    }
+  }
+  if (!booking) {
+    throw new BookingError("Couldn't reserve a slot. Please try again.");
+  }
   return booking;
 }
 
