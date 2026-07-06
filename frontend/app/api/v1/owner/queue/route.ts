@@ -17,7 +17,7 @@ import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
 type OwnerQueueRow = {
   bookingId: number;
   token: number;
-  label: string; // "T5" or "T5.1" for sub-tokens
+  label: string; // "T5"
   patientName: string;
   partySize: number;
   reason: string | null;

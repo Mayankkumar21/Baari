@@ -1,11 +1,37 @@
 // Queue state machine + board view-model. Port of app/services/queue_service.py.
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { clinicToday, nowUtc } from "@/lib/time";
 import type { Booking, DailySummary, Patient } from "@/lib/db/schema";
 
 export const UNDO_WINDOW_SEC = 30;
 export class QueueActionError extends Error {}
+
+// Guards restore / reopen paths against the partial-unique slot index.
+// A restored no_show or reopened done booking flips back into a live
+// status (checked_in), which the DB now blocks if the slot has been
+// re-taken. Pre-checking gives the receptionist a friendly message
+// ("that slot is taken now, reschedule first") instead of a raw
+// Postgres unique-violation message.
+async function slotOccupiedByAnother(
+  clinicId: number,
+  bookingId: number,
+  slotTime: Date,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: schema.bookings.id })
+    .from(schema.bookings)
+    .where(
+      and(
+        eq(schema.bookings.clinicId, clinicId),
+        eq(schema.bookings.slotTime, slotTime),
+        ne(schema.bookings.id, bookingId),
+        inArray(schema.bookings.status, ["booked", "checked_in", "in_consult"]),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
+}
 
 export type QueueRowVM = {
   booking: Booking;
@@ -134,6 +160,14 @@ export async function restoreNoShow(clinicId: number, bookingId: number): Promis
   if (b.status !== "no_show") {
     throw new QueueActionError("Only a no-show booking can be restored.");
   }
+  // Someone else has taken the slot since this booking went no_show.
+  // Flipping back to checked_in would violate the slot partial unique
+  // index — give a friendly message before the DB throws.
+  if (await slotOccupiedByAnother(clinicId, bookingId, b.slotTime)) {
+    throw new QueueActionError(
+      "Someone else is booked into that slot now. Reschedule this booking first, then restore it.",
+    );
+  }
   const now = nowUtc();
   await db
     .update(schema.bookings)
@@ -189,6 +223,14 @@ export async function reopenBooking(args: {
   if (b.status !== "done" && b.status !== "no_show") {
     throw new QueueActionError("Only done or no-show bookings can be reopened.");
   }
+  // Same slot-index race as restoreNoShow: reopening drops the row
+  // back into checked_in, which would collide with any live booking
+  // at the same slot_time.
+  if (await slotOccupiedByAnother(args.clinicId, args.bookingId, b.slotTime)) {
+    throw new QueueActionError(
+      "Someone else is booked into that slot now. Reschedule this booking first, then reopen it.",
+    );
+  }
   const now = nowUtc();
   const [updated] = await db
     .update(schema.bookings)
@@ -223,6 +265,14 @@ export async function undoDone(clinicId: number, bookingId: number): Promise<voi
   const age = (Date.now() - b.completedAt.getTime()) / 1000;
   if (age > UNDO_WINDOW_SEC) {
     throw new QueueActionError("Undo window has expired.");
+  }
+  // Slot-uniq guard: someone may have booked into b's slot in the 30s
+  // window since b flipped to done. Undoing would re-add b to the
+  // partial unique index at that slot and collide.
+  if (await slotOccupiedByAnother(clinicId, bookingId, b.slotTime)) {
+    throw new QueueActionError(
+      "That slot has been rebooked — undo window closed for this one.",
+    );
   }
   // Reverse any auto-promotion that filled the in-consult slot.
   const [current] = await db

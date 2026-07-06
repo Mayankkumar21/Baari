@@ -1,7 +1,7 @@
 // Booking-request tokens — the SMS link the customer taps after a missed
 // call. Each request is single-use, time-boxed, and bound to (clinic,
 // mobile). Confirming a request creates a real booking and stamps usedAt.
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, eq, lt, ne, or, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { db, schema } from "@/lib/db/client";
 import { nowUtc } from "@/lib/time";
@@ -250,7 +250,9 @@ export async function queuePosition(
   // "Ahead of me" = strictly earlier slot_time, OR same slot with a
   // smaller token (deterministic tie-break). This handles the case
   // where two bookings share a slot (party of 2, walk-in) — the older
-  // token wins.
+  // token wins. Uses typed drizzle helpers rather than a raw sql
+  // template so postgres-js gets a properly-serialized timestamp
+  // instead of a Date object (same class of bug that broke /admin).
   const [aheadRow] = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(schema.bookings)
@@ -259,7 +261,13 @@ export async function queuePosition(
         eq(schema.bookings.clinicId, clinicId),
         eq(schema.bookings.date, me.date),
         sql`${schema.bookings.status} IN ('booked','checked_in')`,
-        sql`(${schema.bookings.slotTime}, ${schema.bookings.token}) < (${me.slotTime}, ${me.token})`,
+        or(
+          lt(schema.bookings.slotTime, me.slotTime),
+          and(
+            eq(schema.bookings.slotTime, me.slotTime),
+            lt(schema.bookings.token, me.token),
+          ),
+        ),
       ),
     );
 

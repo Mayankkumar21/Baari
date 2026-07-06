@@ -1,7 +1,6 @@
 // POST /api/v1/owner/queue/done — mark the current consult as done.
-// Reuses queue.markDone() so the family-group promotion (sub-token
-// first, then next checked-in booking) side-effects match the web
-// dashboard exactly.
+// Reuses queue.markDone() so the next-booking promotion side-effects
+// match the web dashboard exactly.
 
 export const dynamic = "force-dynamic";
 

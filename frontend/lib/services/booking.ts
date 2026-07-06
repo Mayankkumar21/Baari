@@ -286,11 +286,23 @@ export async function rescheduleBooking(args: {
   if (taken.has(args.newSlotTime.toISOString())) {
     throw new BookingError("That slot is already taken.");
   }
-  const [updated] = await db
-    .update(schema.bookings)
-    .set({ slotTime: args.newSlotTime, updatedAt: nowUtc() })
-    .where(eq(schema.bookings.id, args.bookingId))
-    .returning();
+  let updated: Booking;
+  try {
+    const [row] = await db
+      .update(schema.bookings)
+      .set({ slotTime: args.newSlotTime, updatedAt: nowUtc() })
+      .where(eq(schema.bookings.id, args.bookingId))
+      .returning();
+    updated = row;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // Partial unique index caught a concurrent booking taking this
+    // slot between our pre-check and UPDATE. Same friendly message.
+    if (/uq_bookings_clinic_slot_live/i.test(msg)) {
+      throw new BookingError("That slot is already taken.");
+    }
+    throw err;
+  }
   return updated;
 }
 

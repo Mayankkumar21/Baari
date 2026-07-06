@@ -11,8 +11,8 @@ type MiniFeature = {
 
 const ITEMS: MiniFeature[] = [
   {
-    title: "Family sub-tokens",
-    body: "When grandma brings the kids, attach them to one token.",
+    title: "Book for someone else",
+    body: "One tap adds a name — grandma can book for the grandson.",
     icon: Users,
   },
   {
