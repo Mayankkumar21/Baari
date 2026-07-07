@@ -11,12 +11,20 @@ import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { BookingError, createWalkIn } from "@/lib/services/booking";
 import { ERRORS, fail, ok, readJson, requireOwner } from "@/lib/api-helpers";
+import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
 
 type Body = { name?: string; mobile?: string };
 
 export async function POST(req: Request) {
   const auth = await requireOwner(req);
   if (auth instanceof Response) return auth;
+
+  const rl = await checkAndIncrement(
+    LIMITS.owner_mutation_per_user,
+    "owner_mutation",
+    String(auth.user.id),
+  );
+  if (!rl.ok) return fail(429, "Too many actions. Slow down.", "RATE_LIMITED");
 
   const body = await readJson<Body>(req);
   if (!body?.name || !body?.mobile) {

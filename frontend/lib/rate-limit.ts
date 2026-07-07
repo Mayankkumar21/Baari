@@ -71,6 +71,13 @@ export const LIMITS: Record<string, LimitSpec> = {
   // 240/hr = one poll every 15s continuously — enough for real use,
   // stops a runaway loop from a compromised session.
   poll_per_user: { limit: 240, windowSeconds: 3600 },
+  // Owner queue mutations (checkin/start/done/no-show/cancel/walkin).
+  // Each mutation triggers `tryPromoteNextBooking` which does 3-4 DB
+  // round-trips, so a stuck client or a compromised owner session can
+  // pound the DB fast. A busy clinic legitimately runs maybe 3-5
+  // mutations per patient × 40 patients/day → 200/day. 600/hr is well
+  // above that for burst periods but tight enough to cap runaways.
+  owner_mutation_per_user: { limit: 600, windowSeconds: 3600 },
 };
 
 export async function checkAndIncrement(

@@ -156,9 +156,18 @@ export async function closeDay(
       .returning();
     return updated;
   }
+  // Upsert against uq_summary_clinic_date so a race between two
+  // receptionists tapping Close Day at the same moment falls through
+  // to a clean UPDATE instead of throwing a raw
+  // "duplicate key value violates unique constraint" 500. Both
+  // callers get a fully-populated row back either way.
   const [created] = await db
     .insert(schema.dailySummaries)
     .values(values)
+    .onConflictDoUpdate({
+      target: [schema.dailySummaries.clinicId, schema.dailySummaries.date],
+      set: values,
+    })
     .returning();
   return created;
 }

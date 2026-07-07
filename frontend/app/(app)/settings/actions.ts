@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { requireDoctor } from "@/lib/session";
 import { SESSION_COOKIE, normalizeMobile } from "@/lib/auth";
@@ -221,10 +221,35 @@ export async function deleteWorkspace(
   // Hard delete in FK-reverse order. Tables referencing clinic_id (directly
   // or via booking_id / user_id) must be drained before the parent. All
   // wrapped in a transaction so a partial failure leaves the workspace intact.
+  //
+  // Order is deliberate:
+  //   booking_requests -> before bookings (FK to bookings.id)
+  //   password_resets, email_verifications -> before users (FK to users.id)
+  //   closed_days -> before clinics (FK to clinics.id, also users.id)
+  //   notifications, audit_log, daily_summaries -> before bookings/users
+  //   bookings -> before patients (FK to patients.id)
+  //   patients -> before clinics
+  //   users -> before clinics
   await db.transaction(async (tx) => {
+    // Drain sub-user rows first — password_resets and email_verifications
+    // FK to users.id. Owner may have started an OTP flow they never
+    // finished; the delete would 500 with a raw FK-violation.
+    const userIds = await tx
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(eq(schema.users.clinicId, cid));
+    if (userIds.length) {
+      const ids = userIds.map((r) => r.id);
+      await tx.delete(schema.passwordResets).where(inArray(schema.passwordResets.userId, ids));
+      await tx.delete(schema.emailVerifications).where(inArray(schema.emailVerifications.userId, ids));
+    }
+    // booking_requests → bookings (must drain before bookings). Both
+    // reference clinic_id too but we key on the clinic scope directly.
+    await tx.delete(schema.bookingRequests).where(eq(schema.bookingRequests.clinicId, cid));
     await tx.delete(schema.notifications).where(eq(schema.notifications.clinicId, cid));
     await tx.delete(schema.auditLog).where(eq(schema.auditLog.clinicId, cid));
     await tx.delete(schema.dailySummaries).where(eq(schema.dailySummaries.clinicId, cid));
+    await tx.delete(schema.closedDays).where(eq(schema.closedDays.clinicId, cid));
     await tx.delete(schema.bookings).where(eq(schema.bookings.clinicId, cid));
     await tx.delete(schema.patients).where(eq(schema.patients.clinicId, cid));
     await tx.delete(schema.users).where(eq(schema.users.clinicId, cid));

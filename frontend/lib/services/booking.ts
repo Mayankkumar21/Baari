@@ -327,5 +327,11 @@ export async function cancelBooking(args: {
     .set({ status: "cancelled", cancelledAt: now, updatedAt: now })
     .where(eq(schema.bookings.id, args.bookingId))
     .returning();
+  // Race guard: between the SELECT above and this UPDATE, the row can
+  // vanish (workspace deletion, admin action) — .returning() then hands
+  // us undefined. Callers read fields off the return; better to throw
+  // a controlled BookingError than let a raw property-access crash the
+  // handler as a 500.
+  if (!updated) throw new BookingError("Booking not found.");
   return updated;
 }

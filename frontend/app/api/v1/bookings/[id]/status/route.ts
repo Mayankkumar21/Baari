@@ -63,14 +63,18 @@ export async function GET(
   //      people ahead of you
   // Fixes the "position 0, est 2 min" lie when earlier bookings cancel
   // for a slot that's still hours away.
+  //
+  // NaN-guard: if slotIso ever comes back malformed (data corruption,
+  // schema drift), getTime() returns NaN, Math.max(2, NaN, N) returns
+  // NaN, and NaN serializes to `null` in JSON — the client then
+  // renders "NaN min" or a broken UI. Fall back to the position-only
+  // math when the slot time is unusable.
   let estWaitMinutes: number | null = null;
   if (booking.status === "booked" || booking.status === "checked_in") {
-    const minutesUntilSlot = Math.max(
-      0,
-      Math.round(
-        (new Date(booking.slotIso).getTime() - Date.now()) / 60000,
-      ),
-    );
+    const slotMs = new Date(booking.slotIso).getTime();
+    const minutesUntilSlot = Number.isFinite(slotMs)
+      ? Math.max(0, Math.round((slotMs - Date.now()) / 60000))
+      : 0;
     const positionWait = (pos?.position ?? 0) * slotLen;
     estWaitMinutes = Math.max(2, minutesUntilSlot, positionWait);
   }
