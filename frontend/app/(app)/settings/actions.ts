@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { requireDoctor } from "@/lib/session";
 import { SESSION_COOKIE, normalizeMobile } from "@/lib/auth";
@@ -118,7 +118,22 @@ export async function saveBookingsSettings(
 
 // ─── Opening hours ────────────────────────────────────────────────────────
 
-export type HoursState = { ok?: boolean; error?: string };
+export type AffectedBooking = {
+  bookingId: number;
+  patientName: string;
+  mobile: string | null;
+  slotIso: string;
+  dateLabel: string;
+};
+
+export type HoursState = {
+  ok?: boolean;
+  error?: string;
+  // Bookings whose slot_time now falls OUTSIDE the freshly-saved
+  // hours. Receptionist gets a "call these people" list rather than
+  // Baari silently cancelling on their behalf.
+  affected?: AffectedBooking[];
+};
 
 type DayBlock = {
   open?: string;
@@ -128,6 +143,31 @@ type DayBlock = {
   open2?: string;
   close2?: string;
 };
+
+const AFFECTED_LOOKAHEAD_DAYS = 30;
+const DAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
+
+// True when the slot's HH:MM (in IST) doesn't fall inside any of the
+// day's open ranges. Handles closed days and split shifts (open2/close2).
+function slotOutsideHours(
+  slotTime: Date,
+  hours: Record<string, DayBlock>,
+): boolean {
+  const istDate = new Date(slotTime.getTime() + 5.5 * 60 * 60 * 1000);
+  const day = DAY_KEYS[istDate.getUTCDay()];
+  const block = hours[day];
+  if (!block || block.closed || !block.open || !block.close) return true;
+  const hh = String(istDate.getUTCHours()).padStart(2, "0");
+  const mm = String(istDate.getUTCMinutes()).padStart(2, "0");
+  const hhmm = `${hh}:${mm}`;
+  const inMorning = block.open <= hhmm && hhmm < block.close;
+  const inAfternoon =
+    block.open2 != null &&
+    block.close2 != null &&
+    block.open2 <= hhmm &&
+    hhmm < block.close2;
+  return !(inMorning || inAfternoon);
+}
 
 export async function saveHours(
   _prev: HoursState,
@@ -152,7 +192,57 @@ export async function saveHours(
     .where(eq(schema.clinics.id, sess.clinic.id));
   revalidatePath("/settings/hours");
   revalidatePath("/queue");
-  return { ok: true };
+
+  // Find bookings the new hours pulled the rug out from under. Look
+  // ahead 30 days (well past a normal booking horizon), only
+  // active-status bookings, join patients for name+mobile so the
+  // receptionist can call them.
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const isoToday = today.toISOString().slice(0, 10);
+  const horizon = new Date(today.getTime() + AFFECTED_LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000);
+  const isoHorizon = horizon.toISOString().slice(0, 10);
+
+  const upcoming = await db
+    .select({
+      bookingId: schema.bookings.id,
+      slotTime: schema.bookings.slotTime,
+      patientName: schema.patients.name,
+      mobile: schema.patients.mobile,
+    })
+    .from(schema.bookings)
+    .innerJoin(schema.patients, eq(schema.bookings.patientId, schema.patients.id))
+    .where(
+      and(
+        eq(schema.bookings.clinicId, sess.clinic.id),
+        gte(schema.bookings.date, isoToday),
+        lt(schema.bookings.date, isoHorizon),
+        inArray(schema.bookings.status, ["booked", "checked_in"]),
+      ),
+    )
+    .orderBy(asc(schema.bookings.slotTime));
+
+  const dayLabelFmt = new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+
+  const affected: AffectedBooking[] = upcoming
+    .filter((r) => slotOutsideHours(r.slotTime, openingHours))
+    .map((r) => ({
+      bookingId: r.bookingId,
+      patientName: r.patientName,
+      mobile: r.mobile,
+      slotIso: r.slotTime.toISOString(),
+      dateLabel: dayLabelFmt.format(r.slotTime),
+    }));
+
+  return { ok: true, affected };
 }
 
 // ─── Account: email removal ───────────────────────────────────────────────

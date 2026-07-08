@@ -6,7 +6,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import {
   customerToPublic,
@@ -157,6 +157,33 @@ export async function PATCH(req: Request) {
 export async function DELETE(req: Request) {
   const auth = await requireCustomer(req);
   if (auth instanceof Response) return auth;
+
+  // Block deletion if the customer has any live booking. Quietly
+  // cancelling their bookings behind the clinic's back means the
+  // clinic never learns they aren't coming — no-show accounted to
+  // them, chair stays empty, everyone loses. Force the customer to
+  // cancel their own bookings first so each clinic gets the proper
+  // signal through the normal cancel path (WhatsApp, queue update).
+  if (auth.mobile) {
+    const active = await db
+      .select({ id: schema.bookings.id })
+      .from(schema.bookings)
+      .innerJoin(schema.patients, eq(schema.bookings.patientId, schema.patients.id))
+      .where(
+        and(
+          eq(schema.patients.mobile, auth.mobile),
+          inArray(schema.bookings.status, ["booked", "checked_in", "in_consult"]),
+        ),
+      )
+      .limit(1);
+    if (active.length > 0) {
+      return fail(
+        409,
+        "Cancel your active bookings first, then delete your account. This way each clinic gets a proper heads-up.",
+        "HAS_ACTIVE_BOOKINGS",
+      );
+    }
+  }
 
   // Soft-delete only — keep the row so any clinic-side patient records
   // referring to this mobile still resolve, and so the user can sign
