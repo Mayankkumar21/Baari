@@ -78,6 +78,9 @@ export async function createCustomerBooking(args: {
   // against the Indian format when non-empty; blank string → null.
   guestName?: string | null;
   guestMobile?: string | null;
+  // "Coming together" group size. Route validates+clamps; service
+  // accepts any int and stores it. Default 1 keeps existing solo flow.
+  partySize?: number;
 }): Promise<CustomerBookingRow> {
   if (!args.customer.mobile) {
     throw new CustomerBookingError(
@@ -270,7 +273,7 @@ export async function createCustomerBooking(args: {
           reason: args.reason ?? null,
           guestName,
           guestMobile,
-          partySize: 1,
+          partySize: args.partySize && args.partySize > 1 ? args.partySize : 1,
           status: "booked",
           source: "app",
           createdByUserId: owner.id,

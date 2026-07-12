@@ -23,6 +23,10 @@ type CreateBody = {
   // number when non-empty. Both optional overall.
   guestName?: string;
   guestMobile?: string;
+  // Group size — "coming together" chip on the customer app. 1 is the
+  // default (solo); values 2-5 make the doctor's queue row render as a
+  // family visit. Cap matches the frontdesk book form's max.
+  partySize?: number;
 };
 
 export async function GET(req: Request) {
@@ -59,6 +63,17 @@ export async function POST(req: Request) {
   }
 
   try {
+    // Clamp partySize to the [1,5] range the frontdesk form and the
+    // customer chip picker both enforce. Anything wrong on the wire
+    // falls back to 1 rather than 400 — a solo booking is always
+    // valid, and a hostile large value shouldn't be able to poison
+    // the queue row's rendering.
+    const rawParty = Number(body.partySize);
+    const partySize =
+      Number.isFinite(rawParty) && rawParty >= 1 && rawParty <= 5
+        ? Math.floor(rawParty)
+        : 1;
+
     const booking = await createCustomerBooking({
       customer: auth,
       clinicSlug: body.clinicSlug,
@@ -67,6 +82,7 @@ export async function POST(req: Request) {
       isNew: body.isNew ?? false,
       guestName: body.guestName ?? null,
       guestMobile: body.guestMobile ?? null,
+      partySize,
     });
     return ok({ booking }, 201);
   } catch (err) {
