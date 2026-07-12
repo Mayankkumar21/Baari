@@ -531,14 +531,93 @@ function NowCard({
 
       {!readOnly ? (
         <div className="relative mt-6 flex flex-wrap gap-2">
-          <Button
-            variant="success"
-            size="lg"
-            disabled={pending}
-            onClick={() => start(async () => void (await markDoneAction(nc.bookingId)))}
-          >
-            <CheckCircle2 className="size-4" /> Mark done
-          </Button>
+          <MarkDoneButton bookingId={nc.bookingId} pending={pending} start={start} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// Two-step mark-done: click reveals a small "amount paid" popover
+// inline, click Save to record. Amount is optional — an empty submit
+// still marks the booking done, just without a revenue number. This
+// keeps the fast path (one click, no amount) alive for owners who
+// don't care about revenue tracking, while unlocking the analytics
+// for the ones who do.
+function MarkDoneButton({
+  bookingId,
+  pending,
+  start,
+}: {
+  bookingId: number;
+  pending: boolean;
+  start: React.TransitionStartFunction;
+}) {
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState("");
+  const submit = (withAmount: boolean) => {
+    const n = withAmount ? Number(amount.trim()) : NaN;
+    const clean =
+      Number.isFinite(n) && n > 0 && n < 1_000_000 ? Math.round(n) : null;
+    start(async () => {
+      await markDoneAction(bookingId, clean);
+      setOpen(false);
+      setAmount("");
+    });
+  };
+  return (
+    <div className="relative">
+      <Button
+        variant="success"
+        size="lg"
+        disabled={pending}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <CheckCircle2 className="size-4" /> Mark done
+      </Button>
+      {open ? (
+        <div className="absolute left-0 top-full z-20 mt-2 w-72 rounded-lg border border-border bg-card/95 p-3 shadow-xl backdrop-blur">
+          <Label htmlFor="mark-done-amount" className="mb-1 block text-xs">
+            Amount paid <span className="text-muted-foreground">(₹, optional)</span>
+          </Label>
+          <div className="flex items-center gap-2">
+            <div className="text-sm font-semibold text-muted-foreground">₹</div>
+            <Input
+              id="mark-done-amount"
+              type="number"
+              min={0}
+              max={999999}
+              inputMode="numeric"
+              placeholder="e.g. 350"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") submit(true);
+                if (e.key === "Escape") setOpen(false);
+              }}
+            />
+          </div>
+          <div className="mt-2 flex items-center justify-end gap-1.5">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => submit(false)}
+              disabled={pending}
+            >
+              Skip amount
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="glow"
+              onClick={() => submit(true)}
+              disabled={pending}
+            >
+              Save
+            </Button>
+          </div>
         </div>
       ) : null}
     </div>

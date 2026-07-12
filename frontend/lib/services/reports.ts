@@ -14,6 +14,16 @@ export type ReportsBundle = {
     noShows: number;
     cancelled: number;
   };
+  // Revenue — only the sum of bookings where the receptionist recorded
+  // an amountPaidInr. Untracked bookings contribute zero, not garbage,
+  // so a clinic that only started using the field mid-period sees
+  // partial revenue rather than a made-up number.
+  revenue: {
+    totalInr: number; // sum of amountPaidInr over the range
+    trackedCount: number; // # of `done` bookings that had an amount
+    completedCount: number; // # of `done` bookings overall (denominator)
+    avgTicketInr: number | null; // totalInr / trackedCount, null if none
+  };
   // Bookings by origin — app (customer self-serve incl. missed-call),
   // frontdesk (dashboard-created), walkin (walk-in flow). Powers the
   // owner's "where are my bookings coming from?" question.
@@ -22,6 +32,9 @@ export type ReportsBundle = {
   avgWaitSec: number | null;
   avgSessionSec: number | null;
   hourly: number[]; // length 24, count of bookings in each hour-bucket
+  // Same shape as hourly, but sum of amountPaidInr instead of count —
+  // powers the "which hour drives most revenue?" chart on /reports.
+  hourlyRevenue: number[]; // length 24, rupees per hour bucket
   daysOfWeek: number[]; // length 7, [Mon, Tue, …, Sun]
   topServices: { name: string; count: number; pct: number }[];
   recent: BookingRow[];
@@ -68,6 +81,11 @@ export async function loadReports(
       srcWalkin: sql<number>`count(*) filter (where ${schema.bookings.source} = 'walkin')`,
       avgWait: sql<number | null>`avg(extract(epoch from (${schema.bookings.startedAt} - ${schema.bookings.checkedInAt}))) filter (where ${schema.bookings.status} = 'done' and ${schema.bookings.startedAt} is not null and ${schema.bookings.checkedInAt} is not null)`,
       avgSession: sql<number | null>`avg(extract(epoch from (${schema.bookings.completedAt} - ${schema.bookings.startedAt}))) filter (where ${schema.bookings.status} = 'done' and ${schema.bookings.completedAt} is not null and ${schema.bookings.startedAt} is not null)`,
+      // Revenue rollups — filter NULLs so a clinic that never types
+      // an amount reports ₹0, not a fake number. COALESCE handles the
+      // zero-row case (empty range) so SUM stays a number not NULL.
+      revenueTotal: sql<number>`coalesce(sum(${schema.bookings.amountPaidInr}) filter (where ${schema.bookings.status} = 'done' and ${schema.bookings.amountPaidInr} is not null), 0)`,
+      revenueTrackedCount: sql<number>`count(*) filter (where ${schema.bookings.status} = 'done' and ${schema.bookings.amountPaidInr} is not null)`,
     })
     .from(schema.bookings)
     .where(where);
@@ -83,18 +101,26 @@ export async function loadReports(
   const noShowRate = denominator > 0 ? noShow / denominator : 0;
 
   // 2. Hourly distribution. Bucket by the hour of slot_time in clinic tz.
+  // One query pulls both count-per-hour AND rupees-per-hour so the
+  // /reports page can render two aligned bar charts with a single
+  // round-trip.
   const hourlyRows = await db
     .select({
       hour: sql<number>`extract(hour from (${schema.bookings.slotTime} at time zone ${CLINIC_TZ}))::int`,
       n: count(),
+      rupees: sql<number>`coalesce(sum(${schema.bookings.amountPaidInr}) filter (where ${schema.bookings.status} = 'done' and ${schema.bookings.amountPaidInr} is not null), 0)`,
     })
     .from(schema.bookings)
     .where(where)
     .groupBy(sql`1`);
   const hourly = Array(24).fill(0) as number[];
+  const hourlyRevenue = Array(24).fill(0) as number[];
   for (const r of hourlyRows) {
     const h = Number(r.hour);
-    if (h >= 0 && h < 24) hourly[h] = Number(r.n);
+    if (h >= 0 && h < 24) {
+      hourly[h] = Number(r.n);
+      hourlyRevenue[h] = Number(r.rupees);
+    }
   }
 
   // 3. Day-of-week distribution. Postgres' extract('dow') is 0=Sun..6=Sat;
@@ -174,8 +200,19 @@ export async function loadReports(
         : null,
   }));
 
+  const revenueTotal = Number(agg?.revenueTotal ?? 0);
+  const revenueTrackedCount = Number(agg?.revenueTrackedCount ?? 0);
   return {
     totals: { bookings: total, completed: done, noShows: noShow, cancelled },
+    revenue: {
+      totalInr: revenueTotal,
+      trackedCount: revenueTrackedCount,
+      completedCount: done,
+      avgTicketInr:
+        revenueTrackedCount > 0
+          ? Math.round(revenueTotal / revenueTrackedCount)
+          : null,
+    },
     bySource: {
       app: Number(agg?.srcApp ?? 0),
       frontdesk: Number(agg?.srcFrontdesk ?? 0),
@@ -185,6 +222,7 @@ export async function loadReports(
     avgWaitSec: agg?.avgWait != null ? Math.round(Number(agg.avgWait)) : null,
     avgSessionSec: agg?.avgSession != null ? Math.round(Number(agg.avgSession)) : null,
     hourly,
+    hourlyRevenue,
     daysOfWeek,
     topServices,
     recent,

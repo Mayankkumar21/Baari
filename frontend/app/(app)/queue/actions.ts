@@ -44,8 +44,22 @@ export async function checkInAction(bookingId: number) {
 export async function startConsultAction(bookingId: number) {
   return run(startConsult, bookingId);
 }
-export async function markDoneAction(bookingId: number) {
-  return run(markDone, bookingId);
+export async function markDoneAction(
+  bookingId: number,
+  amountPaidInr?: number | null,
+) {
+  const sess = await requireSetup();
+  try {
+    await markDone(sess.clinic.id, bookingId, amountPaidInr ?? null);
+    revalidatePath("/queue");
+    revalidatePath("/reports");
+    return { ok: true } as const;
+  } catch (err) {
+    return {
+      ok: false as const,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
 }
 export async function restoreNoShowAction(bookingId: number) {
   return run(restoreNoShow, bookingId);

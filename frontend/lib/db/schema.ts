@@ -245,6 +245,11 @@ export const bookings = pgTable(
     restoredAt: timestamp("restored_at", { withTimezone: true }),
     waitEstimateMin: integer("wait_estimate_min"),
     lastWaitNotifiedAt: timestamp("last_wait_notified_at", { withTimezone: true }),
+    // Amount the customer paid, in whole rupees. Optional — receptionist
+    // types it in the "Mark done" flow if she cares to track revenue.
+    // Null means "not tracked", not "zero" — reports SUM only non-null
+    // rows so unmarked bookings don't drag the total.
+    amountPaidInr: integer("amount_paid_inr"),
     createdByUserId: integer("created_by_user_id").notNull().references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

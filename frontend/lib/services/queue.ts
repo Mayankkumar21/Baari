@@ -127,15 +127,37 @@ export async function checkIn(clinicId: number, bookingId: number): Promise<void
   await tryPromoteNextBooking(clinicId, b.date);
 }
 
-export async function markDone(clinicId: number, bookingId: number): Promise<void> {
+export async function markDone(
+  clinicId: number,
+  bookingId: number,
+  amountPaidInr?: number | null,
+): Promise<void> {
   const b = await loadBooking(bookingId, clinicId);
   if (b.status !== "in_consult") {
     throw new QueueActionError("Only the current in-consult booking can be marked done.");
   }
+  // Clamp the amount so a bad wire value doesn't poison the report
+  // aggregates. Anything <=0 or non-finite falls back to null (not
+  // tracked) — the same behavior as "receptionist didn't type it."
+  const cleanAmount =
+    typeof amountPaidInr === "number" &&
+    Number.isFinite(amountPaidInr) &&
+    amountPaidInr > 0 &&
+    amountPaidInr < 1_000_000
+      ? Math.round(amountPaidInr)
+      : null;
   const now = nowUtc();
   await db
     .update(schema.bookings)
-    .set({ status: "done", completedAt: now, updatedAt: now })
+    .set({
+      status: "done",
+      completedAt: now,
+      updatedAt: now,
+      // Only write when we have a real amount — preserve any
+      // previously-typed value if the user re-marks (rare but
+      // possible via reopen → done).
+      ...(cleanAmount !== null ? { amountPaidInr: cleanAmount } : {}),
+    })
     .where(eq(schema.bookings.id, bookingId));
   await tryPromoteNextBooking(clinicId, b.date);
 }

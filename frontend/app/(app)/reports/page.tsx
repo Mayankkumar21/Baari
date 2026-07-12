@@ -81,6 +81,84 @@ function pctOf(part: number, total: number): string {
   return Math.round((part / total) * 100) + "%";
 }
 
+// Revenue strip — only shown when the receptionist has typed an
+// amount on at least one completed booking in the range. Three tiles:
+// total, coverage (what fraction of completed had an amount tracked),
+// and average ticket. Coverage matters because if it's low, the total
+// is misleading.
+function RevenueStrip({
+  revenue,
+}: {
+  revenue: {
+    totalInr: number;
+    trackedCount: number;
+    completedCount: number;
+    avgTicketInr: number | null;
+  };
+}) {
+  const coveragePct =
+    revenue.completedCount > 0
+      ? Math.round((revenue.trackedCount / revenue.completedCount) * 100)
+      : 0;
+  return (
+    <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <div className="text-[11px] font-semibold uppercase tracking-widest text-emerald-700 dark:text-emerald-300">
+          Revenue
+        </div>
+        <div className="text-[11px] text-muted-foreground">
+          tracked on {revenue.trackedCount} of {revenue.completedCount} completed
+          {revenue.completedCount > revenue.trackedCount
+            ? ` — the ${revenue.completedCount - revenue.trackedCount} without an amount aren't included`
+            : ""}
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <div className="text-xs text-muted-foreground">Total</div>
+          <div className="mt-1 text-2xl font-bold tabular-nums">
+            ₹{revenue.totalInr.toLocaleString("en-IN")}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs text-muted-foreground">Coverage</div>
+          <div className="mt-1 text-2xl font-bold tabular-nums">
+            {coveragePct}%
+          </div>
+        </div>
+        <div>
+          <div className="text-xs text-muted-foreground">Avg ticket</div>
+          <div className="mt-1 text-2xl font-bold tabular-nums">
+            {revenue.avgTicketInr != null
+              ? `₹${revenue.avgTicketInr.toLocaleString("en-IN")}`
+              : "—"}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Empty state — first-run onboarding for the amount-tracking flow.
+// Ships as a friendly nudge rather than a blank ₹0 which would read
+// as "the tool is broken."
+function RevenueEmpty() {
+  return (
+    <div className="rounded-lg border border-dashed border-border p-4">
+      <div className="flex items-start gap-3">
+        <div className="mt-0.5 text-lg">₹</div>
+        <div className="flex-1">
+          <div className="text-sm font-medium">Start tracking revenue</div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Type the amount paid when you tap <span className="font-semibold">Mark done</span>{" "}
+            on the queue — Baari sums it into daily / weekly / monthly totals here.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SourceStrip({
   bySource,
   total,
@@ -261,6 +339,15 @@ export default async function ReportsPage({
           delta={fmtSecDelta(bundle.avgSessionSec, prev.avgSessionSec)}
         />
       </div>
+
+      {/* Revenue strip — only shown when at least one booking in the
+          range had an amount tracked, otherwise it'd render ₹0 and
+          look broken. */}
+      {bundle.revenue.trackedCount > 0 ? (
+        <RevenueStrip revenue={bundle.revenue} />
+      ) : (
+        <RevenueEmpty />
+      )}
 
       {/* Bookings by source — small strip so the owner can spot how
           much of their volume is customer self-serve vs desk-created. */}
