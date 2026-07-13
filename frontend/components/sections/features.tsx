@@ -105,8 +105,8 @@ function LiveQueueVisual() {
           <div className="space-y-1.5">
             <QueueRow token="T13" name="Sarah Chen" meta="10:40 · headache" tone="wait" />
             <QueueRow token="T14" name="James Park" meta="11:00 · party of 2" tone="wait" />
-            <QueueRow token="T15" name="Olivia Rossi" meta="11:20" tone="late" />
-            <QueueRow token="T16" name="Michael Ross" meta="11:40 · skin" tone="wait" />
+            <QueueRow token="T15" name="Priya Sharma" meta="11:20" tone="late" />
+            <QueueRow token="T16" name="Sundar Rao" meta="11:40 · skin" tone="wait" />
           </div>
         </div>
 
@@ -151,7 +151,7 @@ function MixedQueueVisual() {
         <QueueRow token="T12" name="Walk-in · 10:38" meta="Ana Torres · skin" tone="wait" sourceTag="walkin" />
         <QueueRow token="T13" name="Booked · 11:00" meta="Sarah Chen" tone="wait" sourceTag="booked" />
         <QueueRow token="T14" name="Walk-in · 11:06" meta="Liam Novak · fever" tone="wait" sourceTag="walkin" />
-        <QueueRow token="T15" name="Booked · 11:20" meta="Olivia Rossi" tone="late" sourceTag="booked" />
+        <QueueRow token="T15" name="Booked · 11:20" meta="Priya Sharma" tone="late" sourceTag="booked" />
       </div>
       <p className="mt-3 text-[10px] leading-snug text-muted-foreground">
         Walk-ins slot in between bookings by arrival time. The receptionist never has to think
@@ -165,7 +165,7 @@ function NoShowVisual() {
   return (
     <PanelChrome>
       <div className="space-y-2">
-        <QueueRow token="T15" name="Olivia Rossi" meta="11:20 · 12 min late" tone="late" />
+        <QueueRow token="T15" name="Priya Sharma" meta="11:20 · 12 min late" tone="late" />
         <div className="rounded-xl border border-rose-400/40 bg-rose-500/10 p-3">
           <div className="flex items-center justify-between">
             <div>
@@ -174,7 +174,7 @@ function NoShowVisual() {
                   T15
                 </div>
                 <div>
-                  <div className="text-sm font-semibold line-through opacity-70">Olivia Rossi</div>
+                  <div className="text-sm font-semibold line-through opacity-70">Priya Sharma</div>
                   <div className="text-[10px] text-muted-foreground">marked no-show · 11:35</div>
                 </div>
               </div>

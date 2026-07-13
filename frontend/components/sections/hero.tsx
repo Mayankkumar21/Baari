@@ -160,8 +160,8 @@ function CompactQueuePreview() {
         <div className="space-y-1.5">
           <MiniRow token="T13" name="Sarah Chen" meta="10:40 · headache" tone="wait" />
           <MiniRow token="T14" name="James Park" meta="11:00 · party of 2" tone="wait" />
-          <MiniRow token="T15" name="Olivia Rossi" meta="11:20" tone="late" />
-          <MiniRow token="T16" name="Michael Ross" meta="11:40 · skin" tone="wait" />
+          <MiniRow token="T15" name="Priya Sharma" meta="11:20" tone="late" />
+          <MiniRow token="T16" name="Sundar Rao" meta="11:40 · skin" tone="wait" />
         </div>
       </div>
     </div>
