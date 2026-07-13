@@ -69,7 +69,8 @@ export default function PricingPage() {
               "Up to 100 completed customers / month",
               "Live receptionist queue + walk-ins",
               "Family + guest bookings",
-              "Basic reports (patients, no-shows, peak hours)",
+              "Missed-call → SMS booking link",
+              "Basic reports (customers, no-shows, peak hours)",
               "Revenue tracking (optional)",
               "1 doctor / stylist",
             ]}
@@ -78,7 +79,7 @@ export default function PricingPage() {
             name="Growth"
             price="₹999"
             per="/ month"
-            tagline="For the busy salon or clinic. Everything unlocked."
+            tagline="For the busy salon or clinic."
             highlight
             badge="Most popular"
             cta="Try free for 2 months"
@@ -86,11 +87,8 @@ export default function PricingPage() {
               "Up to 500 completed customers / month",
               "Everything in Free, plus:",
               "Customer app bookings on",
-              "Silent-churn list — regulars who stopped coming",
-              "New vs repeat customer breakdown",
-              "Category revenue (consultation, pharmacy, products)",
-              "Daily EOD summary on WhatsApp",
-              "Templated broadcasts (20 / month)",
+              "Up to 3 doctors / stylists",
+              "Returning-customer chip on the queue",
               "Direct WhatsApp support from founders",
             ]}
           />
@@ -103,13 +101,7 @@ export default function PricingPage() {
             features={[
               "Unlimited completed customers",
               "Everything in Growth, plus:",
-              "Up to 5 doctors / stylists",
-              "Cohort retention charts",
-              "Customer lifetime value analytics",
-              "Referral tracking with rewards",
-              "Unlimited broadcasts",
-              "Self-serve data export (CSV)",
-              "API access for your integrations",
+              "Unlimited doctors / stylists",
               "Priority support (< 4 hour response)",
             ]}
           />
