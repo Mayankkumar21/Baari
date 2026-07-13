@@ -9,6 +9,7 @@ const PUBLIC = new Set([
   "/login",
   "/signup",
   "/forgot",
+  "/pricing",
   "/workspace-deleted",
   "/legal/privacy",
   "/legal/terms",
