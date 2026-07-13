@@ -18,7 +18,13 @@ export function SiteHeader() {
           <span className="text-lg font-bold tracking-tight">Baari</span>
         </Link>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <Link
+            href="/pricing"
+            className="hidden text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:inline"
+          >
+            Pricing
+          </Link>
           <ThemeToggle />
           <Button asChild>
             <Link href="/login">Sign in</Link>

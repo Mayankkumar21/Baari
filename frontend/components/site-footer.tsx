@@ -8,9 +8,7 @@ export function SiteFooter() {
           <FooterColumn title="Product">
             <FooterLink href="#how-it-works">How it works</FooterLink>
             <FooterLink href="#features">Features</FooterLink>
-            <span className="text-xs text-muted-foreground/70">
-              Pricing — coming soon
-            </span>
+            <FooterLink href="/pricing">Pricing</FooterLink>
           </FooterColumn>
 
           <FooterColumn title="Company">
