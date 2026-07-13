@@ -21,8 +21,8 @@ const ITEMS: MiniFeature[] = [
     icon: BarChart3,
   },
   {
-    title: "English + हिन्दी",
-    body: "Customer-facing screens work in both scripts. Customer picks once.",
+    title: "Works on any phone",
+    body: "Web + mobile. No apps to install for the receptionist. Customers can book from any browser.",
     icon: Globe,
   },
 ];

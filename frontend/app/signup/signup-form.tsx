@@ -4,10 +4,14 @@ import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 import { Check, Scissors, Stethoscope, Flower, PawPrint, Store } from "lucide-react";
 import { Tooth } from "@/components/icons/tooth";
-import { IndiaFlag } from "@/components/icons/india-flag";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  CountryCodePicker,
+  defaultCountry,
+  type Country,
+} from "@/components/country-code-picker";
 import { signupAction, type SignupState } from "./actions";
 import { cn } from "@/lib/utils";
 
@@ -53,6 +57,13 @@ export function SignupForm({ initialType }: { initialType?: string }) {
   const selected = OPTIONS.find((o) => o.key === tenantType) ?? OPTIONS[0];
   const pwChecks = useMemo(() => checkPassword(password), [password]);
   const pwAllOk = pwChecks.every((c) => c.ok);
+
+  // Country picker state — default from browser locale so a user in
+  // India sees IN preselected, US-locale users see US. The visible
+  // number field holds the national part; a hidden field concatenates
+  // to E.164 for the server action.
+  const [country, setCountry] = useState<Country>(() => defaultCountry());
+  const [national, setNational] = useState("");
 
   return (
     <form action={action} className="space-y-5">
@@ -115,28 +126,30 @@ export function SignupForm({ initialType }: { initialType?: string }) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="mobile">Mobile</Label>
-          <div className="relative">
-            {/* z-10 lifts the prefix above the input's translucent backdrop
-                so the tricolor + "+91" render crisply instead of through
-                the frosted-glass overlay. */}
-            <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center gap-1.5 pl-3 text-xs text-foreground">
-              <IndiaFlag className="rounded-[1px]" />
-              <span className="font-semibold">+91</span>
-              <span className="h-3 w-px bg-border" />
-            </div>
+          <Label htmlFor="mobile-national">Mobile</Label>
+          <div className="flex gap-2">
+            <CountryCodePicker value={country} onChange={setCountry} />
             <Input
-              id="mobile"
-              name="mobile"
+              id="mobile-national"
               type="tel"
               inputMode="numeric"
-              maxLength={10}
+              maxLength={15}
               required
               autoComplete="tel-national"
-              placeholder="98765 43210"
-              className="pl-[68px]"
+              placeholder="Your mobile number"
+              value={national}
+              onChange={(e) =>
+                setNational(e.target.value.replace(/[^\d\s\-().]/g, "").slice(0, 15))
+              }
+              className="flex-1"
             />
           </div>
+          {/* Hidden E.164 field — the server action reads this. */}
+          <input
+            type="hidden"
+            name="mobile"
+            value={national ? `+${country.dial}${national.replace(/\D/g, "")}` : ""}
+          />
         </div>
       </div>
 

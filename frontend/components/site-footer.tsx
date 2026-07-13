@@ -26,7 +26,7 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-10 flex flex-col items-center justify-between gap-2 border-t border-border/40 pt-6 text-center text-xs text-muted-foreground sm:flex-row">
-          <div>Built in India for the front desks of India. 🇮🇳</div>
+          <div>Built for the front desks of the world.</div>
           <div>© 2026 Baari</div>
         </div>
       </div>

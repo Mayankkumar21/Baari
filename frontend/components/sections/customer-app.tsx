@@ -96,8 +96,8 @@ function AppMockup() {
             </div>
             <div className="mt-1 text-lg font-bold">Near you</div>
             <div className="mt-4 space-y-2">
-              <MiniClinicRow kind="Clinic" name="Pratiksha" status="Open · Next slot 11:15" />
-              <MiniClinicRow kind="Salon" name="Aroma Salon" status="Open · Next slot 12:00" />
+              <MiniClinicRow kind="Clinic" name="Wellspring Family" status="Open · Next slot 11:15" />
+              <MiniClinicRow kind="Salon" name="Bloom Studio" status="Open · Next slot 12:00" />
               <MiniClinicRow kind="Spa" name="Serenity Spa" status="Closed · Opens 15:00" muted />
             </div>
           </div>

@@ -52,7 +52,7 @@ export async function createBookingRequest(args: {
   const mobile = normalizeMobile(args.mobile);
   if (!mobile) {
     throw new BookingRequestError(
-      "Enter a valid Indian mobile (10 digits, starting with 6, 7, 8 or 9).",
+      "Enter a valid mobile number.",
     );
   }
 

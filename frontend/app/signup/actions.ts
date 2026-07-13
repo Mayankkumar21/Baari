@@ -48,7 +48,7 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
     return { error: "Your name is required" };
   }
   const mobile = normalizeMobile(mobileRaw);
-  if (!mobile) return { error: "Enter a valid Indian mobile (10 digits, starting with 6, 7, 8 or 9)." };
+  if (!mobile) return { error: "Enter a valid mobile number." };
   const email = normalizeEmail(emailRaw);
   if (!email) return { error: "Enter a valid recovery email like you@example.com." };
   const pwErr = passwordStrength(password);

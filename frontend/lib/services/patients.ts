@@ -76,7 +76,7 @@ export async function addGuest(args: {
   }
   const mobile = normalizeMobile(args.mobile);
   if (!mobile) {
-    throw new PatientError("Enter a valid Indian mobile (10 digits, starting with 6, 7, 8 or 9).");
+    throw new PatientError("Enter a valid mobile number.");
   }
 
   // Idempotent — if a patient with this mobile already exists, return them

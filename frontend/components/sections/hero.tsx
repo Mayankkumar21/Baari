@@ -50,7 +50,7 @@ export function Hero() {
             transition={{ duration: 0.7, delay: 0.14, ease: [0.16, 1, 0.3, 1] }}
             className="mt-6 max-w-xl text-balance text-base text-muted-foreground sm:text-lg"
           >
-            Tokens, walk-ins, family bookings, late patients — handled from one place. Built for
+            Tokens, walk-ins, family bookings, late arrivals — handled from one place. Built for
             clinics, salons, and spas where the receptionist is doing six things at once.
           </motion.p>
 
@@ -76,7 +76,7 @@ export function Hero() {
             transition={{ duration: 0.8, delay: 0.36 }}
             className="mt-6 text-xs text-muted-foreground"
           >
-            Free during early access. Built for Tier-2 and Tier-3 India — SMBs where the receptionist is doing six things at once.
+            Free during early access. Built for small businesses where the receptionist is doing six things at once.
           </motion.p>
         </div>
 
@@ -145,7 +145,7 @@ function CompactQueuePreview() {
               <Stethoscope className="size-2.5" /> T12
             </span>
           </div>
-          <div className="mt-1 text-[13px] font-semibold leading-tight">Meera Pillai</div>
+          <div className="mt-1 text-[13px] font-semibold leading-tight">Emma Wilson</div>
           <div className="text-[10px] text-muted-foreground">cold, sore throat</div>
           <button className="mt-2 inline-flex items-center gap-1 rounded-md bg-emerald-500 px-2 py-1 text-[10px] font-semibold text-white shadow-sm shadow-emerald-500/40">
             <Check className="size-2.5" /> Mark done
@@ -158,10 +158,10 @@ function CompactQueuePreview() {
           <span>5</span>
         </div>
         <div className="space-y-1.5">
-          <MiniRow token="T13" name="Anjali Verma" meta="10:40 · headache" tone="wait" />
-          <MiniRow token="T14" name="Ravi Kumar" meta="11:00 · party of 2" tone="wait" />
-          <MiniRow token="T15" name="Sneha Iyer" meta="11:20" tone="late" />
-          <MiniRow token="T16" name="अमित शर्मा" meta="11:40 · skin" tone="wait" />
+          <MiniRow token="T13" name="Sarah Chen" meta="10:40 · headache" tone="wait" />
+          <MiniRow token="T14" name="James Park" meta="11:00 · party of 2" tone="wait" />
+          <MiniRow token="T15" name="Olivia Rossi" meta="11:20" tone="late" />
+          <MiniRow token="T16" name="Michael Ross" meta="11:40 · skin" tone="wait" />
         </div>
       </div>
     </div>

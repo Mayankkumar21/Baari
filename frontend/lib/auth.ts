@@ -23,15 +23,38 @@ function secret(): Uint8Array {
   return new TextEncoder().encode(s);
 }
 
-// Indian mobile: 10 digits, optionally prefixed +91 or 0. Stored as 10 digits.
-// Per TRAI, the first digit of an Indian mobile must be 6, 7, 8, or 9 — any
-// other leading digit is a landline/STD code or a typo, never a mobile.
-const MOBILE_RE = /^(?:\+?91|0)?([6-9]\d{9})$/;
+// International mobile format (E.164). Baari accepts numbers from any
+// country as long as they conform to the E.164 shape:
+//   +<country code (1-3 digits)><national number>, total 8-15 digits
+//
+// Backward compatibility: rows written before this change stored 10-digit
+// Indian mobiles without a "+" prefix. If the caller doesn't supply a
+// leading "+", we fall back to +91 (India) for those 10-digit strings so
+// existing data still validates. A leading "+" always wins.
+//
+// Storage going forward: always E.164 with the "+" prefix (e.g. "+919893127527",
+// "+14155550132"). Comparison against legacy 10-digit rows should either
+// migrate those rows or strip the "+91" prefix when comparing.
+const E164_RE = /^\+[1-9]\d{7,14}$/;
+const LEGACY_INDIAN_RE = /^[6-9]\d{9}$/;
 export function normalizeMobile(raw: string | null | undefined): string | null {
   if (!raw) return null;
-  const cleaned = raw.trim().replace(/[\s-]/g, "");
-  const m = MOBILE_RE.exec(cleaned);
-  return m ? m[1] : null;
+  // Strip spaces, dashes, parens, dots — the delimiters people paste in.
+  // Preserve the leading "+" so we can tell E.164 from a bare number.
+  const cleaned = raw.trim().replace(/[\s\-().]/g, "");
+  if (cleaned.startsWith("+")) {
+    return E164_RE.test(cleaned) ? cleaned : null;
+  }
+  // No "+" prefix. Two backward-compat fallbacks:
+  //   1) A bare 10-digit Indian mobile — assume +91 (legacy behavior).
+  //   2) A number that starts with "91" and has 12 total digits — also
+  //      Indian (someone pasted "919893127527" from a contact card).
+  //   3) A number starting with "0" and 11 total digits — Indian STD-style,
+  //      strip the leading 0 and prepend +91.
+  if (LEGACY_INDIAN_RE.test(cleaned)) return "+91" + cleaned;
+  if (/^91[6-9]\d{9}$/.test(cleaned)) return "+" + cleaned;
+  if (/^0[6-9]\d{9}$/.test(cleaned)) return "+91" + cleaned.slice(1);
+  return null;
 }
 
 // Deliberately loose regex — not RFC-5322 strict (that's a monster). Catches

@@ -49,7 +49,7 @@ export async function saveWorkspace(
     const normalised = normalizeMobile(phoneRaw);
     if (!normalised) {
       return {
-        error: "Enter a valid Indian phone (10 digits, starting with 6, 7, 8 or 9).",
+        error: "Enter a valid phone number.",
       };
     }
     phone = normalised;

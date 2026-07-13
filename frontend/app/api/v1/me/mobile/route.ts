@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   const m = normalizeMobile(body.mobile);
   if (!m) {
     return ERRORS.VALIDATION(
-      "Enter a valid Indian mobile (10 digits, starting with 6, 7, 8 or 9).",
+      "Enter a valid mobile number.",
     );
   }
 
