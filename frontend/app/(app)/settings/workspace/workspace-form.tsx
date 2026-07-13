@@ -138,9 +138,9 @@ export function WorkspaceForm({
             id="phone"
             name="phone"
             defaultValue={initial.phone}
-            maxLength={15}
-            inputMode="numeric"
-            placeholder="10 digits"
+            maxLength={20}
+            type="tel"
+            placeholder="Business phone"
           />
           <p className="text-[11px] text-muted-foreground">
             Tap-to-call from your booking page + the customer app.
@@ -153,7 +153,7 @@ export function WorkspaceForm({
             name="city"
             defaultValue={initial.city}
             maxLength={60}
-            placeholder="e.g. Indore"
+            placeholder="Your city"
           />
           <p className="text-[11px] text-muted-foreground">
             Helps customers nearby find you.

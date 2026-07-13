@@ -5,6 +5,11 @@ import { Calendar, CheckCircle2, Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  CountryCodePicker,
+  defaultCountry,
+  type Country,
+} from "@/components/country-code-picker";
 import { bookAction, type BookState } from "./actions";
 import { cn } from "@/lib/utils";
 import { fmtTime } from "@/lib/time";
@@ -38,6 +43,10 @@ export function BookForm({
   const [slot, setSlot] = useState<string | null>(slots.find((s) => s.status === "open")?.iso ?? null);
   const [customReason, setCustomReason] = useState(false);
   const [service, setService] = useState<string>(services[0] ?? "");
+  // Country + national number for E.164 mobile; combined into a hidden
+  // field the server action reads.
+  const [country, setCountry] = useState<Country>(() => defaultCountry());
+  const [national, setNational] = useState("");
   const [customValue, setCustomValue] = useState("");
   const [justSaved, setJustSaved] = useState(false);
 
@@ -92,7 +101,27 @@ export function BookForm({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="mobile">Mobile</Label>
-          <Input id="mobile" name="mobile" inputMode="numeric" required placeholder="10 digits" maxLength={10} />
+          <div className="flex gap-2">
+            <CountryCodePicker value={country} onChange={setCountry} />
+            <Input
+              id="mobile"
+              type="tel"
+              inputMode="numeric"
+              required
+              placeholder="Mobile number"
+              maxLength={15}
+              value={national}
+              onChange={(e) =>
+                setNational(e.target.value.replace(/[^\d\s\-().]/g, "").slice(0, 15))
+              }
+              className="flex-1"
+            />
+          </div>
+          <input
+            type="hidden"
+            name="mobile"
+            value={national ? `+${country.dial}${national.replace(/\D/g, "")}` : ""}
+          />
         </div>
       </div>
 

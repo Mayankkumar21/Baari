@@ -5,6 +5,11 @@ import { CheckCircle2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  CountryCodePicker,
+  defaultCountry,
+  type Country,
+} from "@/components/country-code-picker";
 import { addGuestAction, type AddGuestState } from "./actions";
 
 export function AddGuestButton() {
@@ -15,6 +20,8 @@ export function AddGuestButton() {
   );
   const formRef = useRef<HTMLFormElement>(null);
   const [justAdded, setJustAdded] = useState(false);
+  const [country, setCountry] = useState<Country>(() => defaultCountry());
+  const [national, setNational] = useState("");
 
   useEffect(() => {
     if (state.ok) {
@@ -54,14 +61,26 @@ export function AddGuestButton() {
               <Label htmlFor="guest_mobile" className="mb-1 block">
                 Mobile
               </Label>
-              <Input
-                id="guest_mobile"
+              <div className="flex gap-2">
+                <CountryCodePicker value={country} onChange={setCountry} />
+                <Input
+                  id="guest_mobile"
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={15}
+                  required
+                  placeholder="Mobile number"
+                  value={national}
+                  onChange={(e) =>
+                    setNational(e.target.value.replace(/[^\d\s\-().]/g, "").slice(0, 15))
+                  }
+                  className="flex-1"
+                />
+              </div>
+              <input
+                type="hidden"
                 name="mobile"
-                type="tel"
-                inputMode="numeric"
-                maxLength={10}
-                required
-                placeholder="10 digits"
+                value={national ? `+${country.dial}${national.replace(/\D/g, "")}` : ""}
               />
             </div>
             {state.error ? (

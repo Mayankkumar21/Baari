@@ -31,6 +31,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  CountryCodePicker,
+  defaultCountry,
+  type Country,
+} from "@/components/country-code-picker";
 import { cn } from "@/lib/utils";
 import { BookForm, type SlotInfo } from "@/app/(app)/book/book-form";
 import {
@@ -457,6 +462,10 @@ function WalkInButton() {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Country + national number split like login/signup — combined into
+  // an E.164 hidden field the server action reads.
+  const [country, setCountry] = useState<Country>(() => defaultCountry());
+  const [national, setNational] = useState("");
   return (
     <div className="relative">
       <Button variant="outline" onClick={() => setOpen((v) => !v)}>
@@ -492,14 +501,27 @@ function WalkInButton() {
               <Label htmlFor="walkin_mobile" className="mb-1 block">
                 Mobile
               </Label>
-              <Input
-                id="walkin_mobile"
+              <div className="flex gap-2">
+                <CountryCodePicker value={country} onChange={setCountry} />
+                <Input
+                  id="walkin_mobile"
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={15}
+                  required
+                  placeholder="Mobile number"
+                  value={national}
+                  onChange={(e) =>
+                    setNational(e.target.value.replace(/[^\d\s\-().]/g, "").slice(0, 15))
+                  }
+                  className="flex-1"
+                />
+              </div>
+              {/* Hidden E.164 field — the server action reads this. */}
+              <input
+                type="hidden"
                 name="mobile"
-                type="tel"
-                inputMode="numeric"
-                maxLength={10}
-                required
-                placeholder="10 digits"
+                value={national ? `+${country.dial}${national.replace(/\D/g, "")}` : ""}
               />
             </div>
             {error ? (
