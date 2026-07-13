@@ -39,6 +39,16 @@ export type QueueRowVM = {
   label: string;
   isLate: boolean;
   isUndoable: boolean;
+  // Loyalty snapshot for the queue-board row. Counts prior COMPLETED
+  // visits (`done`) for this patient at this clinic, plus the most
+  // recent date. Used to render "5th visit · last Nov 3" so the
+  // receptionist and doctor can see history without a click.
+  //
+  // Excludes today's rows so the number reads as "prior visits", not
+  // "including this one." Also excludes no-shows/cancelleds — a
+  // 3-time no-show isn't a repeat customer, just an unreliable one.
+  pastVisits: number;
+  lastVisitDate: string | null; // YYYY-MM-DD, IST — display-only
 };
 export type NowConsultingVM = {
   label: string;
@@ -343,6 +353,40 @@ export async function buildBoard(clinicId: number): Promise<QueueBoardVM> {
     : [];
   const patientById = new Map(patients.map((p) => [p.id, p]));
 
+  // Loyalty snapshot per patient in one round-trip. Aggregates strictly
+  // BEFORE today so an in-flight booking doesn't inflate their own
+  // count. "done" only — a repeat no-show isn't a returning customer.
+  //
+  // Empty patientIds → skip the query entirely so an empty queue day
+  // stays a single-round-trip render.
+  const loyaltyRows = patientIds.length
+    ? await db
+        .select({
+          patientId: schema.bookings.patientId,
+          visits: sql<number>`count(*)::int`,
+          lastDate: sql<string>`max(${schema.bookings.date})::text`,
+        })
+        .from(schema.bookings)
+        .where(
+          and(
+            eq(schema.bookings.clinicId, clinicId),
+            inArray(schema.bookings.patientId, patientIds),
+            eq(schema.bookings.status, "done"),
+            sql`${schema.bookings.date} < ${today}`,
+          ),
+        )
+        .groupBy(schema.bookings.patientId)
+    : [];
+  const loyaltyByPatient = new Map(
+    loyaltyRows.map((r) => [
+      r.patientId,
+      {
+        visits: Number(r.visits),
+        lastDate: r.lastDate ? String(r.lastDate) : null,
+      },
+    ]),
+  );
+
   let nowConsulting: NowConsultingVM | null = null;
   const waiting: QueueRowVM[] = [];
   const done: QueueRowVM[] = [];
@@ -359,6 +403,7 @@ export async function buildBoard(clinicId: number): Promise<QueueBoardVM> {
       b.status === "done" &&
       b.completedAt != null &&
       (now.getTime() - b.completedAt.getTime()) / 1000 <= UNDO_WINDOW_SEC;
+    const loyalty = loyaltyByPatient.get(b.patientId);
 
     const vm: QueueRowVM = {
       booking: b,
@@ -366,6 +411,8 @@ export async function buildBoard(clinicId: number): Promise<QueueBoardVM> {
       label: fmtLabel(b.token),
       isLate,
       isUndoable,
+      pastVisits: loyalty?.visits ?? 0,
+      lastVisitDate: loyalty?.lastDate ?? null,
     };
 
     if (b.status === "in_consult") {

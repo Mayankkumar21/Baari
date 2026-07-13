@@ -33,6 +33,8 @@ function serializeRow(r: QueueRowVM, noShowThresholdMin: number, now: Date) {
     minutesLate,
     isUndoable: r.isUndoable,
     completedAt: r.booking.completedAt?.toISOString() ?? null,
+    pastVisits: r.pastVisits,
+    lastVisitDate: r.lastVisitDate,
   };
 }
 

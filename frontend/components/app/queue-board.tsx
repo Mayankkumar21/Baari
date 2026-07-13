@@ -15,6 +15,7 @@ import {
   Moon,
   Play,
   Plus,
+  Repeat,
   RotateCcw,
   Stethoscope,
   Trash2,
@@ -62,6 +63,11 @@ type Row = {
   minutesLate: number;
   isUndoable: boolean;
   completedAt: string | null;
+  // Loyalty snapshot for the row — powers the "5th visit · last Nov 3"
+  // subline. 0 pastVisits means first time; row falls back to the
+  // regular meta line without the loyalty subline.
+  pastVisits: number;
+  lastVisitDate: string | null;
 };
 
 type NowConsulting = {
@@ -242,6 +248,44 @@ export function QueueBoard({
       />
     </div>
   );
+}
+
+// Ordinal suffix — "1st", "2nd", "3rd", "4th", etc. Handles the
+// English teens (11th, 12th, 13th) correctly.
+function ordinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+}
+
+// "Last visit 12 Nov 2025" / "Last visit yesterday" / "Last visit
+// 3 days ago" — keeps the copy on the queue row scannable.
+function fmtLastVisit(isoDate: string): string {
+  // isoDate is YYYY-MM-DD from the aggregate. Use noon-IST to dodge
+  // TZ off-by-ones on the "days ago" math.
+  const then = new Date(`${isoDate}T12:00:00+05:30`).getTime();
+  const now = Date.now();
+  const days = Math.floor((now - then) / (24 * 60 * 60 * 1000));
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 14) return `${days} days ago`;
+  const d = new Date(then);
+  const day = d.getDate();
+  const month = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ][d.getMonth()];
+  return `${day} ${month}`;
 }
 
 function BookPanel({
@@ -698,6 +742,22 @@ function WaitingRow({
                 <Users className="size-2.5" /> +{row.partySize - 1} family
               </span>
             ) : null}
+            {/* Loyalty chip — one glance and the doctor knows if this
+                is a first-time patient or a longtime regular. Only
+                shown when we have prior visits to report on. */}
+            {row.pastVisits > 0 ? (
+              <span
+                className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+                title={
+                  row.lastVisitDate
+                    ? `Last visit: ${row.lastVisitDate}`
+                    : undefined
+                }
+              >
+                <Repeat className="size-2.5" />
+                {ordinal(row.pastVisits + 1)} visit
+              </span>
+            ) : null}
             {row.isLate ? (
               <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-300">
                 <AlertTriangle className="size-2.5" /> Late · {row.minutesLate} min
@@ -710,6 +770,12 @@ function WaitingRow({
               <>
                 {" · "}
                 <span>{row.reason}</span>
+              </>
+            ) : null}
+            {row.lastVisitDate ? (
+              <>
+                {" · "}
+                <span>Last visit {fmtLastVisit(row.lastVisitDate)}</span>
               </>
             ) : null}
           </div>

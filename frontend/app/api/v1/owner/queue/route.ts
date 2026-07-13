@@ -26,6 +26,12 @@ type OwnerQueueRow = {
   isLate: boolean;
   // Minutes past slot when isLate. 0 otherwise.
   minutesLate: number;
+  // Loyalty snapshot — count of prior completed visits (before today)
+  // for this patient at this clinic, plus the last visit's ISO date
+  // (YYYY-MM-DD). Both optional so older mobile clients tolerate the
+  // absence without a crash — the row just doesn't render the chip.
+  pastVisits?: number;
+  lastVisitDate?: string | null;
 };
 
 type OwnerQueuePayload = {
@@ -94,6 +100,8 @@ export async function GET(req: Request) {
       slotIso: new Date(r.booking.slotTime).toISOString(),
       isLate: minutesLate > 0,
       minutesLate,
+      pastVisits: r.pastVisits,
+      lastVisitDate: r.lastVisitDate,
     };
   };
 
