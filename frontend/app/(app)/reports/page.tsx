@@ -162,21 +162,35 @@ function RevenueEmpty() {
 function SourceStrip({
   bySource,
   total,
+  appEnabled,
 }: {
   bySource: { app: number; frontdesk: number; walkin: number };
   total: number;
+  // When the workspace has app bookings turned OFF and no historical
+  // app rows sit in this range, we hide the App tile entirely rather
+  // than showing a persistent "App: 0" that reads as a nudge for a
+  // feature the owner deliberately disabled. Historical app bookings
+  // stay visible even when disabled, so they can review their old
+  // channel mix.
+  appEnabled: boolean;
 }) {
+  const showApp = appEnabled || bySource.app > 0;
+  const gridCols = showApp ? "grid-cols-3" : "grid-cols-2";
   return (
     <Card>
       <CardContent className="p-5">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold">Bookings by source</h3>
           <span className="text-[11px] text-muted-foreground">
-            Where the bookings came from in this range
+            {appEnabled
+              ? "Where the bookings came from in this range"
+              : "App bookings are off — hidden from this view"}
           </span>
         </div>
-        <div className="grid grid-cols-3 gap-3">
-          <SourceCell label="App" count={bySource.app} total={total} />
+        <div className={"grid gap-3 " + gridCols}>
+          {showApp ? (
+            <SourceCell label="App" count={bySource.app} total={total} />
+          ) : null}
           <SourceCell label="Front desk" count={bySource.frontdesk} total={total} />
           <SourceCell label="Walk-in" count={bySource.walkin} total={total} />
         </div>
@@ -351,7 +365,11 @@ export default async function ReportsPage({
 
       {/* Bookings by source — small strip so the owner can spot how
           much of their volume is customer self-serve vs desk-created. */}
-      <SourceStrip bySource={bundle.bySource} total={bundle.totals.bookings} />
+      <SourceStrip
+        bySource={bundle.bySource}
+        total={bundle.totals.bookings}
+        appEnabled={sess.clinic.acceptAppBookings}
+      />
 
       {/* Charts */}
       <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
