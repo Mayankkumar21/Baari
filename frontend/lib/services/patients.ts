@@ -15,6 +15,10 @@ export type GuestRow = {
   isNew: boolean;
   lastVisitAt: string | null;
   lastReason: string | null;
+  // Aggregates from the same LEFT JOIN — free ride since we already
+  // scanned the join. Callers gated to Pro use these; Free UIs ignore.
+  visitCount: number;
+  ltvInr: number;
 };
 
 // Returns the last `limit` patients seen at this clinic, ordered by most
@@ -37,6 +41,8 @@ export async function getRecentGuests(
       lastReason: sql<
         string | null
       >`(array_agg(${schema.bookings.reason} order by ${schema.bookings.slotTime} desc) filter (where ${schema.bookings.reason} is not null))[1]`,
+      visitCount: sql<number>`count(*) filter (where ${schema.bookings.status} = 'done')`,
+      ltvInr: sql<number>`coalesce(sum(${schema.bookings.amountPaidInr}) filter (where ${schema.bookings.status} = 'done'), 0)`,
     })
     .from(schema.patients)
     .leftJoin(
@@ -61,6 +67,8 @@ export async function getRecentGuests(
     isNew: r.isNew,
     lastVisitAt: r.lastSlot ? new Date(r.lastSlot).toISOString() : null,
     lastReason: r.lastReason,
+    visitCount: Number(r.visitCount),
+    ltvInr: Number(r.ltvInr),
   }));
 }
 

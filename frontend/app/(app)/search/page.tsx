@@ -4,6 +4,7 @@ import { and, eq, ilike, or } from "drizzle-orm";
 import { requireSetup } from "@/lib/session";
 import { db, schema } from "@/lib/db/client";
 import { vocabFor } from "@/lib/vocab";
+import { hasPlan } from "@/lib/plans";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { fmtDateTime } from "@/lib/time";
@@ -159,6 +160,7 @@ export default async function SearchPage({
           rows={recents}
           entityPlural={vocab.entityPlural}
           entitySingular={vocab.entitySingular}
+          showLtv={hasPlan(sess.clinic, "pro")}
         />
       )}
     </div>
@@ -192,10 +194,12 @@ function RecentGuests({
   rows,
   entityPlural,
   entitySingular,
+  showLtv,
 }: {
   rows: Awaited<ReturnType<typeof getRecentGuests>>;
   entityPlural: string;
   entitySingular: string;
+  showLtv: boolean;
 }) {
   if (rows.length === 0) {
     return (
@@ -239,6 +243,14 @@ function RecentGuests({
                     {g.noShowCount > 0 ? (
                       <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-300">
                         {g.noShowCount} no-show{g.noShowCount === 1 ? "" : "s"}
+                      </span>
+                    ) : null}
+                    {showLtv && g.ltvInr > 0 ? (
+                      <span
+                        title={`Lifetime revenue from this ${entitySingular} across ${g.visitCount} visit${g.visitCount === 1 ? "" : "s"}.`}
+                        className="inline-flex cursor-help items-center gap-1 rounded-full border border-emerald-400/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-emerald-700 dark:text-emerald-300"
+                      >
+                        ₹{g.ltvInr.toLocaleString("en-IN")} LTV
                       </span>
                     ) : null}
                   </div>

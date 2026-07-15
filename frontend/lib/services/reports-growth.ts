@@ -130,3 +130,83 @@ export async function loadSilentChurn(
     daysSinceLastVisit: Number(r.days_since),
   }));
 }
+
+// Cohort retention: rows = signup month (first completed booking),
+// columns = months since signup. Each cell = share of that cohort
+// that came back in that month. Classic SaaS-style retention chart
+// for a physical-visit product.
+//
+// Bucketing anchors at UTC month for now — IST vs UTC drift only
+// affects the very edge of a cohort's boundary day, which is fine at
+// pilot scale. If we care later, we swap to a `date_trunc('month',
+// completed_at AT TIME ZONE 'Asia/Kolkata')` in one place.
+export type CohortCell = {
+  cohortMonth: string; // "2026-01" (YYYY-MM)
+  cohortSize: number;
+  // Length `monthsBack + 1` — index 0 = signup month, 1 = next month,
+  // …, monthsBack = the current month. Values are % (0..100).
+  retention: number[];
+};
+
+export async function loadCohortRetention(
+  clinicId: number,
+  monthsBack: number = 6,
+): Promise<CohortCell[]> {
+  const rows = await db.execute<{
+    cohort: Date;
+    cohort_size: string;
+    offset_m: string;
+    active: string;
+  }>(sql`
+    WITH first_visit AS (
+      SELECT patient_id,
+             date_trunc('month', MIN(completed_at)) AS cohort
+        FROM bookings
+       WHERE clinic_id = ${clinicId}
+         AND status = 'done'
+       GROUP BY patient_id
+    ),
+    cohort_sizes AS (
+      SELECT cohort, COUNT(*) AS size FROM first_visit GROUP BY cohort
+    ),
+    activity AS (
+      SELECT fv.cohort,
+             (EXTRACT(YEAR  FROM AGE(date_trunc('month', b.completed_at), fv.cohort)) * 12
+            +  EXTRACT(MONTH FROM AGE(date_trunc('month', b.completed_at), fv.cohort)))::int AS offset_m,
+             COUNT(DISTINCT b.patient_id) AS active
+        FROM bookings b
+        JOIN first_visit fv ON fv.patient_id = b.patient_id
+       WHERE b.clinic_id = ${clinicId}
+         AND b.status    = 'done'
+       GROUP BY fv.cohort, offset_m
+    )
+    SELECT a.cohort, cs.size AS cohort_size, a.offset_m, a.active
+      FROM activity a
+      JOIN cohort_sizes cs USING (cohort)
+     WHERE a.cohort >= date_trunc('month', NOW()) - (${monthsBack} || ' months')::interval
+       AND a.offset_m BETWEEN 0 AND ${monthsBack}
+     ORDER BY a.cohort, a.offset_m;
+  `);
+
+  // Fold flat (cohort, offset, active) rows into the CohortCell shape.
+  const byCohort = new Map<string, CohortCell>();
+  for (const r of rows) {
+    const iso = r.cohort.toISOString().slice(0, 7);
+    let cell = byCohort.get(iso);
+    if (!cell) {
+      cell = {
+        cohortMonth: iso,
+        cohortSize: Number(r.cohort_size),
+        retention: Array(monthsBack + 1).fill(0),
+      };
+      byCohort.set(iso, cell);
+    }
+    const idx = Number(r.offset_m);
+    if (idx >= 0 && idx <= monthsBack) {
+      cell.retention[idx] = Math.round((Number(r.active) / cell.cohortSize) * 100);
+    }
+  }
+  return [...byCohort.values()].sort((a, b) =>
+    a.cohortMonth < b.cohortMonth ? 1 : -1,
+  );
+}

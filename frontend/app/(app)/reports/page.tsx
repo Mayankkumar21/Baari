@@ -9,11 +9,16 @@ import {
   loadReportsHeadline,
   type ReportsHeadline,
 } from "@/lib/services/reports";
-import { loadNewVsReturning, loadSilentChurn } from "@/lib/services/reports-growth";
+import {
+  loadCohortRetention,
+  loadNewVsReturning,
+  loadSilentChurn,
+} from "@/lib/services/reports-growth";
 import { computeRange } from "@/lib/reports-range";
 import { cn } from "@/lib/utils";
 import { RangeSelector } from "./range-selector";
 import { BookingsTable } from "./bookings-table";
+import { ExportMenu } from "./export-menu";
 import {
   DayOfWeekChart,
   HourlyChart,
@@ -321,7 +326,19 @@ function SilentChurnCard({
   );
 }
 
-function GrowthLocked({ title, body }: { title: string; body: string }) {
+function GrowthLocked(props: { title: string; body: string }) {
+  return <PlanLocked tier="Growth" {...props} />;
+}
+
+function PlanLocked({
+  tier,
+  title,
+  body,
+}: {
+  tier: "Growth" | "Pro";
+  title: string;
+  body: string;
+}) {
   return (
     <Card className="border-dashed">
       <CardContent className="p-5">
@@ -333,7 +350,7 @@ function GrowthLocked({ title, body }: { title: string; body: string }) {
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-semibold">{title}</h3>
               <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-primary">
-                Growth
+                {tier}
               </span>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">{body}</p>
@@ -345,6 +362,76 @@ function GrowthLocked({ title, body }: { title: string; body: string }) {
             </Link>
           </div>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CohortRetentionCard({
+  rows,
+}: {
+  rows: {
+    cohortMonth: string;
+    cohortSize: number;
+    retention: number[];
+  }[];
+}) {
+  const monthsBack = rows[0]?.retention.length ?? 7;
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Cohort retention</h3>
+          <span className="text-[11px] text-muted-foreground">
+            % of each month&apos;s new customers who returned in later months
+          </span>
+        </div>
+        {rows.length === 0 ? (
+          <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+            Not enough history yet — this chart fills in after a couple of months of visits.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+                <tr>
+                  <th className="py-1 pr-3 text-left font-medium">Cohort</th>
+                  <th className="py-1 pr-3 text-right font-medium">Size</th>
+                  {Array.from({ length: monthsBack }, (_, i) => (
+                    <th key={i} className="py-1 pl-2 text-center font-medium">
+                      M{i}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.cohortMonth} className="border-t border-border/50">
+                    <td className="py-1.5 pr-3 text-left font-medium tabular-nums">
+                      {r.cohortMonth}
+                    </td>
+                    <td className="py-1.5 pr-3 text-right tabular-nums text-muted-foreground">
+                      {r.cohortSize}
+                    </td>
+                    {r.retention.map((pct, i) => (
+                      <td key={i} className="py-1 pl-2 text-center">
+                        <span
+                          className="inline-flex min-w-[36px] justify-center rounded px-1.5 py-0.5 text-[11px] font-medium tabular-nums"
+                          style={{
+                            backgroundColor: `hsl(var(--primary) / ${Math.min(pct, 100) / 130 + 0.05})`,
+                            color: pct > 40 ? "hsl(var(--primary-foreground))" : undefined,
+                          }}
+                        >
+                          {pct}%
+                        </span>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -452,7 +539,8 @@ export default async function ReportsPage({
   const r = computeRange(sp.range, sp.from, sp.to);
 
   const growthUnlocked = hasPlan(sess.clinic, "growth");
-  const [bundle, prev, newVsRet, churn] = await Promise.all([
+  const proUnlocked = hasPlan(sess.clinic, "pro");
+  const [bundle, prev, newVsRet, churn, cohort] = await Promise.all([
     loadReports(sess.clinic.id, r.from, r.to),
     loadReportsHeadline(sess.clinic.id, r.prevFrom, r.prevTo),
     // Only issue the Growth queries if the effective plan allows — no
@@ -464,6 +552,7 @@ export default async function ReportsPage({
     growthUnlocked
       ? loadSilentChurn(sess.clinic.id, 60, 25)
       : Promise.resolve(null),
+    proUnlocked ? loadCohortRetention(sess.clinic.id, 6) : Promise.resolve(null),
   ]);
 
   return (
@@ -475,7 +564,12 @@ export default async function ReportsPage({
             {r.label} · {r.dateLabel}
           </p>
         </div>
-        <RangeSelector current={r.range} />
+        <div className="flex items-center gap-3">
+          {hasPlan(sess.clinic, "pro") ? (
+            <ExportMenu from={r.from} to={r.to} />
+          ) : null}
+          <RangeSelector current={r.range} />
+        </div>
       </div>
 
       {/* KPIs */}
@@ -553,6 +647,18 @@ export default async function ReportsPage({
         <GrowthLocked
           title="Silent-churn list"
           body="Which regulars haven't been back in 60 days? One WhatsApp is often enough to bring them in."
+        />
+      )}
+
+      {/* Pro: cohort retention heatmap. Same locked-view treatment as
+          the Growth rows above, tagged Pro instead. */}
+      {proUnlocked ? (
+        <CohortRetentionCard rows={cohort!} />
+      ) : (
+        <PlanLocked
+          tier="Pro"
+          title="Cohort retention"
+          body="See what share of each month's new customers come back in months 1, 2, 3, and beyond."
         />
       )}
 
