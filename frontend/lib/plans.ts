@@ -77,13 +77,99 @@ export function assertPlan(
   }
 }
 
-// Per-tier monthly completed-booking quota. Used by the quota-enforcement
-// path in Batch 3. Pro is uncapped.
+// Per-tier monthly booking quota. Counts every non-cancelled booking
+// created in the current calendar month, so an owner can't skirt the
+// cap by never marking anything done. Pro is uncapped.
 export const MONTHLY_QUOTA: Record<PlanTier, number | null> = {
   free: 100,
   growth: 500,
   pro: null,
 };
+
+// Threshold at which the UI shows a "80% used" banner (0..1).
+export const QUOTA_WARN_AT = 0.8;
+
+export type QuotaState = {
+  plan: PlanTier;
+  used: number;
+  cap: number | null;
+  // Convenience — computed at the same site for the banner + gate.
+  isOverCap: boolean;
+  isNearCap: boolean;
+  monthLabel: string; // "July 2026"
+};
+
+// Count non-cancelled bookings created in the current month. Kept as a
+// separate function from the resolver so the caller can await it once
+// and reuse the number for both the gate and the banner.
+export async function loadQuotaState(
+  clinic: Pick<Clinic, "plan" | "planTrialEndsAt">,
+  clinicId: number,
+): Promise<QuotaState> {
+  // Deferred imports to keep this module cycle-free (lib/plans.ts is
+  // used by both server actions and route handlers, and importing
+  // drizzle at the top would pull server-only code into any caller
+  // that transitively imports plans).
+  const { db, schema } = await import("@/lib/db/client");
+  const { and, count, eq, gte, lt, ne } = await import("drizzle-orm");
+
+  const plan = effectivePlan(clinic);
+  const cap = MONTHLY_QUOTA[plan];
+
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+
+  const [row] = await db
+    .select({ n: count() })
+    .from(schema.bookings)
+    .where(
+      and(
+        eq(schema.bookings.clinicId, clinicId),
+        ne(schema.bookings.status, "cancelled"),
+        gte(schema.bookings.createdAt, monthStart),
+        lt(schema.bookings.createdAt, monthEnd),
+      ),
+    );
+  const used = Number(row?.n ?? 0);
+
+  return {
+    plan,
+    used,
+    cap,
+    isOverCap: cap !== null && used >= cap,
+    isNearCap: cap !== null && used >= Math.floor(cap * QUOTA_WARN_AT),
+    monthLabel: monthStart.toLocaleString("en-US", { month: "long", year: "numeric" }),
+  };
+}
+
+// Throwing gate for the four booking-create paths. Cheaper than
+// PlanRequiredError because it's the SAME condition on the same table
+// — cache the QuotaState in the caller if you need to check twice.
+export class QuotaExceededError extends Error {
+  readonly used: number;
+  readonly cap: number;
+  readonly plan: PlanTier;
+  constructor(state: QuotaState & { cap: number }) {
+    super(
+      `Monthly booking cap reached (${state.used}/${state.cap} on the ${state.plan} plan). Upgrade to accept more this month.`,
+    );
+    this.name = "QuotaExceededError";
+    this.used = state.used;
+    this.cap = state.cap;
+    this.plan = state.plan;
+  }
+}
+
+export async function assertMonthlyQuota(
+  clinic: Pick<Clinic, "plan" | "planTrialEndsAt">,
+  clinicId: number,
+): Promise<void> {
+  const state = await loadQuotaState(clinic, clinicId);
+  if (state.cap !== null && state.isOverCap) {
+    throw new QuotaExceededError({ ...state, cap: state.cap });
+  }
+}
 
 // Per-tier staff seats. Pro is uncapped. Free is single-provider; Growth
 // covers a small team.

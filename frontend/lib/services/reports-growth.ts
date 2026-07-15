@@ -131,6 +131,45 @@ export async function loadSilentChurn(
   }));
 }
 
+// Category revenue: sum(amount_paid_inr) grouped by the free-text
+// `category` column that Mark Done writes. Rows without a category or
+// without an amount are rolled up into a single "Uncategorised" bucket
+// so the total matches the Reports revenue strip.
+export type CategoryRevenueRow = {
+  category: string;
+  totalInr: number;
+  bookingCount: number;
+};
+
+export async function loadCategoryRevenue(
+  clinicId: number,
+  fromDate: string,
+  toDate: string,
+): Promise<CategoryRevenueRow[]> {
+  const rows = await db.execute<{
+    category: string | null;
+    total_inr: string | null;
+    booking_count: string;
+  }>(sql`
+    SELECT COALESCE(NULLIF(category, ''), 'Uncategorised') AS category,
+           COALESCE(SUM(amount_paid_inr), 0)               AS total_inr,
+           COUNT(*)                                        AS booking_count
+      FROM bookings
+     WHERE clinic_id = ${clinicId}
+       AND status    = 'done'
+       AND amount_paid_inr IS NOT NULL
+       AND date     >= ${fromDate}::date
+       AND date     <  ${toDate}::date
+     GROUP BY 1
+     ORDER BY total_inr DESC;
+  `);
+  return rows.map((r) => ({
+    category: r.category ?? "Uncategorised",
+    totalInr: Number(r.total_inr ?? 0),
+    bookingCount: Number(r.booking_count ?? 0),
+  }));
+}
+
 // Cohort retention: rows = signup month (first completed booking),
 // columns = months since signup. Each cell = share of that cohort
 // that came back in that month. Classic SaaS-style retention chart

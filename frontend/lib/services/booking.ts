@@ -5,9 +5,22 @@ import { and, eq, max, ne, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { normalizeMobile } from "@/lib/auth";
 import { clinicToday, combineDateTime, nowUtc } from "@/lib/time";
+import { assertMonthlyQuota, QuotaExceededError } from "@/lib/plans";
 import type { Clinic, Patient, Booking } from "@/lib/db/schema";
 
 export class BookingError extends Error {}
+
+// Translate a plan-cap breach into the same BookingError shape the form
+// handlers already surface. Keeps every create-booking path uniform —
+// no caller has to know about QuotaExceededError.
+async function enforceQuota(clinic: Clinic): Promise<void> {
+  try {
+    await assertMonthlyQuota(clinic, clinic.id);
+  } catch (e) {
+    if (e instanceof QuotaExceededError) throw new BookingError(e.message);
+    throw e;
+  }
+}
 
 type DayBlock = { open?: string; close?: string; closed?: boolean };
 type HoursDoc = Record<string, DayBlock>;
@@ -138,6 +151,11 @@ export async function createBooking(args: {
   if (args.reason && args.reason.length > 200)
     throw new BookingError("Reason must be 200 characters or fewer.");
 
+  // Monthly quota gate — translates plan-cap errors into the same
+  // BookingError shape the form already handles, so the receptionist
+  // sees a friendly message on a full month instead of a 500.
+  await enforceQuota(args.clinic);
+
   const on = clinicToday();
   const taken = await takenSlots(args.clinic.id, on);
   if (taken.has(args.slotTime.toISOString())) {
@@ -197,6 +215,8 @@ export async function createWalkIn(args: {
   if (!name || name.length > 80) throw new BookingError("Name is required (max 80 characters).");
   const mobile = normalizeMobile(args.mobile);
   if (!mobile) throw new BookingError("Enter a valid mobile number.");
+
+  await enforceQuota(args.clinic);
 
   const on = clinicToday();
   const taken = await takenSlots(args.clinic.id, on);

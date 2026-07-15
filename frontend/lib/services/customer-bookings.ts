@@ -15,6 +15,7 @@ import { db, schema } from "@/lib/db/client";
 import { nowUtc, clinicToday } from "@/lib/time";
 import { takenSlots, nextToken } from "@/lib/services/booking";
 import { ACTIVE_BOOKING_CAP } from "@/lib/services/booking-request";
+import { assertMonthlyQuota, QuotaExceededError } from "@/lib/plans";
 import type { Customer } from "@/lib/db/schema";
 
 export class CustomerBookingError extends Error {
@@ -117,6 +118,19 @@ export async function createCustomerBooking(args: {
       "APP_BOOKINGS_OFF",
       "This clinic isn't accepting app bookings right now.",
     );
+  }
+  // Monthly plan cap — the customer sees a "clinic is full for this
+  // month" message instead of a 500. Same policy as receptionist-side.
+  try {
+    await assertMonthlyQuota(clinic, clinic.id);
+  } catch (e) {
+    if (e instanceof QuotaExceededError) {
+      throw new CustomerBookingError(
+        "MONTH_FULL",
+        "This clinic has reached its monthly booking limit. Please try again next month.",
+      );
+    }
+    throw e;
   }
   // Reason-guard against a stale app that offers a service the owner
   // has since removed from the allowlist. Client filters proactively,

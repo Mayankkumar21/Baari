@@ -8,7 +8,6 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import {
   ArrowRight,
   Check,
@@ -17,6 +16,7 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
+import { TierGrid } from "./tier-grid";
 
 export default function PricingPage() {
   return (
@@ -56,56 +56,9 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* Tier cards */}
+      {/* Tier cards — currency-aware client component. */}
       <section className="container pt-16 sm:pt-24">
-        <div className="mx-auto grid max-w-6xl gap-6 md:grid-cols-3">
-          <TierCard
-            name="Free"
-            price="₹0"
-            per="/ month, forever"
-            tagline="Perfect for small clinics and pilot users."
-            cta="Start free"
-            features={[
-              "Up to 100 completed customers / month",
-              "Live receptionist queue + walk-ins",
-              "Family + guest bookings",
-              "Missed-call → SMS booking link",
-              "Basic reports (customers, no-shows, peak hours)",
-              "Revenue tracking (optional)",
-              "1 doctor / stylist",
-            ]}
-          />
-          <TierCard
-            name="Growth"
-            price="₹999"
-            per="/ month"
-            tagline="For the busy salon or clinic."
-            highlight
-            badge="Most popular"
-            cta="Try free for 2 months"
-            features={[
-              "Up to 500 completed customers / month",
-              "Everything in Free, plus:",
-              "Customer app bookings on",
-              "Up to 3 doctors / stylists",
-              "Returning-customer chip on the queue",
-              "Direct WhatsApp support from founders",
-            ]}
-          />
-          <TierCard
-            name="Pro"
-            price="₹1,999"
-            per="/ month"
-            tagline="For multi-doctor practices and high-volume salons."
-            cta="Try free for 2 months"
-            features={[
-              "Unlimited completed customers",
-              "Everything in Growth, plus:",
-              "Unlimited doctors / stylists",
-              "Priority support (< 4 hour response)",
-            ]}
-          />
-        </div>
+        <TierGrid />
       </section>
 
       {/* The 2-month deal — explicit */}
@@ -192,76 +145,6 @@ export default function PricingPage() {
 
       <SiteFooter />
     </main>
-  );
-}
-
-// A single tier card. `highlight` swaps the border and background for the
-// Growth plan since that's the intended "most people" SKU — the visual
-// hierarchy nudges without lying about the other tiers being available.
-function TierCard({
-  name,
-  price,
-  per,
-  tagline,
-  features,
-  cta,
-  highlight = false,
-  badge,
-}: {
-  name: string;
-  price: string;
-  per: string;
-  tagline: string;
-  features: string[];
-  cta: string;
-  highlight?: boolean;
-  badge?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "relative flex flex-col rounded-2xl border p-6 sm:p-7",
-        highlight
-          ? "border-primary/50 bg-primary/5 shadow-lg shadow-primary/10 ring-1 ring-primary/20"
-          : "border-border bg-card/60",
-      )}
-    >
-      {badge ? (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground shadow-md">
-          {badge}
-        </div>
-      ) : null}
-      <div className="mb-1 text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-        {name}
-      </div>
-      <div className="mt-3 flex items-baseline gap-1">
-        <span className="text-4xl font-extrabold tracking-tight">{price}</span>
-        <span className="text-sm text-muted-foreground">{per}</span>
-      </div>
-      <p className="mt-3 text-sm text-muted-foreground">{tagline}</p>
-
-      <ul className="mt-6 space-y-2.5 text-sm">
-        {features.map((f) => (
-          <li key={f} className="flex items-start gap-2.5">
-            <div className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-300">
-              <Check className="size-3" />
-            </div>
-            <span>{f}</span>
-          </li>
-        ))}
-      </ul>
-
-      <div className="mt-8 pt-2">
-        <Button
-          asChild
-          size="lg"
-          variant={highlight ? "glow" : "outline"}
-          className="w-full"
-        >
-          <Link href="/signup">{cta}</Link>
-        </Button>
-      </div>
-    </div>
   );
 }
 

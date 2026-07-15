@@ -15,6 +15,7 @@ import {
   cancelBookingFromRequest,
 } from "@/lib/services/booking-request";
 import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
+import { assertMonthlyQuota, QuotaExceededError } from "@/lib/plans";
 
 export type ConfirmState = { error?: string; ok?: boolean };
 
@@ -58,6 +59,21 @@ export async function confirmBookingAction(
     return {
       error: `You already have ${active} active bookings here. Please cancel one first.`,
     };
+  }
+
+  // Plan quota — soft check up-front so the customer sees a friendly
+  // message instead of pushing through into the txn. Missed-call flow
+  // has no txn re-check because the failure mode is "clinic is closed
+  // for the month," not a race.
+  try {
+    await assertMonthlyQuota(clinic, clinic.id);
+  } catch (e) {
+    if (e instanceof QuotaExceededError) {
+      return {
+        error: "This clinic has reached its monthly booking limit. Please try again next month.",
+      };
+    }
+    throw e;
   }
 
   const slotTime = new Date(slotIso);

@@ -141,6 +141,7 @@ export async function markDone(
   clinicId: number,
   bookingId: number,
   amountPaidInr?: number | null,
+  category?: string | null,
 ): Promise<void> {
   const b = await loadBooking(bookingId, clinicId);
   if (b.status !== "in_consult") {
@@ -156,6 +157,12 @@ export async function markDone(
     amountPaidInr < 1_000_000
       ? Math.round(amountPaidInr)
       : null;
+  // Category is a small free-text bucket. Cap at 40 chars (schema
+  // limit) and reject anything empty so the DB stores NULL, not "".
+  const cleanCategory =
+    typeof category === "string" && category.trim().length > 0
+      ? category.trim().slice(0, 40)
+      : null;
   const now = nowUtc();
   await db
     .update(schema.bookings)
@@ -167,6 +174,7 @@ export async function markDone(
       // previously-typed value if the user re-marks (rare but
       // possible via reopen → done).
       ...(cleanAmount !== null ? { amountPaidInr: cleanAmount } : {}),
+      ...(cleanCategory !== null ? { category: cleanCategory } : {}),
     })
     .where(eq(schema.bookings.id, bookingId));
   await tryPromoteNextBooking(clinicId, b.date);

@@ -133,6 +133,8 @@ export function QueueBoard({
   isClosed,
   summaryBanner,
   isDoctor,
+  categories,
+  quota,
 }: {
   generatedAtLabel: string;
   waiting: Row[];
@@ -146,10 +148,31 @@ export function QueueBoard({
   isClosed: boolean;
   summaryBanner: DayClosedSummary;
   isDoctor: boolean;
+  // Suggested revenue categories for the Mark Done popover. Null on
+  // Free plans — the picker is Growth-tier.
+  categories: string[] | null;
+  // Monthly plan cap state — server-computed, passed in so the banner
+  // matches what the guards on booking-creation will actually enforce.
+  quota: {
+    plan: string;
+    used: number;
+    cap: number | null;
+    isOverCap: boolean;
+    isNearCap: boolean;
+    monthLabel: string;
+  };
 }) {
   const [bookOpen, setBookOpen] = useState(false);
   return (
     <div className="space-y-5">
+      {quota.cap !== null && (quota.isNearCap || quota.isOverCap) ? (
+        <QuotaBanner
+          used={quota.used}
+          cap={quota.cap}
+          isOverCap={quota.isOverCap}
+          monthLabel={quota.monthLabel}
+        />
+      ) : null}
       {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -231,7 +254,7 @@ export function QueueBoard({
           </CardHeader>
           <CardContent className="p-5 pt-0">
             {nowConsulting ? (
-              <NowCard nc={nowConsulting} vocab={vocab} readOnly={isClosed} />
+              <NowCard nc={nowConsulting} vocab={vocab} readOnly={isClosed} categories={categories} />
             ) : (
               <div className="rounded-md border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
                 <UserX className="mx-auto mb-2 size-5" />
@@ -546,14 +569,55 @@ function WalkInButton() {
 
 // ─── now card ─────────────────────────────────────────────────────────────
 
+function QuotaBanner({
+  used,
+  cap,
+  isOverCap,
+  monthLabel,
+}: {
+  used: number;
+  cap: number;
+  isOverCap: boolean;
+  monthLabel: string;
+}) {
+  const pct = Math.min(100, Math.round((used / cap) * 100));
+  const tone = isOverCap
+    ? "border-rose-400/40 bg-rose-500/10 text-rose-700 dark:text-rose-300"
+    : "border-amber-400/40 bg-amber-500/10 text-amber-700 dark:text-amber-300";
+  return (
+    <div className={"flex items-center justify-between gap-3 rounded-lg border px-4 py-3 " + tone}>
+      <div className="min-w-0">
+        <div className="text-sm font-semibold">
+          {isOverCap
+            ? `Monthly booking cap reached (${used}/${cap})`
+            : `${pct}% of your monthly bookings used (${used}/${cap})`}
+        </div>
+        <div className="mt-0.5 text-xs opacity-80">
+          {isOverCap
+            ? `New bookings paused until ${monthLabel} ends. Existing ones still complete normally.`
+            : `Resets at the start of next month. Upgrade for a bigger cap.`}
+        </div>
+      </div>
+      <a
+        href="/pricing"
+        className="shrink-0 rounded-md border border-current px-3 py-1 text-xs font-semibold hover:bg-current/10"
+      >
+        Upgrade
+      </a>
+    </div>
+  );
+}
+
 function NowCard({
   nc,
   vocab,
   readOnly,
+  categories,
 }: {
   nc: NowConsulting;
   vocab: Vocab;
   readOnly: boolean;
+  categories: string[] | null;
 }) {
   const [pending, start] = useTransition();
   const startedAtLabel = nc.startedAt ? fmtTime(nc.startedAt) : null;
@@ -597,7 +661,12 @@ function NowCard({
 
       {!readOnly ? (
         <div className="relative mt-6 flex flex-wrap gap-2">
-          <MarkDoneButton bookingId={nc.bookingId} pending={pending} start={start} />
+          <MarkDoneButton
+            bookingId={nc.bookingId}
+            pending={pending}
+            start={start}
+            categories={categories}
+          />
         </div>
       ) : null}
     </div>
@@ -614,21 +683,25 @@ function MarkDoneButton({
   bookingId,
   pending,
   start,
+  categories,
 }: {
   bookingId: number;
   pending: boolean;
   start: React.TransitionStartFunction;
+  categories: string[] | null;
 }) {
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
+  const [category, setCategory] = useState<string | null>(null);
   const submit = (withAmount: boolean) => {
     const n = withAmount ? Number(amount.trim()) : NaN;
     const clean =
       Number.isFinite(n) && n > 0 && n < 1_000_000 ? Math.round(n) : null;
     start(async () => {
-      await markDoneAction(bookingId, clean);
+      await markDoneAction(bookingId, clean, category);
       setOpen(false);
       setAmount("");
+      setCategory(null);
     });
   };
   return (
@@ -664,6 +737,30 @@ function MarkDoneButton({
               }}
             />
           </div>
+          {categories && categories.length > 0 ? (
+            <>
+              <div className="mt-2 mb-1 text-xs text-muted-foreground">
+                Category <span className="opacity-60">(optional)</span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {categories.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setCategory(category === c ? null : c)}
+                    className={
+                      "rounded-full border px-2 py-0.5 text-[11px] font-medium transition-all " +
+                      (category === c
+                        ? "border-primary bg-primary/15 text-primary"
+                        : "border-border bg-card/60 text-muted-foreground hover:border-primary/40 hover:text-foreground")
+                    }
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : null}
           <div className="mt-2 flex items-center justify-end gap-1.5">
             <Button
               type="button"

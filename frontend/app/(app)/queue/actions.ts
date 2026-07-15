@@ -47,10 +47,11 @@ export async function startConsultAction(bookingId: number) {
 export async function markDoneAction(
   bookingId: number,
   amountPaidInr?: number | null,
+  category?: string | null,
 ) {
   const sess = await requireSetup();
   try {
-    await markDone(sess.clinic.id, bookingId, amountPaidInr ?? null);
+    await markDone(sess.clinic.id, bookingId, amountPaidInr ?? null, category ?? null);
     revalidatePath("/queue");
     revalidatePath("/reports");
     return { ok: true } as const;

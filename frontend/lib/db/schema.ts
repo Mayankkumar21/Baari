@@ -261,6 +261,11 @@ export const bookings = pgTable(
     // Null means "not tracked", not "zero" — reports SUM only non-null
     // rows so unmarked bookings don't drag the total.
     amountPaidInr: integer("amount_paid_inr"),
+    // Optional free-text bucket the receptionist can tag on Mark Done
+    // for revenue splits (Consultation / Pharmacy / Procedure / etc.).
+    // Nullable — pre-existing rows stay uncategorised and roll up into
+    // "Uncategorised" on the Growth-tier category-revenue chart.
+    category: varchar("category", { length: 40 }),
     createdByUserId: integer("created_by_user_id").notNull().references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

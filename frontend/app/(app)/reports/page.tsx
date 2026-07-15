@@ -10,6 +10,7 @@ import {
   type ReportsHeadline,
 } from "@/lib/services/reports";
 import {
+  loadCategoryRevenue,
   loadCohortRetention,
   loadNewVsReturning,
   loadSilentChurn,
@@ -330,6 +331,82 @@ function GrowthLocked(props: { title: string; body: string }) {
   return <PlanLocked tier="Growth" {...props} />;
 }
 
+function CategoryRevenueCard({
+  rows,
+}: {
+  rows: { category: string; totalInr: number; bookingCount: number }[];
+}) {
+  const total = rows.reduce((s, r) => s + r.totalInr, 0);
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Category revenue</h3>
+          <span className="text-[11px] text-muted-foreground">
+            Where the rupees come from in this range
+          </span>
+        </div>
+        {rows.length === 0 || total === 0 ? (
+          <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+            No categorised revenue yet — tag categories when you tap
+            <span className="font-semibold"> Mark done</span> to see the split here.
+          </div>
+        ) : (
+          <>
+            {/* Stacked bar — one segment per category, widths proportional
+                to totalInr, hover shows the ₹ + count. */}
+            <div className="mb-3 flex h-3 w-full overflow-hidden rounded-full bg-secondary/60">
+              {rows.map((r, i) => {
+                const pct = (r.totalInr / total) * 100;
+                return (
+                  <div
+                    key={r.category}
+                    title={`${r.category}: ₹${r.totalInr.toLocaleString("en-IN")}`}
+                    style={{
+                      width: pct + "%",
+                      backgroundColor: `hsl(var(--primary) / ${0.35 + i * 0.15})`,
+                    }}
+                  />
+                );
+              })}
+            </div>
+            <ul className="space-y-1.5">
+              {rows.map((r, i) => {
+                const pct = Math.round((r.totalInr / total) * 100);
+                return (
+                  <li
+                    key={r.category}
+                    className="flex items-center justify-between rounded-md border border-border bg-card/40 px-3 py-2 text-sm"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="inline-block size-2.5 rounded-sm"
+                        style={{
+                          backgroundColor: `hsl(var(--primary) / ${0.35 + i * 0.15})`,
+                        }}
+                      />
+                      <span className="font-medium">{r.category}</span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {r.bookingCount} booking{r.bookingCount === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 tabular-nums">
+                      <span className="text-xs text-muted-foreground">{pct}%</span>
+                      <span className="font-semibold">
+                        ₹{r.totalInr.toLocaleString("en-IN")}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function PlanLocked({
   tier,
   title,
@@ -540,7 +617,7 @@ export default async function ReportsPage({
 
   const growthUnlocked = hasPlan(sess.clinic, "growth");
   const proUnlocked = hasPlan(sess.clinic, "pro");
-  const [bundle, prev, newVsRet, churn, cohort] = await Promise.all([
+  const [bundle, prev, newVsRet, churn, cohort, categoryRev] = await Promise.all([
     loadReports(sess.clinic.id, r.from, r.to),
     loadReportsHeadline(sess.clinic.id, r.prevFrom, r.prevTo),
     // Only issue the Growth queries if the effective plan allows — no
@@ -553,6 +630,9 @@ export default async function ReportsPage({
       ? loadSilentChurn(sess.clinic.id, 60, 25)
       : Promise.resolve(null),
     proUnlocked ? loadCohortRetention(sess.clinic.id, 6) : Promise.resolve(null),
+    growthUnlocked
+      ? loadCategoryRevenue(sess.clinic.id, r.from, r.to)
+      : Promise.resolve(null),
   ]);
 
   return (
@@ -647,6 +727,18 @@ export default async function ReportsPage({
         <GrowthLocked
           title="Silent-churn list"
           body="Which regulars haven't been back in 60 days? One WhatsApp is often enough to bring them in."
+        />
+      )}
+
+      {/* Growth: category revenue split — where money actually comes
+          from. Sits between silent-churn and cohort retention because
+          it's the natural next question after "who's paying me?" */}
+      {growthUnlocked ? (
+        <CategoryRevenueCard rows={categoryRev!} />
+      ) : (
+        <GrowthLocked
+          title="Category revenue"
+          body="Split your revenue by consultation, pharmacy, products — whatever categories fit your business."
         />
       )}
 

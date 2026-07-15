@@ -1,5 +1,7 @@
 import { requireSetup } from "@/lib/session";
 import { vocabFor } from "@/lib/vocab";
+import { hasPlan, loadQuotaState } from "@/lib/plans";
+import { categoriesFor } from "@/lib/categories";
 import { buildBoard, type QueueRowVM } from "@/lib/services/queue";
 import { availableSlots, enumerateSlots, takenSlots } from "@/lib/services/booking";
 import { servicesFor } from "@/lib/services/service-types";
@@ -57,6 +59,8 @@ export default async function QueuePage() {
   const nextFreeSlot = slots[0] ?? null;
 
   const isDoctor = sess.user.role === "doctor";
+  const growthUnlocked = hasPlan(sess.clinic, "growth");
+  const quota = await loadQuotaState(sess.clinic, sess.clinic.id);
   const now = board.generatedAt;
 
   const waitingRows = board.waiting.map((r) =>
@@ -119,6 +123,8 @@ export default async function QueuePage() {
         isClosed={board.isClosed}
         summaryBanner={summaryRender}
         isDoctor={isDoctor}
+        categories={growthUnlocked ? categoriesFor(sess.clinic.tenantType) : null}
+        quota={quota}
       />
       <OnboardingTour initialShow={showTour} />
     </>

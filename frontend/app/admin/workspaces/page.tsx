@@ -5,9 +5,11 @@ import Link from "next/link";
 import { and, desc, eq, ilike, inArray, notInArray, or, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { normalizeMobile } from "@/lib/auth";
+import { effectivePlan } from "@/lib/plans";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { relTime } from "../_fmt";
+import { PlanCell } from "./plan-cell";
 
 export const dynamic = "force-dynamic";
 
@@ -110,6 +112,7 @@ export default async function AdminWorkspacesPage({
                     <th className="text-left p-3">Workspace</th>
                     <th className="text-left p-3">Owner</th>
                     <th className="text-left p-3">Type</th>
+                    <th className="text-left p-3">Plan</th>
                     <th className="text-right p-3">Bookings 7d</th>
                     <th className="text-right p-3">Total</th>
                     <th className="text-right p-3">Last login</th>
@@ -141,6 +144,19 @@ export default async function AdminWorkspacesPage({
                           </div>
                         </td>
                         <td className="p-3 text-muted-foreground">{w.clinic.tenantType}</td>
+                        <td className="p-3">
+                          <PlanCell
+                            clinicId={w.clinic.id}
+                            currentPlan={w.clinic.plan}
+                            effectivePlan={effectivePlan(w.clinic)}
+                            trialEndsAt={
+                              w.clinic.planTrialEndsAt
+                                ? w.clinic.planTrialEndsAt.toISOString()
+                                : null
+                            }
+                            planSource={w.clinic.planSource}
+                          />
+                        </td>
                         <td className="p-3 text-right tabular-nums">{w.weekBookings ?? 0}</td>
                         <td className="p-3 text-right tabular-nums">{w.totalBookings ?? 0}</td>
                         <td className={`p-3 text-right text-xs ${staleLogin ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
