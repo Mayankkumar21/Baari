@@ -96,9 +96,9 @@ function AppMockup() {
             </div>
             <div className="mt-1 text-lg font-bold">Near you</div>
             <div className="mt-4 space-y-2">
-              <MiniClinicRow kind="Clinic" name="Wellspring Family" status="Open · Next slot 11:15" />
-              <MiniClinicRow kind="Salon" name="Aroma Salon" status="Open · Next slot 12:00" />
-              <MiniClinicRow kind="Spa" name="Serenity Spa" status="Closed · Opens 15:00" muted />
+              <MiniClinicRow kind="Clinic" name="Wellspring Family" city="London" status="Open · Next slot 11:15" />
+              <MiniClinicRow kind="Salon" name="Aroma Salon" city="Mumbai" status="Open · Next slot 12:00" />
+              <MiniClinicRow kind="Spa" name="Serenity Spa" city="Singapore" status="Closed · Opens 15:00" muted />
             </div>
           </div>
         </div>
@@ -110,18 +110,20 @@ function AppMockup() {
 function MiniClinicRow({
   kind,
   name,
+  city,
   status,
   muted,
 }: {
   kind: string;
   name: string;
+  city: string;
   status: string;
   muted?: boolean;
 }) {
   return (
     <div className="rounded-lg border border-border/50 bg-card/70 p-2.5">
       <div className="text-[11px] font-semibold">{name}</div>
-      <div className="mt-0.5 text-[10px] text-muted-foreground">{kind} · Indore</div>
+      <div className="mt-0.5 text-[10px] text-muted-foreground">{kind} · {city}</div>
       <div
         className={
           "mt-1 flex items-center gap-1 text-[10px] " +
