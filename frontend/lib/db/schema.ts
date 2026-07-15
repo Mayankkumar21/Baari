@@ -94,6 +94,17 @@ export const clinics = pgTable("clinics", {
   // subset. Enforced server-side in the public listing + POST /bookings.
   acceptAppBookings: boolean("accept_app_bookings").notNull().default(true),
   bookableServices: jsonb("bookable_services"),
+  // Billing plan. `plan` is the SKU the workspace is on; `planTrialEndsAt`
+  // is the Pro-trial cutoff (during trial the effective plan resolves up
+  // to `pro`). `planSource` records how the current plan was assigned —
+  // trial default, self-serve paid, or an admin grant — so the resolver
+  // knows whether to auto-downgrade at trial-end. `planGrantedBy` audits
+  // admin-issued plans; null for trial/paid rows. See lib/plans.ts for
+  // the resolver + gate helpers.
+  plan: varchar("plan", { length: 20 }).notNull().default("free"),
+  planTrialEndsAt: timestamp("plan_trial_ends_at", { withTimezone: true }),
+  planSource: varchar("plan_source", { length: 20 }).notNull().default("trial"),
+  planGrantedBy: integer("plan_granted_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   uqSlug: uniqueIndex("uq_clinics_slug").on(t.slug),

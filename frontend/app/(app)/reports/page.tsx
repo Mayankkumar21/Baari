@@ -1,12 +1,15 @@
-import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Lock, Minus, UserPlus, Users } from "lucide-react";
+import Link from "next/link";
 import { requireDoctor } from "@/lib/session";
 import { vocabFor } from "@/lib/vocab";
+import { hasPlan } from "@/lib/plans";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   loadReports,
   loadReportsHeadline,
   type ReportsHeadline,
 } from "@/lib/services/reports";
+import { loadNewVsReturning, loadSilentChurn } from "@/lib/services/reports-growth";
 import { computeRange } from "@/lib/reports-range";
 import { cn } from "@/lib/utils";
 import { RangeSelector } from "./range-selector";
@@ -199,6 +202,154 @@ function SourceStrip({
   );
 }
 
+function NewVsReturningStrip({
+  data,
+}: {
+  data: {
+    newCount: number;
+    returningCount: number;
+    newPatients: number;
+    returningPatients: number;
+  };
+}) {
+  const totalVisits = data.newCount + data.returningCount;
+  const returningPct =
+    totalVisits > 0 ? Math.round((data.returningCount / totalVisits) * 100) : 0;
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">New vs returning</h3>
+          <span className="text-[11px] text-muted-foreground">
+            Visits in this range — {returningPct}% are repeat business
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-md border border-border bg-card/40 p-3">
+            <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
+              <UserPlus className="size-3" /> New
+            </div>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-2xl font-semibold tabular-nums">
+                {data.newCount}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {data.newPatients === 1 ? "1 person" : `${data.newPatients} people`}
+              </span>
+            </div>
+          </div>
+          <div className="rounded-md border border-emerald-500/25 bg-emerald-500/5 p-3">
+            <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.06em] text-emerald-700 dark:text-emerald-300">
+              <Users className="size-3" /> Returning
+            </div>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-2xl font-semibold tabular-nums">
+                {data.returningCount}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {data.returningPatients === 1
+                  ? "1 person"
+                  : `${data.returningPatients} people`}
+              </span>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SilentChurnCard({
+  rows,
+  vocabPatient,
+}: {
+  rows: {
+    patientId: number;
+    name: string;
+    mobile: string;
+    visitCount: number;
+    lastVisitAt: Date;
+    daysSinceLastVisit: number;
+  }[];
+  vocabPatient: string;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Silent churn</h3>
+          <span className="text-[11px] text-muted-foreground">
+            Regulars who haven&apos;t been back in 60+ days
+          </span>
+        </div>
+        {rows.length === 0 ? (
+          <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+            No silent churn — every returning {vocabPatient} has been in recently.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
+                <tr>
+                  <th className="pb-2 text-left font-medium">Name</th>
+                  <th className="pb-2 text-left font-medium">Mobile</th>
+                  <th className="pb-2 text-right font-medium">Visits</th>
+                  <th className="pb-2 text-right font-medium">Last visit</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {rows.map((r) => (
+                  <tr key={r.patientId} className="text-sm">
+                    <td className="py-2 font-medium">{r.name}</td>
+                    <td className="py-2 tabular-nums text-muted-foreground">
+                      {r.mobile}
+                    </td>
+                    <td className="py-2 text-right tabular-nums">
+                      {r.visitCount}
+                    </td>
+                    <td className="py-2 text-right tabular-nums text-muted-foreground">
+                      {r.daysSinceLastVisit}d ago
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function GrowthLocked({ title, body }: { title: string; body: string }) {
+  return (
+    <Card className="border-dashed">
+      <CardContent className="p-5">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+            <Lock className="size-4" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold">{title}</h3>
+              <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-primary">
+                Growth
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">{body}</p>
+            <Link
+              href="/pricing"
+              className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+            >
+              See plans
+            </Link>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function SourceCell({
   label,
   count,
@@ -300,9 +451,19 @@ export default async function ReportsPage({
   const sp = await searchParams;
   const r = computeRange(sp.range, sp.from, sp.to);
 
-  const [bundle, prev] = await Promise.all([
+  const growthUnlocked = hasPlan(sess.clinic, "growth");
+  const [bundle, prev, newVsRet, churn] = await Promise.all([
     loadReports(sess.clinic.id, r.from, r.to),
     loadReportsHeadline(sess.clinic.id, r.prevFrom, r.prevTo),
+    // Only issue the Growth queries if the effective plan allows — no
+    // point spending a round-trip on numbers we'd render blurred behind
+    // a paywall.
+    growthUnlocked
+      ? loadNewVsReturning(sess.clinic.id, r.from, r.to)
+      : Promise.resolve(null),
+    growthUnlocked
+      ? loadSilentChurn(sess.clinic.id, 60, 25)
+      : Promise.resolve(null),
   ]);
 
   return (
@@ -370,6 +531,30 @@ export default async function ReportsPage({
         total={bundle.totals.bookings}
         appEnabled={sess.clinic.acceptAppBookings}
       />
+
+      {/* Growth-tier: new-vs-returning strip. Rendered even when locked
+          so the owner sees what they'd unlock — the numbers themselves
+          are hidden behind the paywall CTA. */}
+      {growthUnlocked ? (
+        <NewVsReturningStrip data={newVsRet!} />
+      ) : (
+        <GrowthLocked
+          title="New vs returning customers"
+          body="See how many of this period's visits are repeat business — and how many are brand-new faces."
+        />
+      )}
+
+      {/* Growth-tier: silent-churn list. Regulars who've gone quiet.
+          One of the highest-leverage owner surfaces we've built — a
+          $5 message to a churned regular is worth 100 cold acquires. */}
+      {growthUnlocked ? (
+        <SilentChurnCard rows={churn!} vocabPatient={vocab.entitySingular} />
+      ) : (
+        <GrowthLocked
+          title="Silent-churn list"
+          body="Which regulars haven't been back in 60 days? One WhatsApp is often enough to bring them in."
+        />
+      )}
 
       {/* Charts */}
       <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">

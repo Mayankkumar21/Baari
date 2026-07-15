@@ -104,6 +104,10 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
         noShowThresholdMin: 45,
         retentionDays: 730,
         setupComplete: false,
+        // 60-day Pro trial. `plan` stays 'free' so trial-end falls back
+        // to Free cleanly; lib/plans.ts resolves an unexpired trial
+        // upward to Pro.
+        planTrialEndsAt: new Date(Date.now() + 60 * 86_400_000),
       })
       .returning();
     clinicId = clinic.id;
