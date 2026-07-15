@@ -3,9 +3,11 @@ import { ShieldCheck } from "lucide-react";
 import { requireSession } from "@/lib/session";
 import { isAdmin } from "@/lib/admin";
 import { vocabFor } from "@/lib/vocab";
+import { effectivePlan, trialDaysLeft } from "@/lib/plans";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LogoutButton } from "@/components/app/logout-button";
 import { AppNav } from "@/components/app/app-nav";
+import { PlanBadge } from "@/components/app/plan-badge";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const sess = await requireSession();
@@ -48,6 +50,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 <ShieldCheck className="size-3" /> Admin
               </Link>
             ) : null}
+            <PlanBadge
+              plan={effectivePlan(sess.clinic)}
+              trialDaysLeft={trialDaysLeft(sess.clinic)}
+            />
             <ThemeToggle />
             <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
               <span className="font-medium text-foreground">{sess.user.name}</span>
