@@ -100,7 +100,10 @@ export async function loadSilentChurn(
     name: string;
     mobile: string;
     visit_count: string;
-    last_visit_at: Date;
+    // postgres-js hands aggregate timestamps back as strings; the UI
+    // just needs `daysSinceLastVisit` for display, so we coerce to
+    // Date on the way out for anything that touches it.
+    last_visit_at: string;
     days_since: string;
   }>(sql`
     SELECT p.id                                          AS patient_id,
@@ -126,7 +129,7 @@ export async function loadSilentChurn(
     name: r.name,
     mobile: r.mobile,
     visitCount: Number(r.visit_count),
-    lastVisitAt: r.last_visit_at,
+    lastVisitAt: new Date(r.last_visit_at),
     daysSinceLastVisit: Number(r.days_since),
   }));
 }
@@ -191,8 +194,11 @@ export async function loadCohortRetention(
   clinicId: number,
   monthsBack: number = 6,
 ): Promise<CohortCell[]> {
+  // Note: postgres-js delivers `date_trunc` as an ISO string, not a
+  // Date. Typing it as `string` here avoids a `.toISOString is not a
+  // function` blow-up on the folding loop below.
   const rows = await db.execute<{
-    cohort: Date;
+    cohort: string;
     cohort_size: string;
     offset_m: string;
     active: string;
@@ -230,7 +236,11 @@ export async function loadCohortRetention(
   // Fold flat (cohort, offset, active) rows into the CohortCell shape.
   const byCohort = new Map<string, CohortCell>();
   for (const r of rows) {
-    const iso = r.cohort.toISOString().slice(0, 7);
+    // r.cohort arrives as an ISO string like "2026-07-01 00:00:00+00"
+    // from postgres-js — normalise to "YYYY-MM" by taking the first
+    // seven chars, since both "2026-07-01…" and "2026-07-01T…" start
+    // the same way.
+    const iso = String(r.cohort).slice(0, 7);
     let cell = byCohort.get(iso);
     if (!cell) {
       cell = {

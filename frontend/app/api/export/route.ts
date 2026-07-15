@@ -32,9 +32,12 @@ function toCsv(header: string[], rows: unknown[][]): string {
   return head + "\n" + body + "\n";
 }
 
-function fmtDateStr(d: Date | null): string {
+// Values reach us as either Date (Drizzle-shaped rows) or ISO string
+// (raw db.execute rows) depending on the query. Accept both.
+function fmtDateStr(d: Date | string | null): string {
   if (!d) return "";
-  return d.toISOString().slice(0, 19).replace("T", " ");
+  const iso = d instanceof Date ? d.toISOString() : String(d);
+  return iso.slice(0, 19).replace("T", " ");
 }
 
 export async function GET(req: Request) {
@@ -136,8 +139,10 @@ export async function GET(req: Request) {
       name: string;
       mobile: string;
       visits: string;
-      first_visit_at: Date | null;
-      last_visit_at: Date | null;
+      // postgres-js delivers aggregate timestamps as strings; fmtDateStr
+      // handles both shapes.
+      first_visit_at: string | null;
+      last_visit_at: string | null;
       ltv_inr: string | null;
     }>(sql`
       SELECT p.id,
