@@ -1,10 +1,17 @@
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { getSession } from "@/lib/session";
 
 
-export function SiteHeader() {
+// Server component so we can peek at the session cookie and swap the
+// right-hand CTA. Logged-in visitors get a "Dashboard" link instead of
+// a "Sign in" button — the old header nagged them to sign in even
+// though they already were.
+export async function SiteHeader() {
+  const sess = await getSession();
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/40 bg-background/70 backdrop-blur-xl">
       <div className="container flex h-16 items-center justify-between">
@@ -26,9 +33,17 @@ export function SiteHeader() {
             Pricing
           </Link>
           <ThemeToggle />
-          <Button asChild>
-            <Link href="/login">Sign in</Link>
-          </Button>
+          {sess ? (
+            <Button asChild>
+              <Link href="/queue">
+                Dashboard <ArrowRight className="size-4" />
+              </Link>
+            </Button>
+          ) : (
+            <Button asChild>
+              <Link href="/login">Sign in</Link>
+            </Button>
+          )}
         </div>
       </div>
     </header>
