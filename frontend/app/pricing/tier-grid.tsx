@@ -1,68 +1,47 @@
 "use client";
 
-// Client-side currency selector + tier cards. Detects a sensible
-// default from navigator.language / Intl.Locale on mount, then lets
-// the visitor override via a small dropdown. Prices are hardcoded
-// round-numbers per currency — the point is display sanity for
-// international trialists, not a live forex feed. Growth/Pro numbers
-// are close-to-market equivalents rounded to friendly-looking prices.
+// Auto-detected pricing display.
+//
+// Two tiers exist economically: India (INR) and everyone-else (USD).
+// India historically pays less for SaaS than global markets, so we
+// price accordingly — and we detect the visitor's region rather than
+// offer a picker so people don't just tick "India" to save money.
+//
+// SSR renders USD (the safer default for global reach). Client-side
+// mount checks `Intl.Locale.region` / navigator.language; if the
+// visitor is in India, the display swaps to INR after hydration. Same
+// signup flow either way — this is a display concern, not a billing
+// one.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Check, ChevronDown } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-type CurrencyCode = "INR" | "USD" | "GBP" | "EUR" | "SGD" | "AED" | "AUD" | "CAD";
+type Region = "IN" | "GLOBAL";
 
-type Money = { symbol: string; free: string; growth: string; pro: string; per: string };
+const PRICES = {
+  IN:     { symbol: "₹",  free: "₹0",  growth: "₹999",  pro: "₹1,999", label: "India (₹)",  flag: "🇮🇳" },
+  GLOBAL: { symbol: "$",  free: "$0",  growth: "$19",   pro: "$49",    label: "USD",         flag: "🌐" },
+} as const;
 
-const CURRENCIES: Record<CurrencyCode, Money & { label: string; flag: string }> = {
-  INR: { label: "India (₹)",           flag: "🇮🇳", symbol: "₹",   free: "₹0",    growth: "₹999",   pro: "₹1,999",  per: "/ month" },
-  USD: { label: "United States ($)",   flag: "🇺🇸", symbol: "$",   free: "$0",    growth: "$14",    pro: "$29",     per: "/ month" },
-  GBP: { label: "United Kingdom (£)",  flag: "🇬🇧", symbol: "£",   free: "£0",    growth: "£11",    pro: "£22",     per: "/ month" },
-  EUR: { label: "Europe (€)",          flag: "🇪🇺", symbol: "€",   free: "€0",    growth: "€13",    pro: "€26",     per: "/ month" },
-  SGD: { label: "Singapore (S$)",      flag: "🇸🇬", symbol: "S$",  free: "S$0",   growth: "S$18",   pro: "S$36",    per: "/ month" },
-  AED: { label: "UAE (AED)",           flag: "🇦🇪", symbol: "AED", free: "AED 0", growth: "AED 49", pro: "AED 99",  per: "/ month" },
-  AUD: { label: "Australia (A$)",      flag: "🇦🇺", symbol: "A$",  free: "A$0",   growth: "A$19",   pro: "A$39",    per: "/ month" },
-  CAD: { label: "Canada (C$)",         flag: "🇨🇦", symbol: "C$",  free: "C$0",   growth: "C$19",   pro: "C$39",    per: "/ month" },
-};
-
-// Country → currency mapping for the initial guess. Everything not
-// listed here falls back to USD — that's more universal than INR for
-// a first-time global visitor.
-const REGION_MAP: Record<string, CurrencyCode> = {
-  IN: "INR",
-  US: "USD", CA: "CAD", MX: "USD",
-  GB: "GBP",
-  SG: "SGD", MY: "SGD",
-  AE: "AED", SA: "AED", QA: "AED",
-  AU: "AUD", NZ: "AUD",
-  // EU-ish. Not exhaustive; anything else falls to USD.
-  DE: "EUR", FR: "EUR", IT: "EUR", ES: "EUR", NL: "EUR", BE: "EUR", IE: "EUR",
-  AT: "EUR", PT: "EUR", FI: "EUR", GR: "EUR", LU: "EUR", SK: "EUR", SI: "EUR",
-};
-
-function guessCurrency(): CurrencyCode {
-  if (typeof navigator === "undefined") return "USD";
+// Client-side detection. We treat anything that reads as India (region
+// = IN, language tag ends in -in, or hi-*) as an Indian visitor. Any
+// other read — including undetectable — defaults to global USD.
+function detectRegion(): Region {
+  if (typeof navigator === "undefined") return "GLOBAL";
   try {
     const loc = new Intl.Locale(navigator.language);
     const region = (loc as unknown as { region?: string }).region ?? "";
-    if (region && REGION_MAP[region]) return REGION_MAP[region];
-    // Language-only hint fallback (en-IN often lacks region on some
-    // browsers).
+    if (region.toUpperCase() === "IN") return "IN";
     const tag = navigator.language.toLowerCase();
-    if (tag.endsWith("-in") || tag === "hi") return "INR";
-    if (tag.endsWith("-gb")) return "GBP";
-    if (tag.endsWith("-au")) return "AUD";
-    if (tag.endsWith("-sg")) return "SGD";
+    if (tag.endsWith("-in") || tag.startsWith("hi")) return "IN";
   } catch {
     // ignore
   }
-  return "USD";
+  return "GLOBAL";
 }
-
-const CURRENCY_STORAGE_KEY = "baari_pricing_currency";
 
 const FEATURES = {
   free: [
@@ -96,39 +75,26 @@ const FEATURES = {
 };
 
 export function TierGrid() {
-  const [currency, setCurrency] = useState<CurrencyCode>("INR");
-  const [ready, setReady] = useState(false);
+  // SSR-safe default = global USD; India visitors get flipped on
+  // hydration. Avoids a layout jump when the price string length
+  // changes marginally — Growth/Pro widths differ by ~1 char.
+  const [region, setRegion] = useState<Region>("GLOBAL");
   useEffect(() => {
-    // Load saved choice first, else auto-detect. SSR paint always
-    // shows INR to avoid layout shift when JS is disabled.
-    try {
-      const saved = localStorage.getItem(CURRENCY_STORAGE_KEY) as CurrencyCode | null;
-      if (saved && CURRENCIES[saved]) {
-        setCurrency(saved);
-      } else {
-        setCurrency(guessCurrency());
-      }
-    } catch {
-      setCurrency(guessCurrency());
-    }
-    setReady(true);
+    setRegion(detectRegion());
   }, []);
 
-  const change = (c: CurrencyCode) => {
-    setCurrency(c);
-    try {
-      localStorage.setItem(CURRENCY_STORAGE_KEY, c);
-    } catch {
-      // no-op
-    }
-  };
-
-  const money = CURRENCIES[currency];
+  const money = PRICES[region];
 
   return (
     <>
       <div className="mx-auto mb-6 flex max-w-6xl justify-end">
-        <CurrencyPicker current={currency} onChange={change} ready={ready} />
+        <span
+          title="Prices adjust to your region automatically."
+          className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1 text-[11px] text-muted-foreground"
+        >
+          <span>{money.flag}</span>
+          <span>Showing prices in {money.label}</span>
+        </span>
       </div>
       <div className="mx-auto grid max-w-6xl gap-6 md:grid-cols-3">
         <TierCard
@@ -142,7 +108,7 @@ export function TierGrid() {
         <TierCard
           name="Growth"
           price={money.growth}
-          per={money.per}
+          per="/ month"
           tagline="For the busy salon or clinic."
           highlight
           badge="Most popular"
@@ -152,66 +118,13 @@ export function TierGrid() {
         <TierCard
           name="Pro"
           price={money.pro}
-          per={money.per}
+          per="/ month"
           tagline="For multi-doctor practices and high-volume salons."
           cta="Try free for 2 months"
           features={FEATURES.pro}
         />
       </div>
     </>
-  );
-}
-
-function CurrencyPicker({
-  current,
-  onChange,
-  ready,
-}: {
-  current: CurrencyCode;
-  onChange: (c: CurrencyCode) => void;
-  ready: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const label = useMemo(() => CURRENCIES[current], [current]);
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1.5 text-xs font-medium hover:border-primary/40"
-      >
-        <span>{label.flag}</span>
-        <span>{label.label}</span>
-        <ChevronDown className="size-3 opacity-60" />
-        {!ready ? <span className="ml-1 text-[10px] opacity-60">(default)</span> : null}
-      </button>
-      {open ? (
-        <div
-          className="absolute right-0 top-full z-30 mt-2 w-56 overflow-hidden rounded-lg border border-border bg-card/95 shadow-xl backdrop-blur"
-          onMouseLeave={() => setOpen(false)}
-        >
-          {(Object.entries(CURRENCIES) as [CurrencyCode, (typeof CURRENCIES)[CurrencyCode]][]).map(
-            ([code, c]) => (
-              <button
-                key={code}
-                type="button"
-                onClick={() => {
-                  onChange(code);
-                  setOpen(false);
-                }}
-                className={
-                  "flex w-full items-center gap-2 border-b border-border/60 px-3 py-2 text-left text-sm last:border-0 hover:bg-secondary/60 " +
-                  (code === current ? "bg-primary/10 font-semibold" : "")
-                }
-              >
-                <span>{c.flag}</span>
-                <span className="flex-1">{c.label}</span>
-              </button>
-            ),
-          )}
-        </div>
-      ) : null}
-    </div>
   );
 }
 
