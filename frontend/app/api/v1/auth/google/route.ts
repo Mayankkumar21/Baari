@@ -16,6 +16,7 @@ import { ERRORS, fail, ok, readJson, customerToPublic } from "@/lib/api-helpers"
 import { verifyGoogleIdToken } from "@/lib/google-verify";
 import { issueCustomerJwt } from "@/lib/customer-auth";
 import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/client-ip";
 
 type Body = { idToken?: string };
 
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
   // Per-IP fuse first — stops bots from spinning up customers with N
   // valid Google accounts they control. Google verification below is
   // strong but doesn't prevent inflation of the customers table.
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "0.0.0.0";
+  const ip = getClientIp(req);
   const ipCheck = await checkAndIncrement(LIMITS.signup_google_per_ip, "gauth_ip", ip);
   if (!ipCheck.ok) {
     return fail(429, "Too many sign-in attempts. Try again in an hour.", "RATE_LIMITED");

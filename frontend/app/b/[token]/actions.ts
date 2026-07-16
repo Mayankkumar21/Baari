@@ -15,6 +15,7 @@ import {
   cancelBookingFromRequest,
 } from "@/lib/services/booking-request";
 import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/client-ip";
 import { assertMonthlyQuota, QuotaExceededError } from "@/lib/plans";
 
 export type ConfirmState = { error?: string; ok?: boolean };
@@ -34,7 +35,7 @@ export async function confirmBookingAction(
   // it — so IP is the only signal we have to stop a bot from
   // grinding the T-token retry loop or spamming the DB.
   const hdrs = await headers();
-  const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "0.0.0.0";
+  const ip = getClientIp(hdrs);
   const rl = await checkAndIncrement(LIMITS.b_confirm_per_ip, "b_confirm", ip);
   if (!rl.ok) {
     return { error: "Too many attempts. Please wait a bit and try again." };

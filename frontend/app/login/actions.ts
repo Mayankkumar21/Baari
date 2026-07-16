@@ -7,6 +7,7 @@ import { db, schema } from "@/lib/db/client";
 import { SESSION_COOKIE, issueSession, normalizeMobile } from "@/lib/auth";
 import { verifyPassword } from "@/lib/password";
 import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/client-ip";
 
 export type LoginState = { error?: string };
 
@@ -19,7 +20,7 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   if (!mobile || !password) return { error: "Mobile and password required" };
 
   const hdrs = await headers();
-  const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "0.0.0.0";
+  const ip = getClientIp(hdrs);
 
   const ipCheck = await checkAndIncrement(LIMITS.login_per_ip, "login_ip", ip);
   if (!ipCheck.ok) return { error: "Too many login attempts. Try again in a few minutes." };

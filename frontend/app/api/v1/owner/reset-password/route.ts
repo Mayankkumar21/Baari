@@ -13,6 +13,7 @@ import { normalizeMobile } from "@/lib/auth";
 import { hashPassword, passwordStrength } from "@/lib/password";
 import { hashOtpCode, MAX_ATTEMPTS } from "@/lib/otp";
 import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/client-ip";
 
 type Body = { mobile?: string; code?: string; password?: string };
 
@@ -30,7 +31,7 @@ export async function POST(req: Request) {
 
     // Rate-limit code-check attempts by mobile so brute-forcing across
     // multiple concurrently-issued rows is capped globally too.
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "0.0.0.0";
+    const ip = getClientIp(req);
     const ipCheck = await checkAndIncrement(LIMITS.reset_per_ip, "reset_ip", ip);
     if (!ipCheck.ok) {
       return fail(429, "Too many reset attempts. Try again in an hour.", "RATE_LIMITED");

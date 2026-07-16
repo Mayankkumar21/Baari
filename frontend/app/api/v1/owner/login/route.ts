@@ -16,6 +16,7 @@ import { normalizeMobile } from "@/lib/auth";
 import { verifyPassword } from "@/lib/password";
 import { issueOwnerJwt } from "@/lib/owner-auth";
 import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/client-ip";
 import { ERRORS, fail, ok, readJson } from "@/lib/api-helpers";
 
 type LoginBody = {
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
     // Rate limiting — both dimensions. Prevents an attacker from either
     // hammering the endpoint from one IP or brute-forcing one mobile
     // across many IPs.
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "0.0.0.0";
+    const ip = getClientIp(req);
     const ipCheck = await checkAndIncrement(LIMITS.login_per_ip, "login_ip", ip);
     if (!ipCheck.ok) {
       return fail(429, "Too many login attempts. Try again in a few minutes.", "RATE_LIMITED");

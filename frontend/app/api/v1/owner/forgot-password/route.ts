@@ -21,6 +21,7 @@ import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { normalizeMobile } from "@/lib/auth";
 import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/client-ip";
 import { ERRORS, fail, ok, readJson } from "@/lib/api-helpers";
 import { CODE_TTL_MINUTES, codeExpiry, generateOtpCode, hashOtpCode } from "@/lib/otp";
 import { sendEmailWithLimits } from "@/lib/email/resend";
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
       return ERRORS.BAD_REQUEST("Enter a valid 10-digit mobile.");
     }
 
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "0.0.0.0";
+    const ip = getClientIp(req);
     const ipCheck = await checkAndIncrement(LIMITS.reset_per_ip, "reset_ip", ip);
     if (!ipCheck.ok) {
       return fail(429, "Too many reset attempts. Try again in an hour.", "RATE_LIMITED");

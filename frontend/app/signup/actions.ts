@@ -7,6 +7,7 @@ import { db, schema } from "@/lib/db/client";
 import { SESSION_COOKIE, issueSession, normalizeEmail, normalizeMobile } from "@/lib/auth";
 import { hashPassword, passwordStrength } from "@/lib/password";
 import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/client-ip";
 
 const TENANT_TYPES = ["clinic", "salon", "spa", "dental", "vet", "other"] as const;
 type TenantType = (typeof TENANT_TYPES)[number];
@@ -55,7 +56,7 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
   if (pwErr) return { error: pwErr };
 
   const hdrs = await headers();
-  const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "0.0.0.0";
+  const ip = getClientIp(hdrs);
 
   const ipCheck = await checkAndIncrement(LIMITS.signup_per_ip, "signup_ip", ip);
   if (!ipCheck.ok) return { error: "Too many signups from this network. Try again later." };

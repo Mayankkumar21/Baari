@@ -12,6 +12,7 @@ import {
   listCustomerBookings,
 } from "@/lib/services/customer-bookings";
 import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/client-ip";
 
 type CreateBody = {
   clinicSlug?: string;
@@ -48,7 +49,7 @@ export async function POST(req: Request) {
   // Rate-limit dimensions: per-customer stops a compromised session
   // from spamming; per-IP catches a botnet using one account across
   // many boxes. Legitimate users book a handful a day at most.
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "0.0.0.0";
+  const ip = getClientIp(req);
   const custCheck = await checkAndIncrement(
     LIMITS.booking_create_per_customer,
     "book_cust",

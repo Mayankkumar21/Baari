@@ -14,6 +14,7 @@ import { normalizeEmail } from "@/lib/auth";
 import { requireSession } from "@/lib/session";
 import { CODE_TTL_MINUTES, codeExpiry, generateOtpCode, hashOtpCode } from "@/lib/otp";
 import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/client-ip";
 import { sendEmailWithLimits } from "@/lib/email/resend";
 import { emailVerifyEmail } from "@/lib/email/templates";
 
@@ -45,7 +46,7 @@ export async function POST(req: Request) {
     // Per-recipient caps run inside sendEmailWithLimits below so
     // multiple flows (reset + verify) share the same target-inbox
     // budget.
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "0.0.0.0";
+    const ip = getClientIp(req);
     const ipCheck = await checkAndIncrement(LIMITS.reset_per_ip, "email_verify_ip", ip);
     if (!ipCheck.ok) {
       return fail(429, "Too many attempts. Try again in an hour.", "RATE_LIMITED");
