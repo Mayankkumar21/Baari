@@ -15,21 +15,21 @@ type Feature = {
 export function Features() {
   const features: Feature[] = [
     {
-      eyebrow: "Live queue",
-      title: "No more shouting names across the room.",
-      body: "See who's here, who's next, who's running late. One click to check them in, one click to mark them done. Updates live, on every screen in the clinic.",
+      eyebrow: "The queue",
+      title: "The day, on one screen.",
+      body: "See who's here, who's next, who's running late. One tap to check them in, one tap to mark them done. Every action feeds the picture — Baari watches so you can lead.",
       visual: <LiveQueueVisual />,
     },
     {
-      eyebrow: "One queue. Walk-ins + bookings.",
-      title: "Walk-ins and bookings, on the same screen.",
-      body: "Most queue apps make you choose — appointments only, or a deli-style ticket dispenser. Baari handles both. The receptionist adds a walk-in in two taps, and the queue figures out the order.",
+      eyebrow: "Walk-ins + bookings",
+      title: "The mix, without the math.",
+      body: "Most tools make you pick — appointments or deli-tickets. Baari holds both in one queue and figures out the order. Walk-in in two taps; Baari also learns your walk-in vs booking mix over months.",
       visual: <MixedQueueVisual />,
     },
     {
       eyebrow: "Late + no-show",
-      title: "Late arrivals, handled before they call.",
-      body: "Anyone past their slot is automatically flagged as late. When it's time, one tap marks them no-show — the next customer moves up. If they walk in five minutes later, one tap restores them.",
+      title: "Every late arrival is a data point.",
+      body: "Anyone past their slot is automatically flagged. One tap marks them no-show — the next customer moves up. And the no-show rate quietly rolls into your reports so you can see when things drift.",
       visual: <NoShowVisual />,
     },
   ];

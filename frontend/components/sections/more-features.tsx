@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import { BarChart3, Globe, Users } from "lucide-react";
+import { BarChart3, Coins, Globe, Search, Users } from "lucide-react";
 
 type MiniFeature = {
   title: string;
@@ -11,18 +11,28 @@ type MiniFeature = {
 
 const ITEMS: MiniFeature[] = [
   {
-    title: "Book for someone else",
-    body: "One tap adds a name — grandma can book for the grandson.",
-    icon: Users,
+    title: "Revenue that owns itself",
+    body: "Type the amount at Mark Done. Baari sums it into daily / weekly / monthly totals so you finally know what you actually earned.",
+    icon: Coins,
   },
   {
-    title: "End-of-day report",
-    body: "Bookings, no-shows, wait times, source breakdown — one page.",
+    title: "First-timers vs repeat",
+    body: "Every visit tagged automatically. See what share of today's traffic is loyalty vs new business.",
     icon: BarChart3,
   },
   {
+    title: "Customer memory",
+    body: "Every past visit, no-show, and reason logged. Search by name or mobile — the whole history is one line away.",
+    icon: Search,
+  },
+  {
+    title: "Family bookings",
+    body: "Grandma books for the grandson in two taps. Baari links the accounts so nothing falls off.",
+    icon: Users,
+  },
+  {
     title: "Works on any phone",
-    body: "Web + mobile. No apps to install for the receptionist. Customers can book from any browser.",
+    body: "Web + mobile. No install for the receptionist. Customers book from any browser.",
     icon: Globe,
   },
 ];
@@ -38,7 +48,7 @@ export function MoreFeatures() {
           hidden: {},
           visible: { transition: { staggerChildren: 0.06 } },
         }}
-        className="grid gap-8 border-t border-border/60 pt-10 sm:grid-cols-3 sm:gap-6"
+        className="grid gap-8 border-t border-border/60 pt-10 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3"
       >
         {ITEMS.map(({ title, body, icon: Icon }) => (
           <motion.div

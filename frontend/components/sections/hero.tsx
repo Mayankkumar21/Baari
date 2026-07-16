@@ -30,7 +30,7 @@ export function Hero() {
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           >
             <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground backdrop-blur">
-              One screen. Every appointment.
+              Run your day. Know your year.
             </div>
           </motion.div>
 
@@ -40,8 +40,8 @@ export function Hero() {
             transition={{ duration: 0.7, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
             className="mt-6 text-balance text-5xl font-extrabold leading-[1.05] tracking-tight sm:text-6xl md:text-[64px]"
           >
-            Your <span className="text-gradient">front desk</span>,<br className="hidden sm:block" />{" "}
-            on one screen.
+            Know your business.<br className="hidden sm:block" />{" "}
+            <span className="text-gradient">Grow your business.</span>
           </motion.h1>
 
           <motion.p
@@ -50,8 +50,9 @@ export function Hero() {
             transition={{ duration: 0.7, delay: 0.14, ease: [0.16, 1, 0.3, 1] }}
             className="mt-6 max-w-xl text-balance text-base text-muted-foreground sm:text-lg"
           >
-            Tokens, walk-ins, family bookings, late arrivals — handled from one place. Built for
-            clinics, salons, and spas where the receptionist is doing six things at once.
+            Baari runs your queue, walk-ins, and bookings — and quietly turns every visit into
+            the picture your paper register never could give you. Which regulars ghosted. Which
+            service actually pays. Where your first-timers come from.
           </motion.p>
 
           <motion.div
@@ -76,7 +77,8 @@ export function Hero() {
             transition={{ duration: 0.8, delay: 0.36 }}
             className="mt-6 text-xs text-muted-foreground"
           >
-            Free during early access. Built for small businesses where the receptionist is doing six things at once.
+            60 days of the top plan on us. No card. Not another queue app — the intelligence
+            layer under your day.
           </motion.p>
         </div>
 
