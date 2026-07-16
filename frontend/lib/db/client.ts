@@ -24,16 +24,19 @@ if (!url) {
   );
 }
 
-// Single connection per cold start. Vercel cold starts spin up a new
-// Node.js process per concurrent request, so the pool stays small and
-// short-lived. `prepare: false` because Neon's pooler can't prepare
-// across pgbouncer transaction-mode pooling.
+// Railway is a single long-lived Node process serving every incoming
+// request concurrently, so the pool needs to be sized for parallel
+// queries — not 1 like the old Vercel-serverless model. Bumped to 15
+// so a slow /reports render or a Reddit-hug burst doesn't serialise
+// the whole app behind a single TCP connection. Neon's pgbouncer
+// happily accepts that; `prepare: false` still required because the
+// pgbouncer transaction-mode pooling can't hold prepared statements.
 const queryClient = postgres(url, {
   prepare: false,
   ssl: "require",
   connect_timeout: 10,
   idle_timeout: 20,
-  max: 1,
+  max: 15,
 });
 
 export const db = drizzle(queryClient, { schema });

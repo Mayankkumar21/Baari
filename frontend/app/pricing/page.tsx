@@ -84,8 +84,9 @@ export default function PricingPage() {
             walk away with your data intact. Whatever makes sense.
           </p>
           <p className="mt-3 text-base text-muted-foreground">
-            We&apos;ll email + WhatsApp you before day 60. You decide, we
-            don&apos;t auto-charge.
+            The dashboard header carries a live countdown of your trial
+            days. You decide when day 60 arrives — we don&apos;t
+            auto-charge.
           </p>
         </div>
       </section>
@@ -110,7 +111,7 @@ export default function PricingPage() {
             <PromiseCard
               icon={<Clock className="size-5" />}
               title="30-day billing notice."
-              body="We'll email and WhatsApp before any charges. If you don't want to continue, one tap and your workspace stays free until you decide."
+              body="We'll notify you in-app well before any charges. If you don't want to continue, one tap and your workspace stays free until you decide."
             />
             <PromiseCard
               icon={<Check className="size-5" />}

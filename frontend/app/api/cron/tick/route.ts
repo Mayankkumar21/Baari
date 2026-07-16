@@ -13,8 +13,19 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const auth = req.headers.get("authorization") ?? "";
   const expected = process.env.CRON_SECRET;
-  // Allow blank/placeholder CRON_SECRET in dev — production should override.
-  if (expected && expected !== "change-me" && auth !== `Bearer ${expected}`) {
+  // Fail-CLOSED. If CRON_SECRET is unset or is the placeholder value in
+  // production, the endpoint is public — an attacker can hammer it into
+  // sweeping every clinic's bookings. Only skip the auth check outside
+  // of production, and even then require a real secret if one is set.
+  const isProd = process.env.NODE_ENV === "production";
+  const isPlaceholder = !expected || expected === "change-me";
+  if (isProd && isPlaceholder) {
+    return NextResponse.json(
+      { error: "cron secret not configured" },
+      { status: 503 },
+    );
+  }
+  if (!isPlaceholder && auth !== `Bearer ${expected}`) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

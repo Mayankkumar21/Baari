@@ -110,6 +110,26 @@ async function findNextSlot(clinic: Clinic): Promise<string | null> {
   return null;
 }
 
+// Cheap variant for list views: NO per-clinic slot lookup. `findNextSlot`
+// fires up to 14 queries per clinic (7 days × isClosedDay + takenSlots),
+// which multiplied by N clinics in featured/search turned discovery into
+// a query-storm. List consumers get `nextSlotIso: null` and can fetch
+// the real value from the detail endpoint if the user opens a card.
+function summaryFast(c: Clinic): PublicClinicSummary {
+  return {
+    slug: c.slug ?? "",
+    name: c.name,
+    tenantType: c.tenantType ?? "clinic",
+    address: c.address ?? null,
+    city: c.city ?? null,
+    openNow: isOpenAt(c, new Date()),
+    nextSlotIso: null,
+  };
+}
+
+// Detail-view variant: pays the slot-lookup cost. Used by
+// `/api/v1/clinics/[slug]` where the caller is a single click, not a
+// list scan.
 async function summary(c: Clinic): Promise<PublicClinicSummary> {
   return {
     slug: c.slug ?? "",
@@ -158,7 +178,7 @@ export async function searchPublicClinics(args: {
     .orderBy(asc(schema.clinics.name))
     .limit(limit);
 
-  return Promise.all(rows.map(summary));
+  return rows.map(summaryFast);
 }
 
 // "Featured" is a placeholder for the future "Near you" / curated list.
@@ -180,7 +200,7 @@ export async function featuredPublicClinics(
     )
     .orderBy(desc(schema.clinics.createdAt))
     .limit(limitN);
-  return Promise.all(rows.map(summary));
+  return rows.map(summaryFast);
 }
 
 // "Your places" — distinct clinics this customer has booked at,
