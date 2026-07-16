@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { Check, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { changePassword, type ChangePasswordState } from "../actions";
 import { cn } from "@/lib/utils";
@@ -29,15 +30,14 @@ export function ChangePasswordForm() {
     <form action={action} className="space-y-4">
       <div className="space-y-1.5">
         <Label htmlFor="current">Current password</Label>
-        <Input id="current" name="current" type="password" required autoComplete="current-password" />
+        <PasswordInput id="current" name="current" required autoComplete="current-password" />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="next">New password</Label>
-          <Input
+          <PasswordInput
             id="next"
             name="next"
-            type="password"
             required
             autoComplete="new-password"
             value={next}
@@ -46,7 +46,7 @@ export function ChangePasswordForm() {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="confirm">Confirm new password</Label>
-          <Input id="confirm" name="confirm" type="password" required autoComplete="new-password" />
+          <PasswordInput id="confirm" name="confirm" required autoComplete="new-password" />
         </div>
       </div>
       <div className="flex flex-wrap gap-3 text-[11px]">

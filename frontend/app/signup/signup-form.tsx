@@ -6,6 +6,7 @@ import { Check, Scissors, Stethoscope, Flower, PawPrint, Store } from "lucide-re
 import { Tooth } from "@/components/icons/tooth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import {
   CountryCodePicker,
@@ -173,10 +174,9 @@ export function SignupForm({ initialType }: { initialType?: string }) {
 
       <div className="space-y-1.5">
         <Label htmlFor="password">Password</Label>
-        <Input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           autoComplete="new-password"
           required
           value={password}
