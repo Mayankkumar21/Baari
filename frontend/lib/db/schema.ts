@@ -105,6 +105,15 @@ export const clinics = pgTable("clinics", {
   planTrialEndsAt: timestamp("plan_trial_ends_at", { withTimezone: true }),
   planSource: varchar("plan_source", { length: 20 }).notNull().default("trial"),
   planGrantedBy: integer("plan_granted_by"),
+  // Stripe subscription state. `stripeCustomerId` is set once on the
+  // first checkout (idempotent — same clinic always gets the same
+  // Stripe Customer). `stripeSubscriptionId` is the currently-active
+  // subscription; goes null when cancelled + period expires.
+  // `planCurrentPeriodEnd` is when the paid period ends — the resolver
+  // treats a `plan='pro'` + expired period_end as effectively Free.
+  stripeCustomerId: varchar("stripe_customer_id", { length: 64 }),
+  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 64 }),
+  planCurrentPeriodEnd: timestamp("plan_current_period_end", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   uqSlug: uniqueIndex("uq_clinics_slug").on(t.slug),
@@ -311,6 +320,36 @@ export const notifications = pgTable(
     clinicIdx: index("notifications_clinic_idx").on(t.clinicId),
     bookingIdx: index("notifications_booking_idx").on(t.bookingId),
     statusIdx: index("notifications_status_idx").on(t.status),
+  }),
+);
+
+// One row per "I want to upgrade" click. Payments aren't wired yet,
+// so this table replaces the checkout flow — captures the intent
+// signal + contact info + which plan the owner wanted, so the
+// founder can reach out and close deals manually while Stripe/BSP
+// integration is deferred.
+export const planInterest = pgTable(
+  "plan_interest",
+  {
+    id: serial("id").primaryKey(),
+    clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+    userId: integer("user_id").notNull().references(() => users.id),
+    desiredPlan: varchar("desired_plan", { length: 20 }).notNull(), // 'growth' | 'pro'
+    // Region the visitor's pricing page detected — helps prioritise
+    // outreach when we later wire per-market billing.
+    region: varchar("region", { length: 10 }), // 'IN' | 'GLOBAL' | null
+    contactEmail: varchar("contact_email", { length: 254 }),
+    contactMobile: varchar("contact_mobile", { length: 15 }),
+    note: varchar("note", { length: 500 }),
+    // Set when the founder reaches out. Different from `convertedAt`
+    // because someone can be contacted and not convert.
+    contactedAt: timestamp("contacted_at", { withTimezone: true }),
+    convertedAt: timestamp("converted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    clinicIdx: index("plan_interest_clinic_idx").on(t.clinicId),
+    createdIdx: index("plan_interest_created_idx").on(t.createdAt),
   }),
 );
 

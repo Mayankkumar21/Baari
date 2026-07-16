@@ -5,7 +5,7 @@
 // forbidden banner that leaks the route's existence.
 
 import Link from "next/link";
-import { ShieldCheck, LayoutDashboard, Building2, Users } from "lucide-react";
+import { ShieldCheck, LayoutDashboard, Building2, Users, Mail } from "lucide-react";
 import { requireAdmin } from "@/lib/admin";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LogoutButton } from "@/components/app/logout-button";
@@ -38,6 +38,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </Link>
             <Link href="/admin/workspaces" className="rounded-md px-3 py-1.5 hover:bg-muted/60 flex items-center gap-1.5">
               <Building2 className="size-4" /> Workspaces
+            </Link>
+            <Link href="/admin/interest" className="rounded-md px-3 py-1.5 hover:bg-muted/60 flex items-center gap-1.5">
+              <Mail className="size-4" /> Interest
             </Link>
             <Link href="/queue" className="rounded-md px-3 py-1.5 hover:bg-muted/60 flex items-center gap-1.5">
               <Users className="size-4" /> Owner view →

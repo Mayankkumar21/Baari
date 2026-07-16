@@ -18,6 +18,7 @@ import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { InterestButton } from "./interest-modal";
 
 type Region = "IN" | "GLOBAL";
 
@@ -74,7 +75,11 @@ const FEATURES = {
   ],
 };
 
-export function TierGrid() {
+export function TierGrid({
+  authedContext,
+}: {
+  authedContext: { defaultEmail: string; defaultMobile: string } | null;
+}) {
   // SSR-safe default = global USD; India visitors get flipped on
   // hydration. Avoids a layout jump when the price string length
   // changes marginally — Growth/Pro widths differ by ~1 char.
@@ -104,6 +109,16 @@ export function TierGrid() {
           tagline="Perfect for small clinics and pilot users."
           cta="Start free"
           features={FEATURES.free}
+          // Free tier has no interest-capture flow — you can just use
+          // it. Authed visitors already ARE on Free (or higher), so
+          // they get a "You're already in" ghost note instead.
+          authedFooter={
+            authedContext ? (
+              <div className="w-full text-center text-xs text-muted-foreground">
+                You&apos;re already signed in.
+              </div>
+            ) : null
+          }
         />
         <TierCard
           name="Growth"
@@ -114,6 +129,19 @@ export function TierGrid() {
           badge="Most popular"
           cta="Try free for 2 months"
           features={FEATURES.growth}
+          authedFooter={
+            authedContext ? (
+              <InterestButton
+                desiredPlan="growth"
+                planLabel="Growth"
+                buttonLabel="I want Growth"
+                region={region}
+                defaultEmail={authedContext.defaultEmail}
+                defaultMobile={authedContext.defaultMobile}
+                variant="glow"
+              />
+            ) : null
+          }
         />
         <TierCard
           name="Pro"
@@ -122,6 +150,18 @@ export function TierGrid() {
           tagline="For multi-doctor practices and high-volume salons."
           cta="Try free for 2 months"
           features={FEATURES.pro}
+          authedFooter={
+            authedContext ? (
+              <InterestButton
+                desiredPlan="pro"
+                planLabel="Pro"
+                buttonLabel="I want Pro"
+                region={region}
+                defaultEmail={authedContext.defaultEmail}
+                defaultMobile={authedContext.defaultMobile}
+              />
+            ) : null
+          }
         />
       </div>
     </>
@@ -137,6 +177,7 @@ function TierCard({
   cta,
   highlight = false,
   badge,
+  authedFooter,
 }: {
   name: string;
   price: string;
@@ -146,6 +187,10 @@ function TierCard({
   cta: string;
   highlight?: boolean;
   badge?: string;
+  // When the visitor is signed in, we render this instead of the
+  // "Try free for 2 months → /signup" CTA. Interest-capture button
+  // for Growth/Pro; "You're already signed in" note for Free.
+  authedFooter?: React.ReactNode;
 }) {
   return (
     <div
@@ -182,16 +227,20 @@ function TierCard({
       </ul>
 
       <div className="mt-8 pt-2">
-        <Button
-          asChild
-          size="lg"
-          variant={highlight ? "glow" : "outline"}
-          className="w-full"
-        >
-          <Link href="/signup">
-            {cta} <ArrowRight className="size-4" />
-          </Link>
-        </Button>
+        {authedFooter ? (
+          authedFooter
+        ) : (
+          <Button
+            asChild
+            size="lg"
+            variant={highlight ? "glow" : "outline"}
+            className="w-full"
+          >
+            <Link href="/signup">
+              {cta} <ArrowRight className="size-4" />
+            </Link>
+          </Button>
+        )}
       </div>
     </div>
   );

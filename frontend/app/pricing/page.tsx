@@ -16,9 +16,22 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
+import { getSession } from "@/lib/session";
 import { TierGrid } from "./tier-grid";
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  // Peek at the session so authed owners see "I want this plan"
+  // (which opens the interest-capture modal) instead of the
+  // "Start free / Try free for 2 months" CTAs that dead-end at
+  // /signup or /queue.
+  const sess = await getSession();
+  const authedContext = sess
+    ? {
+        defaultEmail: sess.user.email ?? "",
+        defaultMobile: sess.user.mobile ?? "",
+      }
+    : null;
+
   return (
     <main className="min-h-screen">
       <SiteHeader />
@@ -58,7 +71,7 @@ export default function PricingPage() {
 
       {/* Tier cards — currency-aware client component. */}
       <section className="container pt-16 sm:pt-24">
-        <TierGrid />
+        <TierGrid authedContext={authedContext} />
       </section>
 
       {/* The 2-month deal — explicit */}
