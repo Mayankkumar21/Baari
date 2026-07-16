@@ -16,11 +16,13 @@ import { db, schema } from "@/lib/db/client";
 import {
   customerToPublic,
   ERRORS,
+  fail,
   ok,
   readJson,
   requireCustomer,
 } from "@/lib/api-helpers";
 import { normalizeMobile } from "@/lib/auth";
+import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
 
 const COOLDOWN_DAYS = 30;
 
@@ -29,6 +31,13 @@ type Body = { mobile?: string; language?: "en" | "hi" };
 export async function POST(req: Request) {
   const auth = await requireCustomer(req);
   if (auth instanceof Response) return auth;
+
+  const rl = await checkAndIncrement(
+    LIMITS.customer_action_per_user,
+    "cust_mobile",
+    String(auth.id),
+  );
+  if (!rl.ok) return fail(429, "Too many attempts. Wait a bit.", "RATE_LIMITED");
 
   const body = await readJson<Body>(req);
   if (!body?.mobile) return ERRORS.BAD_REQUEST("mobile is required.");

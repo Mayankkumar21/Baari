@@ -296,6 +296,18 @@ export const bookings = pgTable(
     dateIdx: index("bookings_date_idx").on(t.date),
     statusIdx: index("bookings_status_idx").on(t.status),
     slotIdx: index("bookings_slot_idx").on(t.slotTime),
+    // Growth reports (silent-churn, new-vs-returning, LTV) all
+    // GROUP BY patient_id then aggregate on completed_at. Without
+    // these composite indexes, each query is a full-table scan once
+    // a workspace has >1k bookings.
+    clinicPatientIdx: index("bookings_clinic_patient_idx").on(
+      t.clinicId,
+      t.patientId,
+    ),
+    clinicCompletedIdx: index("bookings_clinic_completed_idx").on(
+      t.clinicId,
+      t.completedAt,
+    ),
   }),
 );
 

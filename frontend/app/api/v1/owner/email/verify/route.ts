@@ -13,6 +13,8 @@ import { ERRORS, fail, ok, readJson } from "@/lib/api-helpers";
 import { normalizeEmail } from "@/lib/auth";
 import { requireSession } from "@/lib/session";
 import { hashOtpCode, MAX_ATTEMPTS } from "@/lib/otp";
+import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/client-ip";
 
 type Body = { email?: string; code?: string };
 
@@ -26,6 +28,10 @@ export async function POST(req: Request) {
       }
     })();
     if (!sess) return ERRORS.UNAUTHORIZED();
+
+    const ip = getClientIp(req);
+    const rl = await checkAndIncrement(LIMITS.otp_verify_per_ip, "otp_verify", ip);
+    if (!rl.ok) return fail(429, "Too many attempts. Wait and retry.", "RATE_LIMITED");
 
     const body = await readJson<Body>(req);
     const email = normalizeEmail(body?.email);

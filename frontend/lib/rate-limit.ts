@@ -6,7 +6,7 @@ import { db, schema } from "@/lib/db/client";
 type LimitSpec = { limit: number; windowSeconds: number };
 
 export const LIMITS: Record<string, LimitSpec> = {
-  signup_per_ip: { limit: 5, windowSeconds: 3600 },
+  signup_per_ip: { limit: 10, windowSeconds: 3600 },
   signup_per_mobile: { limit: 3, windowSeconds: 3600 },
   login_per_ip: { limit: 30, windowSeconds: 600 },
   login_per_mobile: { limit: 10, windowSeconds: 600 },
@@ -31,14 +31,15 @@ export const LIMITS: Record<string, LimitSpec> = {
   //                           session-authed email/start flow. Stops
   //                           a compromised session from burning
   //                           through an account's quota.
-  //   email_global_day      — global fuse. Set well below Resend's
-  //                           free-tier daily (100/day) and Vercel's
-  //                           bounce reputation ceiling, so a runaway
-  //                           bug can't get us flagged.
+  //   email_global_day      — global fuse. Set below Resend's free-tier
+  //                           daily (100/day) so we trip our own limit
+  //                           BEFORE Resend 429s us — otherwise a
+  //                           runaway bug burns our sender reputation
+  //                           instead of just our quota.
   email_recipient_hour: { limit: 3, windowSeconds: 3600 },
   email_recipient_day: { limit: 8, windowSeconds: 86_400 },
   email_user_hour: { limit: 4, windowSeconds: 3600 },
-  email_global_day: { limit: 500, windowSeconds: 86_400 },
+  email_global_day: { limit: 80, windowSeconds: 86_400 },
   // Booking-flow caps — mostly to stop a compromised customer session
   // from spamming the DB with fake bookings or grinding the T-token
   // uniqueness retry loop.
@@ -71,6 +72,21 @@ export const LIMITS: Record<string, LimitSpec> = {
   // 240/hr = one poll every 15s continuously — enough for real use,
   // stops a runaway loop from a compromised session.
   poll_per_user: { limit: 240, windowSeconds: 3600 },
+  // Miscellaneous per-user caps for endpoints that weren't hardened in
+  // the first pass but the launch audit flagged. Each does real DB
+  // work; a stuck client or a hijacked session could otherwise pound
+  // them.
+  //   customer_action_per_user — cancel booking, mobile change, per-
+  //     booking GET. Real usage is single-digit per session.
+  //   export_per_user          — Pro CSV export. Each variant runs
+  //     several aggregations across the whole bookings table.
+  //   otp_verify_per_ip        — /owner/email/verify. Per-row attempt
+  //     count already caps brute-force of a single OTP, but an attacker
+  //     can still cycle /email/start to mint OTPs and then spray the
+  //     verify endpoint.
+  otp_verify_per_ip: { limit: 20, windowSeconds: 3600 },
+  customer_action_per_user: { limit: 30, windowSeconds: 3600 },
+  export_per_user: { limit: 20, windowSeconds: 3600 },
   // Owner queue mutations (checkin/start/done/no-show/cancel/walkin).
   // Each mutation triggers `tryPromoteNextBooking` which does 3-4 DB
   // round-trips, so a stuck client or a compromised owner session can

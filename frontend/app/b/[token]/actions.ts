@@ -215,6 +215,15 @@ export async function cancelBookingAction(
   const reason = String(formData.get("reason") ?? "").trim() || undefined;
   const lang = formData.get("lang") === "hi" ? "hi" : "en";
 
+  // Same per-IP fuse as confirm — public URL-token gated, IP is the
+  // only signal we have to stop bots grinding the endpoint.
+  const hdrs = await headers();
+  const ip = getClientIp(hdrs);
+  const rl = await checkAndIncrement(LIMITS.b_confirm_per_ip, "b_cancel", ip);
+  if (!rl.ok) {
+    return { error: "Too many attempts. Please wait a bit and try again." };
+  }
+
   const found = await getBookingRequestByToken(token);
   if (!found) return { error: "Link expired." };
   const { request } = found;

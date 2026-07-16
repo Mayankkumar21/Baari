@@ -6,11 +6,15 @@
 
 export const dynamic = "force-dynamic";
 
-import { ok, requireOwner } from "@/lib/api-helpers";
+import { fail, ok, requireOwner } from "@/lib/api-helpers";
+import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
 
 export async function GET(req: Request) {
   const auth = await requireOwner(req);
   if (auth instanceof Response) return auth;
+
+  const rl = await checkAndIncrement(LIMITS.poll_per_user, "owner_me", String(auth.user.id));
+  if (!rl.ok) return fail(429, "Too many requests.", "RATE_LIMITED");
 
   const { user, clinic } = auth;
 

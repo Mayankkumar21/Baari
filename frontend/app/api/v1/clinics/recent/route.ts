@@ -5,12 +5,17 @@
 
 export const dynamic = "force-dynamic";
 
-import { ok, requireCustomer } from "@/lib/api-helpers";
+import { fail, ok, requireCustomer } from "@/lib/api-helpers";
 import { recentPublicClinicsForCustomer } from "@/lib/services/public-clinics";
+import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
 
 export async function GET(req: Request) {
   const auth = await requireCustomer(req);
   if (auth instanceof Response) return auth;
+
+  const rl = await checkAndIncrement(LIMITS.poll_per_user, "recent", String(auth.id));
+  if (!rl.ok) return fail(429, "Too many requests.", "RATE_LIMITED");
+
   const clinics = await recentPublicClinicsForCustomer(auth.id);
   return ok({ clinics });
 }

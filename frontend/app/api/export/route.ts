@@ -13,6 +13,7 @@ import { NextResponse } from "next/server";
 import { db, schema } from "@/lib/db/client";
 import { requireSession } from "@/lib/session";
 import { assertPlan, PlanRequiredError } from "@/lib/plans";
+import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,6 +43,21 @@ function fmtDateStr(d: Date | string | null): string {
 
 export async function GET(req: Request) {
   const sess = await requireSession();
+
+  // Cap heavy CSV export runs — each aggregates across the whole
+  // bookings table.
+  const rl = await checkAndIncrement(
+    LIMITS.export_per_user,
+    "export",
+    String(sess.user.id),
+  );
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Too many exports. Try again in an hour.", code: "RATE_LIMITED" },
+      { status: 429 },
+    );
+  }
+
   try {
     assertPlan(sess.clinic, "pro");
   } catch (e) {

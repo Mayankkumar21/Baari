@@ -2,11 +2,12 @@
 
 export const dynamic = "force-dynamic";
 
-import { ERRORS, ok, readJson, requireCustomer } from "@/lib/api-helpers";
+import { ERRORS, fail, ok, readJson, requireCustomer } from "@/lib/api-helpers";
 import {
   CustomerBookingError,
   cancelCustomerBooking,
 } from "@/lib/services/customer-bookings";
+import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
 
 type Body = { reason?: string };
 
@@ -16,6 +17,14 @@ export async function POST(
 ) {
   const auth = await requireCustomer(req);
   if (auth instanceof Response) return auth;
+
+  const rl = await checkAndIncrement(
+    LIMITS.customer_action_per_user,
+    "cust_cancel",
+    String(auth.id),
+  );
+  if (!rl.ok) return fail(429, "Too many attempts. Wait a bit.", "RATE_LIMITED");
+
   const { id } = await params;
   const bookingId = Number(id);
   if (!Number.isFinite(bookingId)) return ERRORS.BAD_REQUEST("Bad booking id.");
