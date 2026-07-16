@@ -1,12 +1,30 @@
 # Baari
 
-Queue and booking management for appointment-based businesses — clinics, salons,
-and similar verticals where customers wait for a sequential service. SaaS-first;
-each vendor signs up to their own isolated workspace.
-FastAPI + HTMX + Postgres, deployed serverlessly on Vercel.
+Queue and booking management for appointment-based businesses — clinics,
+salons, dental practices, spas, vets, and similar verticals where customers
+wait for a sequential service. Multi-tenant SaaS; each vendor signs up to
+their own isolated workspace.
 
-See the source folder's PRD for the original product spec (originally written
-for single-doctor homeopathy clinics — multi-vertical generalisation is in progress).
+Two surfaces on one backend:
+- **Receptionist dashboard** (web) at **https://getbaari.in** — desk staff
+  log in, run today's queue, create bookings, mark customers through the
+  checked-in → in-session → done flow, view Reports.
+- **Customer mobile app** (React Native / Expo, Android first) — customers
+  discover nearby businesses, book a slot, watch live queue position.
+
+Tech stack: Next.js 15 App Router (frontend/), Drizzle + Neon Postgres,
+Railway deploy. Billing tiers are Free / Growth / Pro with a 60-day Pro
+trial on signup.
+
+> **This README is legacy** — originally written for the FastAPI / Docker
+> Compose era. The current codebase is Next.js on Railway; the "Run it
+> with one click" section below (Docker Desktop, `start-baari.command`,
+> `docker compose down`) is stale.
+>
+> **Read [AGENTS.md](AGENTS.md) for the current architecture, dev
+> workflow, and deploy pipeline** — that's the maintained source of
+> truth. [HANDOFF.md](HANDOFF.md) has product-plus-engineering context
+> for humans; its top-of-file 2026-07-15 addendum notes what's moved.
 
 ## Run it with one click (for testers — no coding needed)
 

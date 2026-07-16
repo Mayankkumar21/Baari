@@ -12,6 +12,142 @@ Everything you need to make safe, in-style changes is here.
 
 ---
 
+## 🆕 Recent updates (through 2026-07-15)
+
+Second delta on top of the 2026-07-03 pass. Anything in this section
+overrides both the 2026-07-03 block below it AND the earlier body.
+
+### Railway is production now (Vercel is dead)
+
+- **Railway** is the sole deploy target as of `4267f93`. `getbaari.in`
+  is live. Vercel artifacts were purged. `vercel.json` at repo root is
+  legacy Python-era config — ignore.
+- Any earlier section that says "Vercel is prod" or "Railway is staging"
+  (the 2026-07-03 block below, §17 later in this file, HANDOFF.md §7)
+  is stale. Deploy target = Railway; healthcheck `/api/health`.
+
+### Billing plans (Batch 1-3, 2026-07-14→2026-07-15)
+
+Free / Growth / Pro with a 60-day Pro trial on signup. Resolver, gates,
+quota enforcement, admin grants, and header pill are wired end-to-end.
+
+- **Schema (clinics):** `plan varchar(20) default 'free'`,
+  `plan_trial_ends_at timestamptz`, `plan_source varchar(20) default
+  'trial'` (`trial | paid | admin_grant`), `plan_granted_by integer`.
+  Also `bookings.category varchar(40)` for the category-revenue split.
+  Applied via `frontend/scripts/add-plan-columns.sql` (with 60-day
+  backfill for all 13 existing clinics) and `add-booking-category.sql`.
+- **Resolver:** `frontend/lib/plans.ts` — `effectivePlan(clinic)`
+  resolves an unexpired `plan_trial_ends_at` up to `pro` regardless of
+  the base `plan` column. `hasPlan(clinic, tier)` + `assertPlan(...)`
+  are the gates. `PlanRequiredError` for server actions to catch and
+  render a friendly upgrade CTA.
+- **Signup:** `/signup` sets `plan_trial_ends_at = now + 60d`. `plan`
+  stays `free` so trial-end organically downgrades to Free unless the
+  owner upgrades.
+- **Quota:** `MONTHLY_QUOTA` = { free: 100, growth: 500, pro: null }.
+  `loadQuotaState(clinic, id)` counts non-cancelled bookings created in
+  the current calendar month. `assertMonthlyQuota()` gates ALL FOUR
+  create paths — dashboard `createBooking`, walk-in `createWalkIn`,
+  customer `createCustomerBooking`, missed-call `/b/[token]` confirm.
+  Soft banner on `/queue` at 80% used; hard banner + Upgrade CTA at
+  100%; existing bookings still complete normally.
+- **Plan badge:** `components/app/plan-badge.tsx` — small pill in the
+  app-layout header. Trial → "Trial · Nd" (amber under 15 days, primary
+  otherwise). Otherwise → plain "Free" / "Growth" / "Pro" pill. Click →
+  `/pricing`.
+
+### Reports gained tier-gated sections
+
+`frontend/lib/services/reports-growth.ts` holds four new queries; the
+Reports page (`app/(app)/reports/page.tsx`) renders them behind
+`hasPlan()`. Free workspaces see a `<PlanLocked>` nudge card instead of
+the data.
+
+- **New vs Returning** (Growth) — visits in-range whose patient's
+  first-ever done booking is also in-range vs before it.
+- **Silent churn** (Growth) — patients with ≥2 done bookings whose most
+  recent visit is > 60 days ago BUT within the last 12 months. Ordered
+  "most recently ghosted first."
+- **Category revenue** (Growth) — SUM(`amount_paid_inr`) grouped by
+  `bookings.category`. Mark Done grows a chip picker suggesting
+  tenant-appropriate buckets (`lib/categories.ts`).
+- **Cohort retention** (Pro) — `date_trunc('month', first done booking)`
+  × month-index matrix, rendered as a colour-ramped heatmap.
+
+**Timestamp gotcha:** postgres-js delivers `date_trunc(...)` and
+`MAX(completed_at)` from `db.execute()` as ISO strings, not `Date`
+instances (Drizzle-typed rows do coerce to Date). Type those fields as
+`string` in the raw-row shapes — `.toISOString is not a function`
+crashed prod on first deploy (`15a0d95`). Rule of thumb: raw
+`db.execute()` timestamps = string.
+
+### Pro-tier surfaces
+
+- **CSV export** — `/api/export?kind=bookings|customers|revenue&from&to`.
+  Session-gated by middleware, re-asserts `pro` at the handler. Reports
+  header grows an "Export" popover, rendered only when Pro.
+- **LTV chip** — `getRecentGuests()` in `lib/services/patients.ts`
+  already scans the bookings join, so `visitCount` + `ltvInr` piggyback
+  at zero round-trip cost. `/search` shows a `₹ … LTV` chip on recent
+  guests when Pro-unlocked.
+
+### Admin plan grants
+
+`/admin/workspaces` gets a **Plan** column. Per-row popover
+(`plan-cell.tsx`) picks tier + optional YYYY-MM-DD expiry.
+`grantPlanAction()` writes `plan`, `plan_source='admin_grant'`,
+`plan_granted_by=<admin uid>`, and uses `plan_trial_ends_at` as the
+grant cutoff (null = permanent). Every grant logs to `audit_log`. Admin
+gate itself is unchanged — env var allowlist via `ADMIN_MOBILES`.
+
+### Marketing header is session-aware
+
+`components/site-header.tsx` is now an async server component. When the
+visitor has a valid session cookie, the right-hand CTA swaps from "Sign
+in" → "Dashboard →" (links `/queue`). Fixes the "signed-in owner hits
+/pricing and still sees Sign in" nag.
+
+### Pricing page — region-detected, no picker
+
+- SSR default = USD; client mount reads `Intl.Locale.region` /
+  `navigator.language` and swaps to INR if the visitor reads as Indian.
+- India (region `IN` / `hi-*` / `*-in` tags) → INR ₹999 / ₹1,999.
+- Everyone else → USD $19 / $49.
+- No dropdown — if given one, non-Indian visitors would tick "India"
+  to save money. A small non-interactive chip explains the detected
+  currency.
+
+### International readiness
+
+- Mobile validation moved from `^[6-9]\d{9}$` (Indian-only) to E.164
+  `^\+[1-9]\d{7,14}$`. `normalizeMobile()` accepts both new E.164 input
+  AND legacy bare Indian mobiles (auto-prefixed `+91`) for backward
+  compat with mobile-app clients still on the old shape.
+- Country-code picker (web `components/country-code-picker.tsx`, mobile
+  `Baari-app/frontend/components/CountryCodePicker.tsx`) on every mobile
+  input field. Locale-based default via `Intl.Locale.region` / RN
+  `expo-localization.getLocales()[0]?.regionCode`.
+- Migration `frontend/scripts/migrate-mobile-e164.sql` prepends `+91`
+  to every legacy row in `users`, `patients`, `customers`,
+  `bookings.guest_mobile`, `booking_requests` so E.164 lookups match.
+- Landing copy internationalised: sample names mix international +
+  Indian (Sarah Chen / James Park / Priya Sharma / Sundar Rao / Aroma
+  Salon); customer-app mockup rows carry different cities (London /
+  Mumbai / Singapore); "English + हिन्दी" card replaced with "Works on
+  any phone."
+
+### Discipline reminders
+
+- `db:push` is TTY-interactive; when running from a headless shell,
+  hand-write the SQL script and `psql -f`. Both plan schema pushes
+  (2026-07-14, 2026-07-15) went via `scripts/*.sql` for that reason.
+- `frontend/scripts/seed-admin.sql` contains real bcrypt hashes for
+  admin logins. Reference by path only; never paste contents or commit
+  the file to a diff you'll push.
+
+---
+
 ## 🆕 Recent updates (through 2026-07-03)
 
 Substantial delta since the 2026-06-19 rewrite. Anything below overrides
@@ -103,15 +239,34 @@ Add as GitHub repo secret:
 
 - `NEON_WARM_URL` — full URL the warm cron pings (e.g. `https://baari-production.up.railway.app/api/health?db=1`).
 
-### What's NOT in yet (open work)
+### What's NOT in yet (open work — updated 2026-07-15)
 
-- Owner-side write actions on mobile (check-in, start, mark-done, walk-in creation).
+Landed since the 2026-07-03 list: owner-side mobile writes (all queue
+actions ship), owner-mobile-app internationalisation (E.164 + country
+picker), plan/tier system (see above). Still open:
+
+- **Multi-workspace** — one owner login → N workspaces. Real 5-7 day
+  rework of session + every server action. Deferred; called out as a
+  Pro-tier future feature but not yet in the `/pricing` list.
+- **Payments plumbing.** `plan` column is display+gate-only today; no
+  Razorpay/Stripe integration. Owner "Upgrade" flows all point at
+  `/pricing`, which currently just shows tiers. Growth/Pro are only
+  reachable through the trial or an admin grant right now.
+- **EOD summary email / broadcasts / real WhatsApp.** Needs an MSG91-
+  or Interakt-style BSP contract; not built.
+- **Referral tracking, real API access.** Called out as removed from
+  `/pricing` claims; still no roadmap in code.
 - Google Sign-in on the dashboard (link-first flow — task tracked).
-- Rate-limit wrapper on public discovery endpoints (infra exists in `lib/rate-limit.ts`, not yet applied).
+- Rate-limit wrapper on public discovery endpoints (infra exists in
+  `lib/rate-limit.ts`, not yet applied).
 - Slug → clinicId lookup optimisation in `/bookings/:id/status`.
-- DB uniqueness constraints for the documented 2-active-cap + slot-time races.
+- DB uniqueness constraints for the 2-active-cap race (slot-time race
+  DID land in `5eb8326` — see `uq_bookings_clinic_slot_live` partial
+  unique index).
 - Composite index on `bookings(clinicId, date, status)` for Reports.
-- Distance / "Near you" ranking on Discover (needs clinic lat/lng capture first).
+- Distance / "Near you" ranking on Discover (needs clinic lat/lng
+  capture first). Actively planned — see the "Distance ranking" note
+  in memory.
 
 ---
 
