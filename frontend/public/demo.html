@@ -1,0 +1,827 @@
+<!doctype html>
+<html lang="en" style="height:100%;">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1440,initial-scale=1" />
+<title>Baari — in motion</title>
+<style>
+  :root {
+    --bg: #08080b;
+    --card: #0f0f12;
+    --card-elev: #14141a;
+    --secondary: #1d1d22;
+    --fg: #fafafa;
+    --muted: #a1a1aa;
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.14);
+    --primary: hsl(245 80% 66%);
+    --primary-15: hsl(245 80% 66% / 0.15);
+    --emerald: #10b981;
+    --emerald-30: rgba(16,185,129,0.30);
+    --amber: #f59e0b;
+    --rose: #f43f5e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+  .stage {
+    position: absolute; inset: 0;
+    display: grid;
+    place-items: center;
+  }
+  .scene {
+    position: absolute; inset: 0;
+    padding: 24px 40px;
+    display: flex; flex-direction: column;
+    opacity: 0;
+    transform: scale(0.98);
+    animation-duration: 15s;
+    animation-iteration-count: infinite;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  /* scene 1: 0-33% visible */
+  #s1 { animation-name: s1; }
+  @keyframes s1 {
+    0%   { opacity: 0; transform: scale(0.98); }
+    4%   { opacity: 1; transform: scale(1); }
+    30%  { opacity: 1; transform: scale(1); }
+    34%  { opacity: 0; transform: scale(0.98); }
+    100% { opacity: 0; transform: scale(0.98); }
+  }
+  /* scene 2: 33-66% */
+  #s2 { animation-name: s2; }
+  @keyframes s2 {
+    0%   { opacity: 0; transform: scale(0.98); }
+    32%  { opacity: 0; transform: scale(0.98); }
+    36%  { opacity: 1; transform: scale(1); }
+    63%  { opacity: 1; transform: scale(1); }
+    67%  { opacity: 0; transform: scale(0.98); }
+    100% { opacity: 0; transform: scale(0.98); }
+  }
+  /* scene 3: 66-100% */
+  #s3 { animation-name: s3; }
+  @keyframes s3 {
+    0%   { opacity: 0; transform: scale(0.98); }
+    65%  { opacity: 0; transform: scale(0.98); }
+    69%  { opacity: 1; transform: scale(1); }
+    96%  { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.98); }
+  }
+
+  /* ─── Shared header ─── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    border: 1px solid var(--border);
+    background: rgba(8,8,11,0.85);
+    border-radius: 12px;
+    margin-bottom: 16px;
+    height: 44px;
+    flex-shrink: 0;
+  }
+  .brand { display: flex; align-items: center; gap: 8px; }
+  .brand-logo {
+    width: 22px; height: 22px;
+    border-radius: 5px;
+    background: linear-gradient(135deg, var(--primary), hsl(255 80% 60%));
+    display: grid; place-items: center;
+    color: white; font-weight: 800; font-size: 11px;
+    box-shadow: 0 0 0 1px hsl(245 80% 66% / 0.5), 0 4px 12px -4px hsl(245 80% 66% / 0.6);
+  }
+  .brand-name {
+    font-weight: 700; font-size: 12px; letter-spacing: -0.01em;
+    background: linear-gradient(to bottom, var(--fg) 30%, var(--primary));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .nav { display: flex; gap: 4px; }
+  .nav-item {
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .nav-item.active { background: var(--secondary); color: var(--fg); }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .trial-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid hsl(245 80% 66% / 0.4);
+    background: var(--primary-15);
+    color: var(--primary);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .user-tag { color: var(--muted); font-size: 11px; }
+  .user-tag strong { color: var(--fg); font-weight: 600; }
+
+  /* ═══════════════════ SCENE 1 · QUEUE ═══════════════════ */
+  .page-title-row {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    margin-bottom: 12px;
+  }
+  .page-eyebrow { font-size: 11px; color: var(--muted); }
+  .page-title { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+  .btn-glow {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 11px; font-weight: 600;
+    background: var(--primary);
+    color: white; border: none;
+    box-shadow: 0 6px 20px -6px hsl(245 80% 66% / 0.7);
+  }
+
+  .counter-strip {
+    display: flex; gap: 24px;
+    padding: 10px 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--card);
+    margin-bottom: 12px;
+  }
+  .counter { display: flex; align-items: baseline; gap: 5px; }
+  .counter-label { font-size: 11px; color: var(--muted); }
+  .counter-value {
+    font-size: 13px; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .counter-value.count {
+    display: inline-block;
+    animation: countUp 1s ease-out 0.5s both;
+  }
+  @keyframes countUp {
+    0% { transform: translateY(6px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+
+  .queue-grid {
+    display: grid; grid-template-columns: 1.3fr 1fr;
+    gap: 16px; flex: 1; min-height: 0;
+  }
+  .panel {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--card);
+    padding: 16px;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .panel-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px;
+  }
+  .panel-title {
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .panel-count {
+    font-size: 12px; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .queue-list { display: flex; flex-direction: column; gap: 6px; }
+  .queue-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid hsl(245 80% 66% / 0.25);
+    background: hsl(245 80% 66% / 0.08);
+    opacity: 0;
+    animation: rowIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  @keyframes rowIn {
+    0% { opacity: 0; transform: translateY(8px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  #s1 .queue-row:nth-child(1) { animation-delay: 0.8s; }
+  #s1 .queue-row:nth-child(2) { animation-delay: 1.0s; }
+  #s1 .queue-row:nth-child(3) { animation-delay: 1.2s; }
+  #s1 .queue-row:nth-child(4) { animation-delay: 1.4s; }
+  #s1 .queue-row:nth-child(5) { animation-delay: 1.6s; }
+  .queue-row.late {
+    border-color: rgba(245,158,11,0.4);
+    background: rgba(245,158,11,0.15);
+  }
+  .token-badge {
+    width: 38px; padding: 3px 0;
+    text-align: center;
+    background: var(--secondary);
+    border-radius: 5px;
+    font-weight: 800; font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+  .row-body { flex: 1; min-width: 0; }
+  .row-name { font-size: 12px; font-weight: 600; }
+  .row-meta { font-size: 10px; color: var(--muted); margin-top: 1px; }
+  .row-badge {
+    padding: 2px 6px; border-radius: 999px;
+    font-size: 9px; font-weight: 700;
+    border: 1px solid; text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .row-badge.amber { color: #fbbf24; border-color: rgba(245,158,11,0.5); background: rgba(245,158,11,0.15); }
+  .row-badge.repeat { color: #34d399; border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.1); }
+
+  .now-card {
+    border: 1px solid var(--emerald-30);
+    background: rgba(16,185,129,0.08);
+    border-radius: 12px;
+    padding: 18px;
+    display: flex; flex-direction: column;
+    height: 100%; position: relative; overflow: hidden;
+    animation: breathe 3s ease-in-out infinite;
+  }
+  @keyframes breathe {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.0); }
+    50%      { box-shadow: 0 0 40px 0 rgba(16,185,129,0.25); }
+  }
+  .now-card::before {
+    content: ""; position: absolute; top: -30px; right: -30px;
+    width: 160px; height: 160px; border-radius: 999px;
+    background: rgba(16,185,129,0.15); filter: blur(50px);
+  }
+  .now-head {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    position: relative;
+  }
+  .now-label { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  .now-token {
+    font-size: 40px; font-weight: 900; letter-spacing: -0.03em;
+    line-height: 1; margin-top: 4px;
+    background: linear-gradient(to bottom, #fafafa 30%, #34d399);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .now-status-pill {
+    padding: 3px 8px; border-radius: 999px;
+    font-size: 9px; font-weight: 700;
+    color: #6ee7b7;
+    border: 1px solid rgba(16,185,129,0.5);
+    background: rgba(16,185,129,0.2);
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .now-name { font-size: 16px; font-weight: 700; margin-top: 16px; position: relative; }
+  .now-reason { font-size: 11px; color: var(--muted); margin-top: 3px; position: relative; }
+  .now-started { font-size: 10px; color: var(--muted); margin-top: 4px; position: relative; }
+  .now-actions { margin-top: auto; position: relative; padding-top: 16px; }
+  .btn-success {
+    background: var(--emerald); color: white;
+    padding: 8px 14px; border: none; border-radius: 8px;
+    font-weight: 700; font-size: 11px;
+    display: inline-flex; align-items: center; gap: 5px;
+    box-shadow: 0 6px 18px -6px rgba(16,185,129,0.7);
+    animation: pulseBtn 2s ease-in-out infinite;
+  }
+  @keyframes pulseBtn {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.05); }
+  }
+
+  /* ═══════════════════ SCENE 2 · REPORTS KPIs ═══════════════════ */
+  #s2 .page-title { font-size: 22px; font-weight: 800; }
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px; margin-bottom: 14px;
+  }
+  .kpi {
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--card);
+    position: relative; overflow: hidden;
+    opacity: 0;
+    animation: kpiIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  @keyframes kpiIn {
+    0% { opacity: 0; transform: translateY(10px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  .kpi::before {
+    content: ""; position: absolute; top: 0; left: 6px; right: 6px; height: 1px;
+    background: linear-gradient(to right, transparent, hsl(245 80% 66% / 0.5), transparent);
+  }
+  #s2 .kpi:nth-child(1) { animation-delay: 5.4s; }
+  #s2 .kpi:nth-child(2) { animation-delay: 5.5s; }
+  #s2 .kpi:nth-child(3) { animation-delay: 5.6s; }
+  #s2 .kpi:nth-child(4) { animation-delay: 5.7s; }
+  #s2 .kpi:nth-child(5) { animation-delay: 5.8s; }
+  #s2 .kpi:nth-child(6) { animation-delay: 5.9s; }
+  .kpi-label { font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .kpi-value {
+    font-size: 26px; font-weight: 800; letter-spacing: -0.02em;
+    margin-top: 3px; font-variant-numeric: tabular-nums; line-height: 1;
+  }
+  .kpi-delta {
+    display: inline-flex; align-items: center; gap: 3px;
+    margin-top: 5px; font-size: 10px; font-weight: 600;
+  }
+  .kpi-delta.up { color: #34d399; }
+  .kpi-delta.down { color: #f87171; }
+  .kpi-delta.neutral { color: var(--muted); }
+
+  .revenue-strip {
+    padding: 16px 18px;
+    border: 1px solid rgba(16,185,129,0.25);
+    border-radius: 10px;
+    background: rgba(16,185,129,0.05);
+    opacity: 0;
+    animation: kpiIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 6.1s forwards;
+    margin-bottom: 12px;
+  }
+  .revenue-head {
+    display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px;
+  }
+  .revenue-label {
+    font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #6ee7b7; font-weight: 700;
+  }
+  .revenue-context { font-size: 10.5px; color: var(--muted); }
+  .revenue-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .revenue-tile-label { font-size: 10.5px; color: var(--muted); }
+  .revenue-tile-value {
+    font-size: 22px; font-weight: 800; margin-top: 3px;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+  }
+
+  .source-strip {
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--card);
+    opacity: 0;
+    animation: kpiIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 6.3s forwards;
+  }
+  .source-head {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+  }
+  .source-title { font-size: 12px; font-weight: 700; }
+  .source-hint { font-size: 10.5px; color: var(--muted); }
+  .source-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .source-cell {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card-elev);
+    padding: 10px;
+  }
+  .source-cell-label { font-size: 9px; letter-spacing: 0.06em; color: var(--muted); text-transform: uppercase; }
+  .source-cell-row { margin-top: 4px; display: flex; align-items: baseline; gap: 8px; }
+  .source-cell-num {
+    font-size: 20px; font-weight: 800;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+  }
+  .source-cell-pct { font-size: 10.5px; color: var(--muted); }
+
+  /* ═══════════════════ SCENE 3 · INSIGHTS ═══════════════════ */
+  .insights-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1.1fr;
+    gap: 12px; flex: 1; min-height: 0;
+  }
+  .insights-panel { padding: 16px; }
+  .card-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+  .card-title { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 5px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .dot.rose { background: var(--rose); box-shadow: 0 0 10px var(--rose); }
+  .dot.emerald { background: var(--emerald); box-shadow: 0 0 10px var(--emerald); }
+  .dot.primary { background: var(--primary); box-shadow: 0 0 10px var(--primary); }
+  .card-hint { font-size: 10px; color: var(--muted); }
+
+  .churn-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .churn-table th {
+    text-align: left; font-size: 9px; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--muted); font-weight: 600;
+    padding-bottom: 6px; border-bottom: 1px solid var(--border);
+  }
+  .churn-table th.right { text-align: right; }
+  .churn-table td {
+    padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-variant-numeric: tabular-nums;
+    opacity: 0;
+    animation: rowIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  #s3 .churn-table tr:nth-child(1) td { animation-delay: 10.2s; }
+  #s3 .churn-table tr:nth-child(2) td { animation-delay: 10.35s; }
+  #s3 .churn-table tr:nth-child(3) td { animation-delay: 10.5s; }
+  #s3 .churn-table tr:nth-child(4) td { animation-delay: 10.65s; }
+  .churn-name { font-weight: 600; font-size: 12px; }
+  .churn-mobile { color: var(--muted); font-size: 10.5px; margin-top: 1px; }
+  .visits-num { text-align: right; font-weight: 600; }
+  .when { color: var(--muted); text-align: right; font-size: 11px; }
+
+  .cat-bar {
+    display: flex; height: 12px; border-radius: 999px;
+    overflow: hidden; background: var(--secondary); margin-bottom: 12px;
+  }
+  .cat-seg {
+    height: 100%; width: 0;
+    animation: barFill 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  @keyframes barFill {
+    to { width: var(--w); }
+  }
+  #s3 .cat-seg:nth-child(1) { --w: 52%; animation-delay: 10.2s; background: hsl(245 80% 66% / 0.85); }
+  #s3 .cat-seg:nth-child(2) { --w: 31%; animation-delay: 10.6s; background: hsl(245 80% 66% / 0.55); }
+  #s3 .cat-seg:nth-child(3) { --w: 17%; animation-delay: 11.0s; background: hsl(245 80% 66% / 0.30); }
+  .cat-list { display: flex; flex-direction: column; gap: 6px; }
+  .cat-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card-elev);
+    font-size: 12px;
+    opacity: 0;
+    animation: rowIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  #s3 .cat-row:nth-child(1) { animation-delay: 10.5s; }
+  #s3 .cat-row:nth-child(2) { animation-delay: 10.9s; }
+  #s3 .cat-row:nth-child(3) { animation-delay: 11.3s; }
+  .cat-swatch { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+  .cat-name { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+  .cat-count { color: var(--muted); font-size: 10px; margin-left: 4px; font-weight: 500; }
+  .cat-values { display: flex; align-items: baseline; gap: 10px; font-variant-numeric: tabular-nums; }
+  .cat-pct { font-size: 10.5px; color: var(--muted); }
+  .cat-amt { font-weight: 700; }
+
+  .cohort-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .cohort-table th {
+    font-size: 9px; color: var(--muted); letter-spacing: 0.06em;
+    text-transform: uppercase; font-weight: 600; padding-bottom: 6px;
+  }
+  .cohort-table td {
+    padding: 6px 0;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    font-variant-numeric: tabular-nums; text-align: center;
+  }
+  .cohort-table td:first-child, .cohort-table th:first-child { text-align: left; font-weight: 700; }
+  .cohort-table td:nth-child(2), .cohort-table th:nth-child(2) { text-align: right; color: var(--muted); padding-right: 4px; }
+  .cohort-cell {
+    display: inline-block;
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    min-width: 36px;
+    opacity: 0;
+    animation: cellIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  @keyframes cellIn {
+    0% { opacity: 0; transform: scale(0.85); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <!-- ═══════════════════ SCENE 1 · QUEUE ═══════════════════ -->
+  <div class="scene" id="s1">
+    <div class="header">
+      <div class="brand">
+        <div class="brand-logo">b</div>
+        <div class="brand-name">Pratiksha</div>
+      </div>
+      <nav class="nav">
+        <div class="nav-item active">Queue</div>
+        <div class="nav-item">Search</div>
+        <div class="nav-item">Signal</div>
+        <div class="nav-item">Settings</div>
+      </nav>
+      <div class="header-right">
+        <span class="trial-pill">◆ Trial · 60d</span>
+        <span class="user-tag"><strong>Pratiksha yadav</strong> · Doctor</span>
+      </div>
+    </div>
+
+    <div class="page-title-row">
+      <div>
+        <div class="page-eyebrow">Tue 15 Jul 2026 · 11:14 · IST</div>
+        <h1 class="page-title">Queue</h1>
+      </div>
+      <button class="btn-glow">+ New booking</button>
+    </div>
+
+    <div class="counter-strip">
+      <div class="counter"><span class="counter-label">Today:</span><span class="counter-value count">6</span></div>
+      <div class="counter"><span class="counter-label">Waiting:</span><span class="counter-value count">5</span></div>
+      <div class="counter"><span class="counter-label">In consult:</span><span class="counter-value count">1</span></div>
+      <div class="counter"><span class="counter-label">Late:</span><span class="counter-value count">1</span></div>
+    </div>
+
+    <div class="queue-grid">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">Waiting</div>
+          <div class="panel-count">5</div>
+        </div>
+        <div class="queue-list">
+          <div class="queue-row">
+            <div class="token-badge">T13</div>
+            <div class="row-body">
+              <div class="row-name">Sarah Chen</div>
+              <div class="row-meta">10:40 · Consultation · headache</div>
+            </div>
+            <div class="row-badge repeat">4 visits</div>
+          </div>
+          <div class="queue-row">
+            <div class="token-badge">T14</div>
+            <div class="row-body">
+              <div class="row-name">James Park</div>
+              <div class="row-meta">11:00 · party of 2</div>
+            </div>
+          </div>
+          <div class="queue-row late">
+            <div class="token-badge">T15</div>
+            <div class="row-body">
+              <div class="row-name">Priya Sharma</div>
+              <div class="row-meta">11:20 · Follow-up · 8 min late</div>
+            </div>
+            <div class="row-badge amber">Late</div>
+          </div>
+          <div class="queue-row">
+            <div class="token-badge">T16</div>
+            <div class="row-body">
+              <div class="row-name">Sundar Rao</div>
+              <div class="row-meta">11:40 · skin</div>
+            </div>
+            <div class="row-badge repeat">6 visits</div>
+          </div>
+          <div class="queue-row">
+            <div class="token-badge">T17</div>
+            <div class="row-body">
+              <div class="row-name">Amir Khan</div>
+              <div class="row-meta">12:00 · Vaccination</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="now-card">
+        <div class="now-head">
+          <div>
+            <div class="now-label">Token</div>
+            <div class="now-token">T12</div>
+          </div>
+          <div class="now-status-pill">◉ In consult</div>
+        </div>
+        <div class="now-name">Emma Wilson</div>
+        <div class="now-reason">Consultation · cold, sore throat</div>
+        <div class="now-started">Started 10:47 · 27 min in</div>
+        <div class="now-actions">
+          <button class="btn-success">✓ Mark done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SCENE 2 · REPORTS ═══════════════════ -->
+  <div class="scene" id="s2">
+    <div class="header">
+      <div class="brand">
+        <div class="brand-logo">b</div>
+        <div class="brand-name">Pratiksha</div>
+      </div>
+      <nav class="nav">
+        <div class="nav-item">Queue</div>
+        <div class="nav-item">Search</div>
+        <div class="nav-item active">Signal</div>
+        <div class="nav-item">Settings</div>
+      </nav>
+      <div class="header-right">
+        <span class="trial-pill">◆ Trial · 60d</span>
+        <span class="user-tag"><strong>Pratiksha yadav</strong> · Doctor</span>
+      </div>
+    </div>
+
+    <div class="page-title-row">
+      <div>
+        <h1 class="page-title">Signal</h1>
+        <div class="page-eyebrow" style="margin-top: 4px;">Last 30 days · 16 Jun – 15 Jul</div>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">Total bookings</div>
+        <div class="kpi-value">248</div>
+        <div class="kpi-delta up">↗ +18% vs prev</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Completed</div>
+        <div class="kpi-value">191</div>
+        <div class="kpi-delta up">↗ +24%</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">No-show rate</div>
+        <div class="kpi-value">8.1%</div>
+        <div class="kpi-delta up">↘ −3.4% pts</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Cancelled</div>
+        <div class="kpi-value">14</div>
+        <div class="kpi-delta up">↘ −5</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Avg wait</div>
+        <div class="kpi-value">6m</div>
+        <div class="kpi-delta neutral">— steady</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Avg session</div>
+        <div class="kpi-value">18m</div>
+        <div class="kpi-delta up">↗ +2m</div>
+      </div>
+    </div>
+
+    <div class="revenue-strip">
+      <div class="revenue-head">
+        <div class="revenue-label">Revenue</div>
+        <div class="revenue-context">tracked on 178 of 191 completed · 93% coverage</div>
+      </div>
+      <div class="revenue-tiles">
+        <div><div class="revenue-tile-label">Total</div><div class="revenue-tile-value">₹1,42,600</div></div>
+        <div><div class="revenue-tile-label">Coverage</div><div class="revenue-tile-value">93%</div></div>
+        <div><div class="revenue-tile-label">Avg ticket</div><div class="revenue-tile-value">₹801</div></div>
+      </div>
+    </div>
+
+    <div class="source-strip">
+      <div class="source-head">
+        <div class="source-title">Bookings by source</div>
+        <div class="source-hint">Where they came from</div>
+      </div>
+      <div class="source-tiles">
+        <div class="source-cell">
+          <div class="source-cell-label">App</div>
+          <div class="source-cell-row"><span class="source-cell-num">92</span><span class="source-cell-pct">37%</span></div>
+        </div>
+        <div class="source-cell">
+          <div class="source-cell-label">Front desk</div>
+          <div class="source-cell-row"><span class="source-cell-num">124</span><span class="source-cell-pct">50%</span></div>
+        </div>
+        <div class="source-cell">
+          <div class="source-cell-label">Walk-in</div>
+          <div class="source-cell-row"><span class="source-cell-num">32</span><span class="source-cell-pct">13%</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SCENE 3 · INSIGHTS ═══════════════════ -->
+  <div class="scene" id="s3">
+    <div class="header">
+      <div class="brand">
+        <div class="brand-logo">b</div>
+        <div class="brand-name">Pratiksha</div>
+      </div>
+      <nav class="nav">
+        <div class="nav-item">Queue</div>
+        <div class="nav-item">Search</div>
+        <div class="nav-item active">Signal</div>
+        <div class="nav-item">Settings</div>
+      </nav>
+      <div class="header-right">
+        <span class="trial-pill">◆ Trial · 60d</span>
+        <span class="user-tag"><strong>Pratiksha yadav</strong> · Doctor</span>
+      </div>
+    </div>
+
+    <div class="page-title-row">
+      <div>
+        <h1 class="page-title">Signal</h1>
+        <div class="page-eyebrow" style="margin-top: 4px;">Last 30 days · 16 Jun – 15 Jul</div>
+      </div>
+    </div>
+
+    <div class="insights-grid">
+      <div class="panel insights-panel">
+        <div class="card-head">
+          <div class="card-title"><span class="dot rose"></span> Silent churn</div>
+          <div class="card-hint">60+ days</div>
+        </div>
+        <table class="churn-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th class="right">Visits</th>
+              <th class="right">Last</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><div class="churn-name">Sarah Chen</div><div class="churn-mobile">+91 98931 27527</div></td>
+              <td class="visits-num">6</td>
+              <td class="when">78d ago</td>
+            </tr>
+            <tr>
+              <td><div class="churn-name">Amir Khan</div><div class="churn-mobile">+91 98765 43210</div></td>
+              <td class="visits-num">4</td>
+              <td class="when">64d ago</td>
+            </tr>
+            <tr>
+              <td><div class="churn-name">Priya Sharma</div><div class="churn-mobile">+91 99895 51234</div></td>
+              <td class="visits-num">8</td>
+              <td class="when">62d ago</td>
+            </tr>
+            <tr>
+              <td><div class="churn-name">Sundar Rao</div><div class="churn-mobile">+91 99001 92847</div></td>
+              <td class="visits-num">5</td>
+              <td class="when">60d ago</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel insights-panel">
+        <div class="card-head">
+          <div class="card-title"><span class="dot emerald"></span> Category revenue</div>
+          <div class="card-hint">where rupees come from</div>
+        </div>
+        <div class="cat-bar">
+          <div class="cat-seg"></div>
+          <div class="cat-seg"></div>
+          <div class="cat-seg"></div>
+        </div>
+        <div class="cat-list">
+          <div class="cat-row">
+            <div class="cat-name">
+              <span class="cat-swatch" style="background: hsl(245 80% 66% / 0.85);"></span>
+              Consultation<span class="cat-count">124 bookings</span>
+            </div>
+            <div class="cat-values"><span class="cat-pct">52%</span><span class="cat-amt">₹74,152</span></div>
+          </div>
+          <div class="cat-row">
+            <div class="cat-name">
+              <span class="cat-swatch" style="background: hsl(245 80% 66% / 0.55);"></span>
+              Pharmacy<span class="cat-count">67 bookings</span>
+            </div>
+            <div class="cat-values"><span class="cat-pct">31%</span><span class="cat-amt">₹44,206</span></div>
+          </div>
+          <div class="cat-row">
+            <div class="cat-name">
+              <span class="cat-swatch" style="background: hsl(245 80% 66% / 0.30);"></span>
+              Procedure<span class="cat-count">23 bookings</span>
+            </div>
+            <div class="cat-values"><span class="cat-pct">17%</span><span class="cat-amt">₹24,242</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel insights-panel">
+        <div class="card-head">
+          <div class="card-title"><span class="dot primary"></span> Cohort retention</div>
+          <div class="card-hint">% returned</div>
+        </div>
+        <table class="cohort-table">
+          <thead>
+            <tr>
+              <th>Cohort</th><th>Size</th>
+              <th>M0</th><th>M1</th><th>M2</th><th>M3</th><th>M4</th><th>M5</th><th>M6</th>
+            </tr>
+          </thead>
+          <tbody id="cohort-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const cohorts = [
+    { m: "Jul '26", size: 18, r: [100, 62, 44, 38, 34, 30, 26] },
+    { m: "Jun '26", size: 22, r: [100, 71, 50, 46, 41, 36, 30] },
+    { m: "May '26", size: 14, r: [100, 65, 49, 42, 37, 32, 28] },
+    { m: "Apr '26", size: 20, r: [100, 68, 46, 40, 35, 30, 24] },
+    { m: "Mar '26", size: 16, r: [100, 60, 42, 36, 30, 25, 20] },
+  ];
+  const tbody = document.getElementById("cohort-body");
+  cohorts.forEach((c, rowIdx) => {
+    const tr = document.createElement("tr");
+    let html = `<td>${c.m}</td><td>${c.size}</td>`;
+    c.r.forEach((pct, colIdx) => {
+      const alpha = Math.min(pct, 100) / 140 + 0.05;
+      const isBold = pct > 55;
+      const bg = `hsl(245 80% 66% / ${alpha})`;
+      const color = isBold ? "#fff" : "#e5e7eb";
+      // stagger cell entry inside scene 3 (which becomes visible around 10.4s)
+      const delay = (10.4 + rowIdx * 0.15 + colIdx * 0.07).toFixed(2);
+      html += `<td><span class="cohort-cell" style="background:${bg}; color:${color}; animation-delay:${delay}s;">${pct}%</span></td>`;
+    });
+    tr.innerHTML = html;
+    tbody.appendChild(tr);
+  });
+</script>
+</body>
+</html>
