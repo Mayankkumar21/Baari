@@ -26,12 +26,6 @@ export async function SiteHeader() {
         </Link>
 
         <div className="flex items-center gap-2 sm:gap-4">
-          <Link
-            href="/pricing"
-            className="hidden text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:inline"
-          >
-            Pricing
-          </Link>
           <ThemeToggle />
           {sess ? (
             <Button asChild>
