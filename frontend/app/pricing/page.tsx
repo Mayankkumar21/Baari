@@ -48,9 +48,9 @@ export default async function PricingPage() {
           </h1>
           <p className="mt-6 text-balance text-lg text-muted-foreground">
             Every new signup starts on the top plan for 60 days. Everything
-            unlocked — silent-churn list, category revenue, cohort retention,
-            LTV per customer, plus the full queue + walk-in + booking flow.{" "}
-            <strong className="text-foreground">No card required.</strong>
+            unlocked — silent churn, category revenue, cohort retention, LTV
+            per customer, plus the queue and booking flow the data flows
+            through. <strong className="text-foreground">No card required.</strong>
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Button asChild size="xl" variant="glow">

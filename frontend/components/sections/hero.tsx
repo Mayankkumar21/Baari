@@ -30,7 +30,7 @@ export function Hero() {
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           >
             <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground backdrop-blur">
-              Run your day. Know your year.
+              The register that reads itself
             </div>
           </motion.div>
 
@@ -40,8 +40,8 @@ export function Hero() {
             transition={{ duration: 0.7, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
             className="mt-6 text-balance text-5xl font-extrabold leading-[1.05] tracking-tight sm:text-6xl md:text-[64px]"
           >
-            Know your business.<br className="hidden sm:block" />{" "}
-            <span className="text-gradient">Grow your business.</span>
+            Your paper register,<br className="hidden sm:block" />{" "}
+            <span className="text-gradient">but it does the math.</span>
           </motion.h1>
 
           <motion.p
@@ -50,9 +50,10 @@ export function Hero() {
             transition={{ duration: 0.7, delay: 0.14, ease: [0.16, 1, 0.3, 1] }}
             className="mt-6 max-w-xl text-balance text-base text-muted-foreground sm:text-lg"
           >
-            Baari runs your queue, walk-ins, and bookings — and quietly turns every visit into
-            the picture your paper register never could give you. Which regulars ghosted. Which
-            service actually pays. Where your first-timers come from.
+            Baari runs your queue, walk-ins, and bookings — and quietly turns every visit
+            into the picture your paper register was never going to show. Silent churn
+            (who stopped coming). Category revenue (what actually pays). Cohort
+            retention (who came back). Numbers you can act on.
           </motion.p>
 
           <motion.div
@@ -77,8 +78,7 @@ export function Hero() {
             transition={{ duration: 0.8, delay: 0.36 }}
             className="mt-6 text-xs text-muted-foreground"
           >
-            60 days of the top plan on us. No card. Not another queue app — the intelligence
-            layer under your day.
+            The register that reads itself. 60 days of Pro on us. No card.
           </motion.p>
         </div>
 

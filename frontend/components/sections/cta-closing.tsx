@@ -21,10 +21,10 @@ export function CtaClosing() {
         <div className="orb right-[15%] bottom-[-40%] h-[280px] w-[280px] bg-primary/25" />
 
         <h2 className="relative text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-          Start knowing your business.
+          Start reading your business.
         </h2>
         <p className="relative mx-auto mt-4 max-w-xl text-balance text-base text-muted-foreground sm:text-lg">
-          Two quick screens. 60 days of Baari Pro — silent-churn, category
+          Two quick screens. 60 days of Baari Pro — silent churn, category
           revenue, cohort retention — on us. No card.
         </p>
         <div className="relative mt-8">

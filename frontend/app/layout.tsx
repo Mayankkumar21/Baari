@@ -35,9 +35,9 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Baari — know your business, grow your business",
+  title: "Baari — the register that does the math",
   description:
-    "Baari runs your front desk queue, walk-ins, and bookings — then quietly turns every visit into the picture your paper register never could. Silent-churn list, category revenue, cohort retention. For clinics, salons, and any appointment-based business.",
+    "Baari runs your appointment queue, walk-ins, and bookings — and turns every visit into the signal your paper register never gave you. Silent churn, category revenue, cohort retention, customer LTV. For clinics, salons, and any appointment-based business.",
   manifest: "/manifest.webmanifest",
   // PWA polish for iOS Safari — "Add to Home Screen" installs it as a
   // standalone app that opens without the browser chrome. Android/Chrome

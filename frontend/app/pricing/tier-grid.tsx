@@ -106,7 +106,7 @@ export function TierGrid({
           name="Free"
           price={money.free}
           per="/ month, forever"
-          tagline="Perfect for small clinics and pilot users."
+          tagline="Today's numbers. Perfect for small clinics + pilot users."
           cta="Start free"
           features={FEATURES.free}
           // Free tier has no interest-capture flow — you can just use
@@ -124,7 +124,7 @@ export function TierGrid({
           name="Growth"
           price={money.growth}
           per="/ month"
-          tagline="For the busy salon or clinic."
+          tagline="Patterns in your data. For the busy salon or clinic."
           highlight
           badge="Most popular"
           cta="Try free for 2 months"
@@ -147,7 +147,7 @@ export function TierGrid({
           name="Pro"
           price={money.pro}
           per="/ month"
-          tagline="For multi-doctor practices and high-volume salons."
+          tagline="The long view. For multi-doctor practices + high-volume salons."
           cta="Try free for 2 months"
           features={FEATURES.pro}
           authedFooter={

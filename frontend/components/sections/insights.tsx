@@ -24,37 +24,37 @@ export function Insights() {
         className="mx-auto max-w-3xl text-center"
       >
         <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
-          Not another queue app
+          The signal
         </div>
         <h2 className="mt-5 text-balance text-3xl font-bold tracking-tight sm:text-4xl md:text-[44px] md:leading-[1.1]">
-          The business your paper register never showed you.
+          The business your paper register never counted.
         </h2>
         <p className="mt-4 text-balance text-base text-muted-foreground sm:text-lg">
-          Baari runs your day. Then it quietly turns every visit into signal —
-          who&apos;s leaving, what actually pays, who&apos;s coming back. Decisions,
-          not just data.
+          Every visit a data point. Every no-show a signal. Every rupee logged.
+          Baari counts what your register couldn&apos;t — and hands you three
+          answers you couldn&apos;t buy before.
         </p>
       </motion.div>
 
       <div className="mx-auto mt-14 grid max-w-6xl gap-6 md:grid-cols-3">
         <InsightCard
           icon={UserMinus}
-          eyebrow="Silent churn"
-          title="See who ghosted."
+          eyebrow="42 regulars stopped coming this quarter"
+          title="Silent churn — see who ghosted."
           body="Regulars who used to come every month, gone silent for 60+ days. Baari makes the list. You send one WhatsApp."
           visual={<ChurnList />}
         />
         <InsightCard
           icon={PieChart}
-          eyebrow="Category revenue"
-          title="Know what actually pays."
+          eyebrow="₹74,152 from consultations. ₹44,206 from pharmacy."
+          title="Category revenue — know what pays."
           body="Consultation vs pharmacy vs procedure — Baari splits every rupee by category so you can finally see which service earns the year."
           visual={<CategoryBars />}
         />
         <InsightCard
           icon={TrendingUp}
-          eyebrow="Cohort retention"
-          title="Watch customers come back."
+          eyebrow="57% of March's new customers came back in April"
+          title="Cohort retention — watch them return."
           body="What share of January&apos;s new customers came back in February? In April? Catch a slip before it eats the year."
           visual={<CohortHeatmap />}
         />

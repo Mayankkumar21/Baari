@@ -15,27 +15,39 @@ type Feature = {
 export function Features() {
   const features: Feature[] = [
     {
-      eyebrow: "The queue",
-      title: "The day, on one screen.",
-      body: "See who's here, who's next, who's running late. One tap to check them in, one tap to mark them done. Every action feeds the picture — Baari watches so you can lead.",
+      eyebrow: "Check-ins",
+      title: "Every check-in is a data point.",
+      body: "See who's here, who's next, who's running late. One tap in, one tap done — and each event lands in the day's record. Baari holds the pen so the data writes itself.",
       visual: <LiveQueueVisual />,
     },
     {
       eyebrow: "Walk-ins + bookings",
-      title: "The mix, without the math.",
-      body: "Most tools make you pick — appointments or deli-tickets. Baari holds both in one queue and figures out the order. Walk-in in two taps; Baari also learns your walk-in vs booking mix over months.",
+      title: "The mix of intent.",
+      body: "Booked ahead vs walked in vs called-back — three kinds of demand, one queue, one line of measurement. See how much of your month came in planned and how much showed up cold.",
       visual: <MixedQueueVisual />,
     },
     {
       eyebrow: "Late + no-show",
-      title: "Every late arrival is a data point.",
-      body: "Anyone past their slot is automatically flagged. One tap marks them no-show — the next customer moves up. And the no-show rate quietly rolls into your reports so you can see when things drift.",
+      title: "The failure signal.",
+      body: "Anyone past their slot is automatically flagged. One tap marks them no-show — the next customer moves up. And the no-show rate quietly rolls into your reports so you can see when things start to drift, months before the vibe shifts.",
       visual: <NoShowVisual />,
     },
   ];
 
   return (
     <section className="container py-20 sm:py-28">
+      <div className="mx-auto mb-16 max-w-3xl text-center">
+        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          The collection layer
+        </div>
+        <h2 className="mt-5 text-balance text-3xl font-bold tracking-tight sm:text-4xl">
+          To measure your business, we first had to run it.
+        </h2>
+        <p className="mt-4 text-balance text-base text-muted-foreground sm:text-lg">
+          Every check-in, mark-done, walk-in, and no-show is a signal.
+          The dashboard is what all those signals add up to.
+        </p>
+      </div>
       <div className="space-y-24 sm:space-y-32">
         {features.map((feature, i) => (
           <FeatureBlock key={feature.eyebrow} feature={feature} reverse={i % 2 === 1} />
