@@ -85,9 +85,10 @@ export function Hero() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.8, delay: 0.36 }}
-            className="mt-6 text-xs text-muted-foreground"
+            className="mt-6 text-sm text-foreground/75"
           >
-            The register that reads itself. 60 days of Pro on us. No card.
+            60 days of Pro on us. After that, <strong className="text-foreground">₹999/mo</strong> or stay Free
+            under 100 customers/month. No card.
           </motion.p>
         </div>
 
