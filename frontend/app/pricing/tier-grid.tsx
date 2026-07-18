@@ -124,7 +124,7 @@ export function TierGrid({
           name="Growth"
           price={money.growth}
           per="/ month"
-          tagline="Patterns in your data. For the busy salon or clinic."
+          tagline="Patterns in your data. For the busy clinic or salon."
           highlight
           badge="Most popular"
           cta="Try free for 2 months"

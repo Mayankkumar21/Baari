@@ -61,8 +61,7 @@ export function Hero() {
             transition={{ duration: 0.7, delay: 0.20, ease: [0.16, 1, 0.3, 1] }}
             className="mt-4 max-w-xl text-sm text-muted-foreground/80"
           >
-            For clinics, dental practices, salons, spas — anywhere a customer
-            waits their turn.
+            Built for clinics and salons. Works anywhere a customer waits their turn.
           </motion.p>
 
           <motion.div

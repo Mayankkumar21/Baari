@@ -14,7 +14,7 @@ const STEPS: Step[] = [
   {
     number: "01",
     title: "Name your business.",
-    body: "Pick clinic, dental, salon, spa — whatever fits. Defaults are set for you.",
+    body: "Clinic, salon, or something else — Baari sets the defaults to match.",
     icon: Building2,
   },
   {

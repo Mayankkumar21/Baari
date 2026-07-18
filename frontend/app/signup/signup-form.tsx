@@ -25,17 +25,31 @@ type TenantOption = {
   placeholder: string;
 };
 
-// Placeholder examples are deliberately specific — they read as a wink to the
-// reader ("they thought about this") and they make the entry box less scary
-// than a generic "Business name" hint.
-const OPTIONS: TenantOption[] = [
+// The two verticals we're actively marketing to today. Everything
+// else lives under "Other" so the picker doesn't feel like a
+// take-anything catalogue — clinic and salon owners see themselves,
+// the rest still have a path through.
+//
+// Placeholder examples are deliberately specific — they read as a
+// wink to the reader ("they thought about this") and make the entry
+// box less scary than a generic "Business name" hint.
+const PRIMARY_OPTIONS: TenantOption[] = [
   { key: "clinic", label: "Clinic", icon: Stethoscope, placeholder: "Dr. Sharma's Clinic" },
-  { key: "dental", label: "Dental", icon: Tooth, placeholder: "Smile Dental Care" },
   { key: "salon", label: "Salon", icon: Scissors, placeholder: "Bella Salon" },
+];
+
+// The "Other" catch-all. When the user clicks Other, we reveal the
+// four secondary options so they can be more specific. Baari treats
+// each as a distinct tenant type internally (vocab, service catalog,
+// slot defaults) — the UI just doesn't put them front and centre.
+const OTHER_OPTIONS: TenantOption[] = [
+  { key: "dental", label: "Dental", icon: Tooth, placeholder: "Smile Dental Care" },
   { key: "spa", label: "Spa", icon: Flower, placeholder: "Tranquil Day Spa" },
   { key: "vet", label: "Vet", icon: PawPrint, placeholder: "Paws & Whiskers Vet" },
   { key: "other", label: "Other", icon: Store, placeholder: "My Business" },
 ];
+
+const OPTIONS: TenantOption[] = [...PRIMARY_OPTIONS, ...OTHER_OPTIONS];
 
 // Same rules as lib/password.ts → passwordStrength(). Duplicated client-side so
 // the live indicator doesn't require a roundtrip. Server still has final say.
@@ -74,24 +88,10 @@ export function SignupForm({ initialType }: { initialType?: string }) {
 
       <div>
         <Label className="mb-2 block">What kind of business?</Label>
-        <div className="grid grid-cols-3 gap-2">
-          {OPTIONS.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setTenantType(key)}
-              className={cn(
-                "group flex flex-col items-center gap-1.5 rounded-lg border p-3 text-xs font-medium transition-all backdrop-blur",
-                tenantType === key
-                  ? "border-primary bg-primary/10 text-foreground shadow-[0_0_0_1px_hsl(var(--primary)/0.5)]"
-                  : "border-border bg-card/60 text-muted-foreground hover:border-primary/40 hover:text-foreground",
-              )}
-            >
-              <Icon className="size-5 text-primary" />
-              {label}
-            </button>
-          ))}
-        </div>
+        <TenantPicker
+          value={tenantType}
+          onChange={setTenantType}
+        />
         <input type="hidden" name="tenant_type" value={tenantType} />
       </div>
 
@@ -232,5 +232,112 @@ export function SignupForm({ initialType }: { initialType?: string }) {
         {pending ? "Creating workspace…" : "Create workspace"}
       </Button>
     </form>
+  );
+}
+
+// Tenant type picker with two rows:
+//   Row 1: Clinic · Salon · Other (the two verticals we lead with)
+//   Row 2: If Other is active OR the visitor arrived with a non-
+//          primary type in the URL, show Dental · Spa · Vet · Generic
+//          so they can be specific. Baari treats each secondary key
+//          as a distinct tenant type internally.
+function TenantPicker({
+  value,
+  onChange,
+}: {
+  value: TenantKey;
+  onChange: (k: TenantKey) => void;
+}) {
+  const isPrimary = value === "clinic" || value === "salon";
+  // Show the secondary row whenever the current selection isn't a
+  // primary key. Also stays visible until the user picks a primary
+  // again, so they can browse.
+  const [showOther, setShowOther] = useState(!isPrimary);
+
+  const handlePrimary = (k: TenantKey) => {
+    onChange(k);
+    setShowOther(false);
+  };
+  const handleOtherToggle = () => {
+    setShowOther(true);
+    // If they were on a primary tile, don't jump their selection —
+    // just reveal the sub-row and let them pick. If nothing in the
+    // sub-row was previously chosen, default to the generic "other".
+    if (isPrimary) onChange("other");
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-3 gap-2">
+        {PRIMARY_OPTIONS.map(({ key, label, icon: Icon }) => (
+          <TenantTile
+            key={key}
+            label={label}
+            icon={Icon}
+            active={value === key}
+            onClick={() => handlePrimary(key)}
+          />
+        ))}
+        <TenantTile
+          label="Other"
+          icon={Store}
+          // "Other" reads as active when either the tile has been
+          // clicked (showOther) OR the current selection is one of
+          // the non-primary keys.
+          active={showOther || !isPrimary}
+          onClick={handleOtherToggle}
+        />
+      </div>
+      {showOther ? (
+        <div className="rounded-lg border border-border/60 bg-card/40 p-3">
+          <div className="mb-2 text-[11px] font-medium uppercase tracking-widest text-foreground/70">
+            Which kind?
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {OTHER_OPTIONS.map(({ key, label, icon: Icon }) => (
+              <TenantTile
+                key={key}
+                label={label}
+                icon={Icon}
+                active={value === key}
+                onClick={() => onChange(key)}
+                compact
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function TenantTile({
+  label,
+  icon: Icon,
+  active,
+  onClick,
+  compact = false,
+}: {
+  label: string;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  active: boolean;
+  onClick: () => void;
+  compact?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "group flex flex-col items-center gap-1.5 rounded-lg border text-xs font-medium transition-all backdrop-blur",
+        compact ? "p-2" : "p-3",
+        active
+          ? "border-primary bg-primary/10 text-foreground shadow-[0_0_0_1px_hsl(var(--primary)/0.5)]"
+          : "border-border bg-card/60 text-muted-foreground hover:border-primary/40 hover:text-foreground",
+      )}
+    >
+      <Icon className={cn("text-primary", compact ? "size-4" : "size-5")} />
+      {label}
+    </button>
   );
 }
