@@ -49,7 +49,7 @@ export function Features() {
   return (
     <section className="container py-20 sm:py-28">
       <div className="mx-auto mb-16 max-w-3xl text-center">
-        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-foreground/80">
           The collection layer
         </div>
         <h2 className="mt-5 text-balance text-3xl font-bold tracking-tight sm:text-4xl">
@@ -74,7 +74,7 @@ export function Features() {
             <div className="mb-5 grid size-11 place-items-center rounded-lg bg-primary/10 text-primary">
               <f.icon className="size-5" />
             </div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-primary/90">
               {f.eyebrow}
             </div>
             <h3 className="mt-1 text-xl font-semibold tracking-tight">{f.title}</h3>

@@ -91,7 +91,7 @@ function AppMockup() {
         <div className="relative h-[440px] w-[220px] overflow-hidden rounded-[28px] bg-gradient-to-b from-primary/15 to-background">
           <div className="mx-auto mt-2 h-1 w-16 rounded-full bg-foreground/10" />
           <div className="p-4">
-            <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            <div className="text-xs font-semibold uppercase tracking-widest text-foreground/70">
               Discover
             </div>
             <div className="mt-1 text-lg font-bold">Near you</div>

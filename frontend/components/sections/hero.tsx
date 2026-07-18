@@ -5,7 +5,6 @@ import { motion } from "motion/react";
 import { ArrowRight, Check, Stethoscope } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 
 export function Hero() {
@@ -29,7 +28,7 @@ export function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           >
-            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground backdrop-blur">
+            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-foreground/80 backdrop-blur">
               The register that reads itself
             </div>
           </motion.div>
@@ -115,102 +114,95 @@ export function Hero() {
 
 function CompactQueuePreview() {
   return (
-    <div
-      className="relative overflow-hidden rounded-2xl border border-border bg-card/90 shadow-2xl shadow-primary/25 ring-1 ring-white/5 backdrop-blur"
-      style={{
-        transform: "rotateY(-6deg) rotateX(4deg)",
-        transformOrigin: "60% 50%",
-      }}
-    >
-      {/* macOS window chrome */}
-      <div className="flex items-center gap-2 border-b border-border bg-card/80 px-3 py-2">
-        <div className="flex items-center gap-1.5">
-          <div className="size-2 rounded-full bg-red-500/80" />
-          <div className="size-2 rounded-full bg-yellow-500/80" />
-          <div className="size-2 rounded-full bg-emerald-500/80" />
-        </div>
-        <div className="ml-2 flex items-center gap-1.5 rounded-md border border-border bg-background/70 px-2 py-0.5 text-[9px] text-muted-foreground">
-          <div className="size-1.5 rounded-full bg-emerald-500" />
-          getbaari.in/queue
+    <div className="relative">
+      {/* Floating callout — points at the Mark Done button below with
+          a bent connector line. This is what makes the mock feel like
+          marketing art rather than a screenshot: something in the
+          image is EXPLAINING itself. */}
+      <div className="absolute -left-6 -top-6 z-10 hidden lg:block">
+        <div className="relative">
+          <div className="inline-flex flex-col items-start rounded-xl border border-primary/40 bg-primary/15 px-4 py-3 shadow-lg shadow-primary/20 backdrop-blur">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
+              One tap
+            </div>
+            <div className="mt-0.5 text-sm font-semibold text-foreground">
+              → recorded forever.
+            </div>
+          </div>
+          {/* Bent arrow SVG from callout tail toward the Mark Done button */}
+          <svg
+            className="absolute left-8 top-full h-16 w-24 text-primary/60"
+            viewBox="0 0 96 64"
+            fill="none"
+            aria-hidden
+          >
+            <path
+              d="M 8 4 Q 8 40 60 52"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeDasharray="3 4"
+            />
+            <path
+              d="M 54 48 L 62 54 L 55 58"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+            />
+          </svg>
         </div>
       </div>
 
-      <div className="p-3.5">
-        {/* Summary line */}
-        <div className="mb-3 flex items-baseline justify-between">
-          <div>
-            <div className="text-[8px] uppercase tracking-[0.14em] text-muted-foreground">
-              Today
-            </div>
-            <div className="text-sm font-bold leading-tight">5 waiting · 1 in consult</div>
+      {/* The mock itself — just the "In Consult" moment, blown up. No
+          waiting list, no counters, no busywork; the whole point of
+          the mock is to show the "Mark done" gesture that produces a
+          data point. */}
+      <div
+        className="relative overflow-hidden rounded-2xl border border-border bg-card/90 shadow-2xl shadow-primary/25 ring-1 ring-white/5 backdrop-blur"
+        style={{
+          transform: "rotateY(-6deg) rotateX(4deg)",
+          transformOrigin: "60% 50%",
+        }}
+      >
+        {/* macOS window chrome */}
+        <div className="flex items-center gap-2 border-b border-border bg-card/80 px-4 py-2.5">
+          <div className="flex items-center gap-1.5">
+            <div className="size-2.5 rounded-full bg-red-500/80" />
+            <div className="size-2.5 rounded-full bg-yellow-500/80" />
+            <div className="size-2.5 rounded-full bg-emerald-500/80" />
           </div>
-          <div className="text-[9px] tabular-nums text-muted-foreground">10:42</div>
+          <div className="ml-2 flex items-center gap-1.5 rounded-md border border-border bg-background/70 px-2.5 py-0.5 text-[11px] text-muted-foreground">
+            <div className="size-1.5 rounded-full bg-emerald-500" />
+            getbaari.in/queue
+          </div>
         </div>
 
-        {/* Now in session card */}
-        <div className="mb-3 rounded-lg border border-emerald-400/40 bg-emerald-500/10 p-2.5">
-          <div className="flex items-center justify-between">
-            <div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-300">
-              In consult
+        <div className="p-6">
+          <div className="rounded-xl border border-emerald-400/40 bg-emerald-500/10 p-5">
+            <div className="flex items-center justify-between">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-600 dark:text-emerald-300">
+                In consult
+              </div>
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/50 bg-emerald-500/20 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-200">
+                <Stethoscope className="size-3" /> T12
+              </span>
             </div>
-            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/50 bg-emerald-500/20 px-1.5 py-0.5 text-[8px] font-semibold text-emerald-700 dark:text-emerald-200">
-              <Stethoscope className="size-2.5" /> T12
-            </span>
+            <div className="mt-3 text-2xl font-bold leading-tight">Emma Wilson</div>
+            <div className="mt-0.5 text-sm text-muted-foreground">
+              cold, sore throat
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              Started 10:47 · 27 min in
+            </div>
+            <button className="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-500/40">
+              <Check className="size-4" /> Mark done
+            </button>
           </div>
-          <div className="mt-1 text-[13px] font-semibold leading-tight">Emma Wilson</div>
-          <div className="text-[10px] text-muted-foreground">cold, sore throat</div>
-          <button className="mt-2 inline-flex items-center gap-1 rounded-md bg-emerald-500 px-2 py-1 text-[10px] font-semibold text-white shadow-sm shadow-emerald-500/40">
-            <Check className="size-2.5" /> Mark done
-          </button>
-        </div>
-
-        {/* Waiting list */}
-        <div className="mb-1 flex items-center justify-between text-[8px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-          <span>Waiting</span>
-          <span>5</span>
-        </div>
-        <div className="space-y-1.5">
-          <MiniRow token="T13" name="Sarah Chen" meta="10:40 · headache" tone="wait" />
-          <MiniRow token="T14" name="James Park" meta="11:00 · party of 2" tone="wait" />
-          <MiniRow token="T15" name="Priya Sharma" meta="11:20" tone="late" />
-          <MiniRow token="T16" name="Sundar Rao" meta="11:40 · skin" tone="wait" />
         </div>
       </div>
     </div>
   );
 }
 
-function MiniRow({
-  token,
-  name,
-  meta,
-  tone,
-}: {
-  token: string;
-  name: string;
-  meta: string;
-  tone: "wait" | "late";
-}) {
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-2 rounded-md border px-2 py-1.5",
-        tone === "wait" && "border-primary/30 bg-primary/5",
-        tone === "late" && "border-amber-400/40 bg-amber-500/10",
-      )}
-    >
-      <div className="grid w-8 place-items-center rounded bg-secondary py-0.5 text-[10px] font-bold tabular-nums">
-        {token}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-[11px] font-semibold leading-tight">{name}</div>
-        <div className="truncate text-[9px] text-muted-foreground">{meta}</div>
-      </div>
-      {tone === "late" && (
-        <span className="rounded-full border border-amber-400/50 bg-amber-500/20 px-1.5 py-0.5 text-[8px] font-semibold text-amber-700 dark:text-amber-300">
-          Late
-        </span>
-      )}
-    </div>
-  );
-}
