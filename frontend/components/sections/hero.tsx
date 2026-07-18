@@ -56,6 +56,16 @@ export function Hero() {
             retention (who came back). Numbers you can act on.
           </motion.p>
 
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.20, ease: [0.16, 1, 0.3, 1] }}
+            className="mt-4 max-w-xl text-sm text-muted-foreground/80"
+          >
+            For clinics, dental practices, salons, spas — anywhere a customer
+            waits their turn.
+          </motion.p>
+
           <motion.div
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}

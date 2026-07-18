@@ -1,7 +1,6 @@
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { Hero } from "@/components/sections/hero";
-import { Verticals } from "@/components/sections/verticals";
 import { HowItWorks } from "@/components/sections/how-it-works";
 import { Insights } from "@/components/sections/insights";
 import { InMotion } from "@/components/sections/in-motion";
@@ -15,7 +14,6 @@ export default function HomePage() {
     <main className="min-h-screen">
       <SiteHeader />
       <Hero />
-      <Verticals />
       {/* Insights lands before HowItWorks + Features on purpose —
           the "know your business" payoff shows first, then the
           operational plumbing that makes it possible. */}
