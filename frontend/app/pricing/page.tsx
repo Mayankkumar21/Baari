@@ -59,7 +59,7 @@ export default async function PricingPage() {
               </Link>
             </Button>
             <Button asChild size="xl" variant="outline">
-              <Link href="/login">I already have an account</Link>
+              <Link href="/login">Sign in</Link>
             </Button>
           </div>
           <p className="mt-6 text-sm text-muted-foreground">

@@ -1,15 +1,21 @@
 "use client";
 
-import { motion } from "motion/react";
-import { Check, Stethoscope, UserPlus, Undo2 } from "lucide-react";
+// "The collection layer" section — three text-first blocks explaining
+// why the queue features are the mechanism behind the analytics. NOT
+// the same as InMotion (which shows the actual product animated). This
+// section is scannable prose with a big number, not another mock UI
+// that competes with the demo iframe above.
 
-import { cn } from "@/lib/utils";
+import { motion } from "motion/react";
+import { CheckCircle2, GitMerge, XCircle } from "lucide-react";
 
 type Feature = {
   eyebrow: string;
   title: string;
   body: string;
-  visual: React.ReactNode;
+  stat: string;
+  statLabel: string;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
 };
 
 export function Features() {
@@ -18,19 +24,25 @@ export function Features() {
       eyebrow: "Check-ins",
       title: "Every check-in is a data point.",
       body: "See who's here, who's next, who's running late. One tap in, one tap done — and each event lands in the day's record. Baari holds the pen so the data writes itself.",
-      visual: <LiveQueueVisual />,
+      stat: "248",
+      statLabel: "check-ins tracked this month",
+      icon: CheckCircle2,
     },
     {
       eyebrow: "Walk-ins + bookings",
       title: "The mix of intent.",
       body: "Booked ahead vs walked in vs called-back — three kinds of demand, one queue, one line of measurement. See how much of your month came in planned and how much showed up cold.",
-      visual: <MixedQueueVisual />,
+      stat: "37% / 50% / 13%",
+      statLabel: "app / front desk / walk-in split",
+      icon: GitMerge,
     },
     {
       eyebrow: "Late + no-show",
       title: "The failure signal.",
       body: "Anyone past their slot is automatically flagged. One tap marks them no-show — the next customer moves up. And the no-show rate quietly rolls into your reports so you can see when things start to drift, months before the vibe shifts.",
-      visual: <NoShowVisual />,
+      stat: "8.1%",
+      statLabel: "no-show rate, down from 11.5%",
+      icon: XCircle,
     },
   ];
 
@@ -48,215 +60,38 @@ export function Features() {
           The dashboard is what all those signals add up to.
         </p>
       </div>
-      <div className="space-y-24 sm:space-y-32">
-        {features.map((feature, i) => (
-          <FeatureBlock key={feature.eyebrow} feature={feature} reverse={i % 2 === 1} />
+
+      <div className="mx-auto grid max-w-6xl gap-6 md:grid-cols-3">
+        {features.map((f, i) => (
+          <motion.div
+            key={f.eyebrow}
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.55, delay: i * 0.06, ease: [0.16, 1, 0.3, 1] }}
+            className="flex flex-col rounded-2xl border border-border bg-card/60 p-7 backdrop-blur"
+          >
+            <div className="mb-5 grid size-11 place-items-center rounded-lg bg-primary/10 text-primary">
+              <f.icon className="size-5" />
+            </div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              {f.eyebrow}
+            </div>
+            <h3 className="mt-1 text-xl font-semibold tracking-tight">{f.title}</h3>
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+              {f.body}
+            </p>
+            <div className="mt-6 border-t border-border/60 pt-5">
+              <div className="text-3xl font-extrabold tracking-tight tabular-nums">
+                {f.stat}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {f.statLabel}
+              </div>
+            </div>
+          </motion.div>
         ))}
       </div>
     </section>
-  );
-}
-
-function FeatureBlock({ feature, reverse }: { feature: Feature; reverse: boolean }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 18 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-100px" }}
-      transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-      className={cn(
-        "grid items-center gap-10 lg:grid-cols-2 lg:gap-16",
-        reverse && "lg:[&>div:first-child]:order-2",
-      )}
-    >
-      {/* Visual */}
-      <div className="relative">
-        <div className="orb pointer-events-none absolute -left-10 -top-10 h-[260px] w-[260px] bg-primary/25" />
-        <div className="relative">{feature.visual}</div>
-      </div>
-
-      {/* Copy */}
-      <div>
-        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
-          {feature.eyebrow}
-        </div>
-        <h3 className="mt-3 text-balance text-2xl font-bold tracking-tight sm:text-3xl">
-          {feature.title}
-        </h3>
-        <p className="mt-4 text-balance text-base leading-relaxed text-muted-foreground">
-          {feature.body}
-        </p>
-      </div>
-    </motion.div>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────────────
-   Visuals — small inline UI snippets, matching the unified status colours
-   used across /queue. No copying images: these stay crisp on any screen.
-   ───────────────────────────────────────────────────────────────────── */
-
-function PanelChrome({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl border border-border bg-card/80 p-4 shadow-xl shadow-primary/10 ring-1 ring-white/5 backdrop-blur">
-      {children}
-    </div>
-  );
-}
-
-function LiveQueueVisual() {
-  return (
-    <PanelChrome>
-      <div className="grid gap-3 md:grid-cols-[1.3fr_1fr]">
-        {/* Waiting list */}
-        <div className="rounded-xl border border-border bg-background/40 p-3">
-          <div className="mb-2 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            <span>Waiting</span>
-            <span>4</span>
-          </div>
-          <div className="space-y-1.5">
-            <QueueRow token="T13" name="Sarah Chen" meta="10:40 · headache" tone="wait" />
-            <QueueRow token="T14" name="James Park" meta="11:00 · party of 2" tone="wait" />
-            <QueueRow token="T15" name="Priya Sharma" meta="11:20" tone="late" />
-            <QueueRow token="T16" name="Sundar Rao" meta="11:40 · skin" tone="wait" />
-          </div>
-        </div>
-
-        {/* Now in session */}
-        <div className="rounded-xl border border-emerald-400/40 bg-emerald-500/10 p-3">
-          <div className="mb-1 flex items-center justify-between">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-300">
-              In consult
-            </div>
-            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/50 bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700 dark:text-emerald-200">
-              <Stethoscope className="size-2.5" />
-            </span>
-          </div>
-          <div className="text-[10px] text-muted-foreground">Token</div>
-          <div className="text-3xl font-extrabold leading-none text-emerald-700 dark:text-emerald-300">
-            T7
-          </div>
-          <div className="mt-1.5 text-sm font-semibold">Emma Wilson</div>
-          <div className="text-[11px] text-muted-foreground">cold, sore throat</div>
-          <button className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-emerald-500 px-3 py-1.5 text-[11px] font-semibold text-white shadow-md shadow-emerald-500/40">
-            <Check className="size-3" /> Mark done
-          </button>
-        </div>
-      </div>
-    </PanelChrome>
-  );
-}
-
-function MixedQueueVisual() {
-  return (
-    <PanelChrome>
-      <div className="mb-3 flex items-center justify-between">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-          Today&apos;s queue
-        </div>
-        <button className="inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/10 px-2 py-1 text-[10px] font-semibold text-primary">
-          <UserPlus className="size-3" /> Walk in
-        </button>
-      </div>
-      <div className="space-y-1.5">
-        <QueueRow token="T11" name="Booked · 10:30" meta="David Miller · checkup" tone="wait" sourceTag="booked" />
-        <QueueRow token="T12" name="Walk-in · 10:38" meta="Ana Torres · skin" tone="wait" sourceTag="walkin" />
-        <QueueRow token="T13" name="Booked · 11:00" meta="Sarah Chen" tone="wait" sourceTag="booked" />
-        <QueueRow token="T14" name="Walk-in · 11:06" meta="Liam Novak · fever" tone="wait" sourceTag="walkin" />
-        <QueueRow token="T15" name="Booked · 11:20" meta="Priya Sharma" tone="late" sourceTag="booked" />
-      </div>
-      <p className="mt-3 text-[10px] leading-snug text-muted-foreground">
-        Walk-ins slot in between bookings by arrival time. The receptionist never has to think
-        about ordering.
-      </p>
-    </PanelChrome>
-  );
-}
-
-function NoShowVisual() {
-  return (
-    <PanelChrome>
-      <div className="space-y-2">
-        <QueueRow token="T15" name="Priya Sharma" meta="11:20 · 12 min late" tone="late" />
-        <div className="rounded-xl border border-rose-400/40 bg-rose-500/10 p-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-1.5">
-                <div className="grid size-7 place-items-center rounded-md bg-secondary text-[10px] font-bold tabular-nums">
-                  T15
-                </div>
-                <div>
-                  <div className="text-sm font-semibold line-through opacity-70">Priya Sharma</div>
-                  <div className="text-[10px] text-muted-foreground">marked no-show · 11:35</div>
-                </div>
-              </div>
-            </div>
-            <span className="rounded-full border border-rose-400/50 bg-rose-500/20 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-rose-700 dark:text-rose-300">
-              No-show
-            </span>
-          </div>
-        </div>
-
-        {/* Undo toast */}
-        <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-border bg-background/80 p-2.5 shadow-lg shadow-black/20 backdrop-blur">
-          <div className="flex items-center gap-2 text-xs">
-            <span className="grid size-6 place-items-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-300">
-              <Check className="size-3" />
-            </span>
-            <span>Marked no-show</span>
-          </div>
-          <button className="inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary">
-            <Undo2 className="size-3" /> Undo
-          </button>
-        </div>
-      </div>
-    </PanelChrome>
-  );
-}
-
-function QueueRow({
-  token,
-  name,
-  meta,
-  tone,
-  sourceTag,
-}: {
-  token: string;
-  name: string;
-  meta: string;
-  tone: "wait" | "late";
-  sourceTag?: "booked" | "walkin";
-}) {
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-2.5 rounded-lg border px-2.5 py-2",
-        tone === "wait" && "border-primary/25 bg-primary/5",
-        tone === "late" && "border-amber-400/40 bg-amber-500/10",
-      )}
-    >
-      <div className="grid w-10 place-items-center rounded-md bg-secondary py-1 text-xs font-bold tabular-nums">
-        {token}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-xs font-semibold leading-tight">{name}</div>
-        <div className="truncate text-[10px] text-muted-foreground">{meta}</div>
-      </div>
-      {sourceTag === "walkin" && (
-        <span className="rounded-full border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
-          walk-in
-        </span>
-      )}
-      {sourceTag === "booked" && (
-        <span className="rounded-full border border-border bg-card px-1.5 py-0.5 text-[9px] font-semibold text-muted-foreground">
-          booked
-        </span>
-      )}
-      {tone === "late" && !sourceTag && (
-        <span className="rounded-full border border-amber-400/50 bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700 dark:text-amber-300">
-          Late
-        </span>
-      )}
-    </div>
   );
 }

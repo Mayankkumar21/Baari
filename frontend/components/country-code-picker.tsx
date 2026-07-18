@@ -23,10 +23,12 @@ export type Country = {
 
 // Common countries surfaced at the top of the picker — the markets
 // we care about for the pilot + English-speaking + top global by
-// mobile subscribers. Order matters (US first for worldwide default).
+// mobile subscribers. India leads: this is an India-first market
+// (₹ pricing, WhatsApp support number, home turf). Order also
+// determines the default (COMMON[0]) when the picker mounts.
 const COMMON: Country[] = [
-  { code: "US", name: "United States",   dial: "1",   flag: "🇺🇸" },
   { code: "IN", name: "India",           dial: "91",  flag: "🇮🇳" },
+  { code: "US", name: "United States",   dial: "1",   flag: "🇺🇸" },
   { code: "GB", name: "United Kingdom",  dial: "44",  flag: "🇬🇧" },
   { code: "CA", name: "Canada",          dial: "1",   flag: "🇨🇦" },
   { code: "AU", name: "Australia",       dial: "61",  flag: "🇦🇺" },
@@ -95,10 +97,29 @@ export function countryByCode(code: string): Country | null {
   return COUNTRIES.find((c) => c.code === code) ?? null;
 }
 
-// Default country. Reads a hint from the browser's Intl locale so
-// a user in India sees IN preselected, US-locale users see US, etc.
-// Falls back to US for worldwide-first positioning.
+// Default country — DETERMINISTIC (India). Called at render time
+// from `useState(() => defaultCountry())` all over the app; must
+// return the same value on the server and the client, or React
+// throws a hydration mismatch and shows the raw crash panel to
+// the user mid-login.
+//
+// Previous version peeked at navigator.language, which is
+// impossible on the server (returns fallback US) but works on the
+// client (returns the browser's locale) — different value on each
+// side of hydration → crash. This function now always returns
+// India (COMMON[0]).
+//
+// If you want browser-locale detection, use `detectCountry()` in
+// a `useEffect` — that only runs on the client, after hydration,
+// and is safe.
 export function defaultCountry(): Country {
+  return COMMON[0]; // India
+}
+
+// Client-only: peek at the browser's Intl locale to pick the
+// closest country in our list. Callers wrap this in `useEffect`
+// so it runs after hydration and can safely re-set state.
+export function detectCountry(): Country {
   if (typeof window === "undefined") return COMMON[0];
   try {
     const region = new Intl.Locale(navigator.language).region;
@@ -109,7 +130,7 @@ export function defaultCountry(): Country {
   } catch {
     // ignore — some browsers throw on unknown locales
   }
-  return COMMON[0]; // US
+  return COMMON[0];
 }
 
 export function CountryCodePicker({

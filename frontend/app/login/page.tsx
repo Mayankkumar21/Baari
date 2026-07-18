@@ -41,7 +41,7 @@ export default async function LoginPage({
               Forgot password?
             </Link>
             <Link href="/signup" className="text-primary hover:underline font-medium">
-              Create a workspace →
+              Start free →
             </Link>
           </div>
         </CardContent>

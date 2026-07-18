@@ -78,7 +78,7 @@ export function Hero() {
               </Link>
             </Button>
             <Button variant="outline" size="xl" asChild>
-              <Link href="/login">I already have an account</Link>
+              <Link href="/login">Sign in</Link>
             </Button>
           </motion.div>
 
