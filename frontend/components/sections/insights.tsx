@@ -111,9 +111,24 @@ function InsightCard({
         </div>
       </div>
 
-      {/* The moment. Everything else on the card is dressing. */}
-      <div className="flex items-baseline gap-1">
-        <span className="text-7xl font-black tracking-tight tabular-nums leading-none sm:text-8xl">
+      {/* The moment. Everything else on the card is dressing.
+          Capped at text-7xl (was 8xl) so multi-character values like
+          "₹74,152" don't overflow the 3-col grid on desktop. Adds
+          whitespace-nowrap + a small font-size adaptive class for the
+          currency stat which is naturally 7 characters. */}
+      <div className="flex items-baseline gap-1 whitespace-nowrap">
+        <span
+          className={
+            "font-black tracking-tight tabular-nums leading-none " +
+            // Two-tier ramp: short stats ("42", "57%") get to be
+            // massive; long ones ("₹74,152") cap at text-6xl on
+            // desktop so they still fit inside the card. Guided by
+            // character count so we don't have to hardcode per-card.
+            (stat.length >= 6
+              ? "text-5xl sm:text-6xl"
+              : "text-6xl sm:text-7xl")
+          }
+        >
           {stat}
         </span>
         {statSuffix ? (

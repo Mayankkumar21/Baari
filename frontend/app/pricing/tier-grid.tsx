@@ -18,31 +18,13 @@ import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { detectRegion, type Region } from "@/lib/region";
 import { InterestButton } from "./interest-modal";
-
-type Region = "IN" | "GLOBAL";
 
 const PRICES = {
   IN:     { symbol: "₹",  free: "₹0",  growth: "₹999",  pro: "₹1,999", label: "India (₹)",  flag: "🇮🇳" },
   GLOBAL: { symbol: "$",  free: "$0",  growth: "$19",   pro: "$49",    label: "USD",         flag: "🌐" },
 } as const;
-
-// Client-side detection. We treat anything that reads as India (region
-// = IN, language tag ends in -in, or hi-*) as an Indian visitor. Any
-// other read — including undetectable — defaults to global USD.
-function detectRegion(): Region {
-  if (typeof navigator === "undefined") return "GLOBAL";
-  try {
-    const loc = new Intl.Locale(navigator.language);
-    const region = (loc as unknown as { region?: string }).region ?? "";
-    if (region.toUpperCase() === "IN") return "IN";
-    const tag = navigator.language.toLowerCase();
-    if (tag.endsWith("-in") || tag.startsWith("hi")) return "IN";
-  } catch {
-    // ignore
-  }
-  return "GLOBAL";
-}
 
 const FEATURES = {
   free: [

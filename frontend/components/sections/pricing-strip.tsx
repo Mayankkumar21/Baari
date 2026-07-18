@@ -18,8 +18,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowRight } from "lucide-react";
-
-type Region = "IN" | "GLOBAL";
+import { detectRegion, type Region } from "@/lib/region";
 
 const PRICES = {
   IN: {
@@ -37,20 +36,6 @@ const PRICES = {
     footer: "All prices in USD. Cancel any time. Downgrade to Free instead of losing your workspace.",
   },
 } as const;
-
-function detectRegion(): Region {
-  if (typeof navigator === "undefined") return "GLOBAL";
-  try {
-    const loc = new Intl.Locale(navigator.language);
-    const region = (loc as unknown as { region?: string }).region ?? "";
-    if (region.toUpperCase() === "IN") return "IN";
-    const tag = navigator.language.toLowerCase();
-    if (tag.endsWith("-in") || tag.startsWith("hi")) return "IN";
-  } catch {
-    // ignore
-  }
-  return "GLOBAL";
-}
 
 export function PricingStrip() {
   // SSR-safe start: USD default, swap to INR after mount if the

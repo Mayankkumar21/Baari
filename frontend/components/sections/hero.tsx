@@ -1,13 +1,33 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowRight, Check, Stethoscope } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { detectRegion, type Region } from "@/lib/region";
+
+// Same tier prices used on /pricing and PricingStrip. Kept here as a
+// tiny local map so we don't have to import from the pricing page
+// (client-server boundary quirks).
+const HERO_GROWTH_PRICE: Record<Region, string> = {
+  IN: "₹999/mo",
+  GLOBAL: "$19/mo",
+};
 
 
 export function Hero() {
+  // Region detection for the micro-copy price. SSR renders USD;
+  // India visitors get INR after hydration. Same treatment as the
+  // PricingStrip further down the page so the two numbers stay in
+  // lockstep.
+  const [region, setRegion] = useState<Region>("GLOBAL");
+  useEffect(() => {
+    setRegion(detectRegion());
+  }, []);
+  const growthPrice = HERO_GROWTH_PRICE[region];
+
   return (
     <section className="relative isolate overflow-hidden pt-16 pb-20 sm:pt-24 sm:pb-28">
       {/* Soft gradient orbs in the background */}
@@ -86,7 +106,8 @@ export function Hero() {
             transition={{ duration: 0.8, delay: 0.36 }}
             className="mt-6 text-sm text-foreground/75"
           >
-            60 days of Pro on us. After that, <strong className="text-foreground">₹999/mo</strong> or stay Free
+            60 days of Pro on us. After that,{" "}
+            <strong className="text-foreground">{growthPrice}</strong> or stay Free
             under 100 customers/month. No card.
           </motion.p>
         </div>
