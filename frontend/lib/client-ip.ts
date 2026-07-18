@@ -19,7 +19,23 @@
 export function getClientIp(req: Request): string;
 export function getClientIp(headers: Headers): string;
 export function getClientIp(input: Request | Headers): string {
-  const h = "headers" in input ? input.headers : input;
+  // Discriminate by capability, not by property name.
+  //
+  // The old check was `"headers" in input` — meant to detect a
+  // Request (which has a `.headers` property) vs a Headers object
+  // (which doesn't). That check broke silently in Next.js 15: the
+  // ReadonlyHeaders instance returned by `await headers()` from
+  // next/headers has an internal `.headers` property, so `"headers"
+  // in input` returned true and we took the Request branch — then
+  // `h.get is not a function` blew up mid-login.
+  //
+  // Instead: a Headers-like object exposes `.get()` directly. Duck-
+  // type on that. Anything else is treated as a Request and we
+  // reach for its .headers.
+  const h: Headers =
+    typeof (input as Headers).get === "function"
+      ? (input as Headers)
+      : (input as Request).headers;
   const cf = h.get("cf-connecting-ip");
   if (cf) return cf.trim();
   const xff = h.get("x-forwarded-for");
