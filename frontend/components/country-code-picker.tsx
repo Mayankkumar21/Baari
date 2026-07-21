@@ -117,8 +117,7 @@ export function defaultCountry(): Country {
 }
 
 // Client-only: peek at the browser's Intl locale to pick the
-// closest country in our list. Callers wrap this in `useEffect`
-// so it runs after hydration and can safely re-set state.
+// closest country in our list. Wrapped by `useCountry()` below.
 export function detectCountry(): Country {
   if (typeof window === "undefined") return COMMON[0];
   try {
@@ -131,6 +130,19 @@ export function detectCountry(): Country {
     // ignore — some browsers throw on unknown locales
   }
   return COMMON[0];
+}
+
+// Country state for a form. SSR renders India (deterministic, so
+// hydration matches) and then swaps to the browser-detected country
+// in a useEffect. Every form that renders a CountryCodePicker uses
+// this — without it, US/UK owners see +91 prefilled forever and
+// can't log in with their own number.
+export function useCountry(): readonly [Country, (c: Country) => void] {
+  const [country, setCountry] = useState<Country>(() => defaultCountry());
+  useEffect(() => {
+    setCountry(detectCountry());
+  }, []);
+  return [country, setCountry] as const;
 }
 
 export function CountryCodePicker({

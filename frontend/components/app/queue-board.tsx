@@ -33,8 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   CountryCodePicker,
-  defaultCountry,
-  type Country,
+  useCountry,
 } from "@/components/country-code-picker";
 import { cn } from "@/lib/utils";
 import { BookForm, type SlotInfo } from "@/app/(app)/book/book-form";
@@ -486,8 +485,9 @@ function WalkInButton() {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   // Country + national number split like login/signup — combined into
-  // an E.164 hidden field the server action reads.
-  const [country, setCountry] = useState<Country>(() => defaultCountry());
+  // an E.164 hidden field the server action reads. SSR India, client
+  // swaps to detected on mount.
+  const [country, setCountry] = useCountry();
   const [national, setNational] = useState("");
   return (
     <div className="relative">

@@ -10,8 +10,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import {
   CountryCodePicker,
-  defaultCountry,
-  type Country,
+  useCountry,
 } from "@/components/country-code-picker";
 import { signupAction, type SignupState } from "./actions";
 import { cn } from "@/lib/utils";
@@ -73,11 +72,11 @@ export function SignupForm({ initialType }: { initialType?: string }) {
   const pwChecks = useMemo(() => checkPassword(password), [password]);
   const pwAllOk = pwChecks.every((c) => c.ok);
 
-  // Country picker state — default from browser locale so a user in
-  // India sees IN preselected, US-locale users see US. The visible
-  // number field holds the national part; a hidden field concatenates
-  // to E.164 for the server action.
-  const [country, setCountry] = useState<Country>(() => defaultCountry());
+  // SSR → India (deterministic), client swaps to browser-detected on
+  // mount. Signup: this determines the E.164 country code the account
+  // is created with, so getting it wrong for non-Indian owners means
+  // they can never log in with their real number.
+  const [country, setCountry] = useCountry();
   const [national, setNational] = useState("");
 
   return (

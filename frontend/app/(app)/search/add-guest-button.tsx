@@ -7,8 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   CountryCodePicker,
-  defaultCountry,
-  type Country,
+  useCountry,
 } from "@/components/country-code-picker";
 import { addGuestAction, type AddGuestState } from "./actions";
 
@@ -20,7 +19,7 @@ export function AddGuestButton() {
   );
   const formRef = useRef<HTMLFormElement>(null);
   const [justAdded, setJustAdded] = useState(false);
-  const [country, setCountry] = useState<Country>(() => defaultCountry());
+  const [country, setCountry] = useCountry();
   const [national, setNational] = useState("");
 
   useEffect(() => {

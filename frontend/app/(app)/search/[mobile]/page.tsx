@@ -121,7 +121,12 @@ export default async function CustomerProfilePage({
               </div>
               <div className="mt-1 inline-flex items-center gap-1.5 text-sm text-muted-foreground">
                 <Phone className="size-3.5" />
-                <span className="tabular-nums">+91 {profile.mobile}</span>
+                {/* profile.mobile is already E.164 (normalizeMobile
+                    stores "+91…" / "+1…" etc.), so just render it. The
+                    old "+91 {mobile}" template showed either a doubled
+                    prefix ("+91 +919893…") or wrong country ("+91 +1…")
+                    for anyone booked with a non-India number. */}
+                <span className="tabular-nums">{profile.mobile}</span>
               </div>
             </div>
             <Button asChild>

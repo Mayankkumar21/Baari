@@ -103,15 +103,22 @@ async function nextCheckedIn(clinicId: number, date: string): Promise<Booking | 
         eq(schema.bookings.status, "checked_in"),
       ),
     )
+    // restoredAt NULLS FIRST so a restored no_show (has a timestamp)
+    // sorts AFTER regular check-ins (NULL). Matches buildBoard's
+    // in-memory sort, which puts restored patients at the end of the
+    // waiting list per PRD §10.5. Without NULLS FIRST, Postgres puts
+    // NULLs last on ASC — a restored patient auto-promotes into the
+    // in-consult slot ahead of everyone who checked in normally,
+    // while the board shows them at the bottom of the queue.
     .orderBy(
-      asc(schema.bookings.restoredAt),
+      sql`${schema.bookings.restoredAt} ASC NULLS FIRST`,
       asc(schema.bookings.slotTime),
       asc(schema.bookings.token),
     );
   return rows[0];
 }
 
-async function tryPromoteNextBooking(clinicId: number, date: string): Promise<Booking | undefined> {
+export async function tryPromoteNextBooking(clinicId: number, date: string): Promise<Booking | undefined> {
   if (await anyoneInConsult(clinicId, date)) return;
   const nxt = await nextCheckedIn(clinicId, date);
   if (!nxt) return;

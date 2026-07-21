@@ -7,17 +7,16 @@ import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import {
   CountryCodePicker,
-  defaultCountry,
-  type Country,
+  useCountry,
 } from "@/components/country-code-picker";
 import { loginAction, type LoginState } from "./actions";
 
 export function LoginForm({ next }: { next: string }) {
   const [state, action, pending] = useActionState<LoginState, FormData>(loginAction, {});
-  // Default from browser locale (India users see IN preselected, US
-  // users see US, etc.) — nice touch for a global launch. The user
-  // can always switch via the flag picker.
-  const [country, setCountry] = useState<Country>(() => defaultCountry());
+  // SSR → India (deterministic, hydration-safe); client swaps to the
+  // browser-detected country on mount. A US owner who signed up with
+  // +1 sees +1 preselected without touching the flag picker.
+  const [country, setCountry] = useCountry();
   const [national, setNational] = useState("");
 
   return (

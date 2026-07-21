@@ -7,8 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   CountryCodePicker,
-  defaultCountry,
-  type Country,
+  useCountry,
 } from "@/components/country-code-picker";
 import { bookAction, type BookState } from "./actions";
 import { cn } from "@/lib/utils";
@@ -44,8 +43,8 @@ export function BookForm({
   const [customReason, setCustomReason] = useState(false);
   const [service, setService] = useState<string>(services[0] ?? "");
   // Country + national number for E.164 mobile; combined into a hidden
-  // field the server action reads.
-  const [country, setCountry] = useState<Country>(() => defaultCountry());
+  // field the server action reads. SSR India, client swaps to detected.
+  const [country, setCountry] = useCountry();
   const [national, setNational] = useState("");
   const [customValue, setCustomValue] = useState("");
   const [justSaved, setJustSaved] = useState(false);

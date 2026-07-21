@@ -1,11 +1,12 @@
 // Booking creation + slot picker. Port of app/services/booking_service.py.
 // `openingHours` here uses the {day: {open, close}} shape produced by setup;
 // build_slots expands that into 20-min cursor slots like the Python version.
-import { and, eq, max, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, max, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { normalizeMobile } from "@/lib/auth";
 import { clinicToday, combineDateTime, nowUtc } from "@/lib/time";
 import { assertMonthlyQuota, QuotaExceededError } from "@/lib/plans";
+import { tryPromoteNextBooking } from "@/lib/services/queue";
 import type { Clinic, Patient, Booking } from "@/lib/db/schema";
 
 export class BookingError extends Error {}
@@ -77,6 +78,12 @@ export function availableSlots(clinic: Clinic, on: string, taken: Set<string>): 
 }
 
 export async function takenSlots(clinicId: number, on: string): Promise<Set<string>> {
+  // Match the DB partial-unique index (uq_bookings_clinic_slot_live):
+  // only booked/checked_in/in_consult occupy a slot. If the UI treats
+  // done/no_show as taken, the receptionist sees fewer bookable slots
+  // than the DB will actually accept — a completed 10:00 consult greys
+  // out 10:00 for the rest of the day even though a walk-in could
+  // legitimately take it.
   const rows = await db
     .select({ slotTime: schema.bookings.slotTime })
     .from(schema.bookings)
@@ -84,7 +91,7 @@ export async function takenSlots(clinicId: number, on: string): Promise<Set<stri
       and(
         eq(schema.bookings.clinicId, clinicId),
         eq(schema.bookings.date, on),
-        ne(schema.bookings.status, "cancelled"),
+        inArray(schema.bookings.status, ["booked", "checked_in", "in_consult"]),
       ),
     );
   return new Set(rows.map((r) => r.slotTime.toISOString()));
@@ -341,6 +348,7 @@ export async function cancelBooking(args: {
   if (booking.status === "done" || booking.status === "no_show" || booking.status === "cancelled") {
     throw new BookingError(`Booking is already ${booking.status}.`);
   }
+  const wasInConsult = booking.status === "in_consult";
   const now = nowUtc();
   const [updated] = await db
     .update(schema.bookings)
@@ -353,5 +361,12 @@ export async function cancelBooking(args: {
   // a controlled BookingError than let a raw property-access crash the
   // handler as a 500.
   if (!updated) throw new BookingError("Booking not found.");
+  // Cancelling the in-consult booking frees the slot; pull the next
+  // checked-in patient into it, same as markDone/markNoShowManual do.
+  // Without this the board reads "no one in consult" and the queue
+  // sits stalled until a receptionist clicks Start Consult manually.
+  if (wasInConsult) {
+    await tryPromoteNextBooking(args.clinicId, booking.date);
+  }
   return updated;
 }
