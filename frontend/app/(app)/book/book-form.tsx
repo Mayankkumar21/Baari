@@ -22,6 +22,7 @@ export function BookForm({
   services,
   reasonLabel,
   entitySingular,
+  tz,
   fromPanel,
   onSuccess,
 }: {
@@ -31,6 +32,7 @@ export function BookForm({
   services: string[];
   reasonLabel: string;
   entitySingular: string;
+  tz: string;
   // When the form is mounted inside the queue's side panel, the action
   // returns without redirecting; the parent panel calls onSuccess so it can
   // close itself. /book route → no parent → no callback → action redirects.
@@ -229,7 +231,7 @@ export function BookForm({
                           : "border-dashed border-border/40 bg-transparent text-muted-foreground/40 line-through opacity-60 cursor-not-allowed",
                   )}
                 >
-                  {fmtTime(iso)}
+                  {fmtTime(iso, tz)}
                 </button>
               );
             })}

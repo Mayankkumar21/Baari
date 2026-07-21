@@ -11,6 +11,7 @@ import { hashPassword, passwordStrength, verifyPassword } from "@/lib/password";
 import { createBookingRequest } from "@/lib/services/booking-request";
 import { servicesFor } from "@/lib/services/service-types";
 import { generateUniqueSlug } from "@/lib/slug";
+import { isValidTimezone } from "@/lib/timezones";
 
 const TENANT_TYPES = ["clinic", "salon", "spa", "dental", "vet", "other"] as const;
 const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
@@ -32,6 +33,13 @@ export async function saveWorkspace(
   const phoneRaw = String(formData.get("phone") ?? "").trim();
   const city = String(formData.get("city") ?? "").trim().slice(0, 60);
   const publicListing = formData.get("public_listing") === "on";
+  // Timezone. Ignored if empty (keeps the existing value) or invalid
+  // (defends against a hand-crafted POST). Validation here + the
+  // schema default is enough — no need to enumerate the picker list
+  // server-side since Intl already knows every valid IANA name.
+  const timezoneRaw = String(formData.get("timezone") ?? "").trim();
+  const timezone =
+    timezoneRaw && isValidTimezone(timezoneRaw) ? timezoneRaw : sess.clinic.timezone;
 
   if (!name) return { error: "Workspace name is required." };
   if (!(TENANT_TYPES as readonly string[]).includes(tenantType)) {
@@ -76,6 +84,7 @@ export async function saveWorkspace(
       city: city || null,
       slug,
       publicListing,
+      timezone,
     })
     .where(eq(schema.clinics.id, sess.clinic.id));
   revalidatePath("/settings/workspace");

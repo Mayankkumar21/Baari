@@ -40,7 +40,7 @@ export default async function DetailsPage({
   const vocab = vocabFor(clinic.tenantType);
   const services = servicesFor(clinic.tenantType);
   const slotTime = new Date(sp.slot!);
-  const slotLabel = formatSlotLabel(slotTime, lang);
+  const slotLabel = formatSlotLabel(slotTime, lang, clinic.timezone);
 
   return (
     <div className="space-y-6">
@@ -68,14 +68,13 @@ export default async function DetailsPage({
   );
 }
 
-function formatSlotLabel(d: Date, lang: "en" | "hi") {
+function formatSlotLabel(d: Date, lang: "en" | "hi", tz: string) {
   const today = new Date();
-  const tz = "Asia/Kolkata";
   const sameDay = (a: Date, b: Date) =>
     new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(a) ===
     new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(b);
   const dayLabel = sameDay(d, today)
     ? lang === "hi" ? "आज" : "Today"
     : lang === "hi" ? "कल" : "Tomorrow";
-  return `${dayLabel}, ${fmtTime(d)}`;
+  return `${dayLabel}, ${fmtTime(d, tz)}`;
 }

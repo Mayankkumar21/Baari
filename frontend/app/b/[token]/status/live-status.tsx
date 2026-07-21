@@ -59,10 +59,12 @@ export function LiveStatus({
   token,
   lang,
   initial,
+  tz,
 }: {
   token: string;
   lang: "en" | "hi";
   initial: StatusFeed;
+  tz: string;
 }) {
   const [feed, setFeed] = useState<StatusFeed>(initial);
   const [tick, setTick] = useState(0);
@@ -111,7 +113,7 @@ export function LiveStatus({
           T-{feed.token}
         </div>
         <div className="mt-2 text-xs text-muted-foreground tabular-nums">
-          {lang === "hi" ? "स्लॉट" : "Slot"}: {fmtTime(feed.slotIso)}
+          {lang === "hi" ? "स्लॉट" : "Slot"}: {fmtTime(feed.slotIso, tz)}
         </div>
       </div>
 

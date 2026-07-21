@@ -181,7 +181,7 @@ export async function walkInAction(formData: FormData): Promise<Result> {
 export async function closeDayAction(): Promise<Result> {
   const sess = await requireDoctor();
   try {
-    await closeDay(sess.clinic.id);
+    await closeDay(sess.clinic.id, sess.clinic.timezone);
     revalidatePath("/queue");
     return { ok: true };
   } catch (err) {

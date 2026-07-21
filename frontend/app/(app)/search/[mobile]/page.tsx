@@ -195,7 +195,7 @@ export default async function CustomerProfilePage({
                   {profile.bookings.map((b) => (
                     <tr key={b.id} className="hover:bg-secondary/20">
                       <td className="px-3 py-2 text-muted-foreground">
-                        {fmtDateTime(b.slotTime)}
+                        {fmtDateTime(b.slotTime, sess.clinic.timezone)}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums">T{b.token}</td>
                       <td className="px-3 py-2 text-muted-foreground">{b.reason ?? "—"}</td>

@@ -42,7 +42,7 @@ function fmtMinutes(sec: number | null): string {
   return `${Math.round(sec / 60)}m`;
 }
 
-export function BookingsTable({ rows }: { rows: BookingRow[] }) {
+export function BookingsTable({ rows, tz }: { rows: BookingRow[]; tz: string }) {
   const [sort, setSort] = useState<SortKey>("when");
   const [dir, setDir] = useState<SortDir>("desc");
 
@@ -118,7 +118,7 @@ export function BookingsTable({ rows }: { rows: BookingRow[] }) {
         <tbody className="divide-y divide-border/60">
           {sorted.map((r) => (
             <tr key={r.id} className="hover:bg-secondary/20">
-              <td className="px-3 py-2 text-muted-foreground">{fmtDateTime(r.slotTime)}</td>
+              <td className="px-3 py-2 text-muted-foreground">{fmtDateTime(r.slotTime, tz)}</td>
               <td className="px-3 py-2 font-medium">{r.patientName}</td>
               <td className="px-3 py-2 tabular-nums text-muted-foreground">
                 {r.patientMobile}

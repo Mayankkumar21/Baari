@@ -4,7 +4,7 @@
 import { and, eq, inArray, max, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { normalizeMobile } from "@/lib/auth";
-import { clinicToday, combineDateTime, nowUtc } from "@/lib/time";
+import { clinicToday, combineDateTime, noonInTz, nowUtc } from "@/lib/time";
 import { assertMonthlyQuota, QuotaExceededError } from "@/lib/plans";
 import { tryPromoteNextBooking } from "@/lib/services/queue";
 import type { Clinic, Patient, Booking } from "@/lib/db/schema";
@@ -35,8 +35,9 @@ export type SlotInfo = { iso: string; status: SlotStatus };
 // uses this to show greyed-out unavailable slots so the receptionist can see
 // what's already booked instead of seeing a sparser grid.
 //
-// Day-of-week derivation: noon-IST → getUTCDay() returns the IST weekday
-// (IST has no DST so the +05:30 offset is fixed year-round).
+// Day-of-week derivation: noon in the clinic's tz → getUTCDay() returns
+// that day's weekday. Anchoring at noon dodges DST spring-forward /
+// fall-back edges (which happen near 02:00 in most zones).
 export function enumerateSlots(
   clinic: Clinic,
   on: string,
@@ -44,14 +45,14 @@ export function enumerateSlots(
 ): SlotInfo[] {
   const slotLen = clinic.slotLengthMin ?? 20;
   const hours = (clinic.openingHours as HoursDoc) ?? {};
-  const onDate = new Date(`${on}T12:00:00+05:30`);
+  const onDate = noonInTz(on, clinic.timezone);
   const day = DAY_KEYS[onDate.getUTCDay()];
   const block = hours[day];
   const now = nowUtc();
   if (!block || block.closed || !block.open || !block.close) return [];
 
-  let cursor = combineDateTime(on, block.open);
-  const end = combineDateTime(on, block.close);
+  let cursor = combineDateTime(on, block.open, clinic.timezone);
+  const end = combineDateTime(on, block.close, clinic.timezone);
   const out: SlotInfo[] = [];
   // A slot is "past" once its END time has elapsed — meaning the entire
   // window is gone, not just the start. That way at 19:18, a slot starting
@@ -163,7 +164,7 @@ export async function createBooking(args: {
   // sees a friendly message on a full month instead of a 500.
   await enforceQuota(args.clinic);
 
-  const on = clinicToday();
+  const on = clinicToday(args.clinic.timezone);
   const taken = await takenSlots(args.clinic.id, on);
   if (taken.has(args.slotTime.toISOString())) {
     throw new BookingError("That slot was just taken. Please pick another.");
@@ -225,7 +226,7 @@ export async function createWalkIn(args: {
 
   await enforceQuota(args.clinic);
 
-  const on = clinicToday();
+  const on = clinicToday(args.clinic.timezone);
   const taken = await takenSlots(args.clinic.id, on);
   const slots = availableSlots(args.clinic, on, taken);
   if (slots.length === 0) {

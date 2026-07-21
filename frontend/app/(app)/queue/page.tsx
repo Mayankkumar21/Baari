@@ -43,14 +43,15 @@ function serializeRow(r: QueueRowVM, noShowThresholdMin: number, now: Date) {
 export default async function QueuePage() {
   const sess = await requireSetup();
   const vocab = vocabFor(sess.clinic.tenantType);
-  const board = await buildBoard(sess.clinic.id);
+  const tz = sess.clinic.timezone;
+  const board = await buildBoard(sess.clinic.id, tz);
   // Show the coach-mark tour once per user — after they dismiss it we
   // stamp onboarded_at so subsequent visits skip it. Server-computed
   // rather than client-localStorage so the tour also doesn't reappear
   // when the same owner logs in on a second device.
   const showTour = sess.user.onboardedAt == null;
 
-  const today = clinicToday();
+  const today = clinicToday(tz);
   const taken = await takenSlots(sess.clinic.id, today);
   const slots = availableSlots(sess.clinic, today, taken);
   const allSlots = enumerateSlots(sess.clinic, today, taken);
@@ -74,7 +75,7 @@ export default async function QueuePage() {
     waiting: board.counters.waiting,
     inSession: board.nowConsulting ? 1 : 0,
     runningLate: waitingRows.filter((r) => r.isLate).length,
-    nextFree: nextFreeSlot ? fmtTime(nextFreeSlot) : "—",
+    nextFree: nextFreeSlot ? fmtTime(nextFreeSlot, tz) : "—",
   };
 
   const summaryRender = board.summary
@@ -94,7 +95,8 @@ export default async function QueuePage() {
     <>
       <AutoRefresh intervalMs={15_000} />
       <QueueBoard
-        generatedAtLabel={fmtDateTime(board.generatedAt)}
+        generatedAtLabel={fmtDateTime(board.generatedAt, tz)}
+        tz={tz}
       counters={board.counters}
       summary={summary}
       nowConsulting={

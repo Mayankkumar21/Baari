@@ -8,7 +8,7 @@ import {
   isClosedDay,
 } from "@/lib/services/booking-request";
 import { enumerateSlots, takenSlots } from "@/lib/services/booking";
-import { clinicToday } from "@/lib/time";
+import { clinicToday, noonInTz } from "@/lib/time";
 import { t, readLang } from "@/lib/i18n-mini";
 import { vocabFor } from "@/lib/vocab";
 import { VerticalIcon } from "@/components/public/vertical-icon";
@@ -51,8 +51,8 @@ export default async function BookingLandingPage({
 
   // Build the two-day slot picker. Today first; tomorrow only surfaced if
   // (a) today has open slots, OR (b) today doesn't but tomorrow does.
-  const todayStr = clinicToday();
-  const tomorrowStr = addDays(todayStr, 1);
+  const todayStr = clinicToday(clinic.timezone);
+  const tomorrowStr = addDays(todayStr, 1, clinic.timezone);
 
   const todaySlots = (await isClosedDay(clinic.id, todayStr))
     ? []
@@ -110,6 +110,7 @@ export default async function BookingLandingPage({
         continueLabel={t("continue", lang)}
         fullyBookedLabel={t("fully_booked", lang)}
         seeTomorrowLabel={t("see_tomorrow", lang)}
+        tz={clinic.timezone}
       />
     </div>
   );
@@ -123,13 +124,13 @@ async function enumerateSlotsFor(
   return enumerateSlots(clinic, date, taken);
 }
 
-function addDays(yyyyMmDd: string, n: number): string {
-  // Treat the YYYY-MM-DD as IST noon to dodge DST/timezone slips, then
-  // shift n days, then re-format. Returns YYYY-MM-DD.
-  const d = new Date(`${yyyyMmDd}T12:00:00+05:30`);
+function addDays(yyyyMmDd: string, n: number, tz: string): string {
+  // Anchor at noon in the clinic's tz to dodge DST spring-forward
+  // slips (2:00 am → 3:00 am), then shift n days, then re-format.
+  const d = noonInTz(yyyyMmDd, tz);
   d.setUTCDate(d.getUTCDate() + n);
   return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata",
+    timeZone: tz,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

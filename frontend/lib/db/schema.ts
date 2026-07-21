@@ -75,6 +75,12 @@ export const clinics = pgTable("clinics", {
   noShowThresholdMin: integer("no_show_threshold_min").notNull().default(45),
   retentionDays: integer("retention_days").notNull().default(730),
   setupComplete: boolean("setup_complete").notNull().default(false),
+  // IANA timezone name for this clinic. Every "which day is today",
+  // slot-cursor build, and wall-clock render on the dashboard reads
+  // this. Signup autodetects from the browser (Intl.DateTimeFormat);
+  // owners can change it in Settings. Default is India for legacy
+  // rows and any signup where autodetect couldn't run (SSR fallback).
+  timezone: varchar("timezone", { length: 64 }).notNull().default("Asia/Kolkata"),
   // Customer-app discoverability fields. `slug` is a stable URL-safe
   // handle (auto-generated from name on backfill). `publicListing`
   // gates whether the workspace appears in /api/v1/clinics/search —

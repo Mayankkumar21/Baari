@@ -9,8 +9,6 @@ import { db, schema } from "@/lib/db/client";
 import { clinicToday, nowUtc } from "@/lib/time";
 import type { DailySummary, Booking } from "@/lib/db/schema";
 
-const CLINIC_TZ = process.env.CLINIC_TZ ?? "Asia/Kolkata";
-
 export class DayCloseError extends Error {}
 
 export async function getSummary(
@@ -30,10 +28,10 @@ export async function getSummary(
   return row;
 }
 
-function localHour(d: Date): number {
+function localHour(d: Date, tz: string): number {
   return Number(
     new Intl.DateTimeFormat("en-GB", {
-      timeZone: CLINIC_TZ,
+      timeZone: tz,
       hour: "2-digit",
       hour12: false,
     }).format(d),
@@ -42,9 +40,10 @@ function localHour(d: Date): number {
 
 export async function closeDay(
   clinicId: number,
+  tz: string,
   on?: string,
 ): Promise<DailySummary> {
-  const date = on ?? clinicToday();
+  const date = on ?? clinicToday(tz);
   const now = nowUtc();
 
   // 1. Sweep still-active bookings.
@@ -118,7 +117,7 @@ export async function closeDay(
   if (startedTimes.length) {
     const buckets = new Map<number, number>();
     for (const t of startedTimes) {
-      const h = localHour(t);
+      const h = localHour(t, tz);
       buckets.set(h, (buckets.get(h) ?? 0) + 1);
     }
     peakHour = [...buckets.entries()].sort((a, b) => b[1] - a[1])[0][0];

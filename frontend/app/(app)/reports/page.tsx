@@ -613,7 +613,7 @@ export default async function ReportsPage({
   const sess = await requireDoctor();
   const vocab = vocabFor(sess.clinic.tenantType);
   const sp = await searchParams;
-  const r = computeRange(sp.range, sp.from, sp.to);
+  const r = computeRange(sp.range, sp.from, sp.to, sess.clinic.timezone);
 
   const growthUnlocked = hasPlan(sess.clinic, "growth");
   const proUnlocked = hasPlan(sess.clinic, "pro");
@@ -786,7 +786,7 @@ export default async function ReportsPage({
                 Showing {bundle.recent.length} {bundle.recent.length === 200 ? "(capped)" : ""}
               </span>
             </div>
-            <BookingsTable rows={bundle.recent} />
+            <BookingsTable rows={bundle.recent} tz={sess.clinic.timezone} />
           </CardContent>
         </Card>
       </div>

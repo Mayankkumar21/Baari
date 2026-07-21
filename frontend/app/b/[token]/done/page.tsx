@@ -42,7 +42,7 @@ export default async function DonePage({
   if (!booking) return <ExpiredScreen lang={lang} clinic={clinic} />;
 
   const vocab = vocabFor(clinic.tenantType);
-  const slotLabel = formatSlotLabel(new Date(booking.slotTime), lang);
+  const slotLabel = formatSlotLabel(new Date(booking.slotTime), lang, clinic.timezone);
   const mapsUrl = clinic.address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${clinic.name} ${clinic.address}`)}`
     : null;
@@ -139,14 +139,13 @@ function mask(mobile: string): string {
   return `+91 ${first}••••${last}`;
 }
 
-function formatSlotLabel(d: Date, lang: "en" | "hi") {
+function formatSlotLabel(d: Date, lang: "en" | "hi", tz: string) {
   const today = new Date();
-  const tz = "Asia/Kolkata";
   const sameDay = (a: Date, b: Date) =>
     new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(a) ===
     new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(b);
   const dayLabel = sameDay(d, today)
     ? lang === "hi" ? "आज" : "Today"
     : lang === "hi" ? "कल" : "Tomorrow";
-  return `${dayLabel}, ${fmtTime(d)}`;
+  return `${dayLabel}, ${fmtTime(d, tz)}`;
 }

@@ -18,6 +18,7 @@ export function SlotPicker({
   continueLabel,
   fullyBookedLabel,
   seeTomorrowLabel,
+  tz,
 }: {
   token: string;
   lang: "en" | "hi";
@@ -29,6 +30,7 @@ export function SlotPicker({
   continueLabel: string;
   fullyBookedLabel: string;
   seeTomorrowLabel: string;
+  tz: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -112,7 +114,7 @@ export function SlotPicker({
                   : "border-border bg-card/60 text-foreground hover:border-primary/50",
               )}
             >
-              {fmtTime(iso)}
+              {fmtTime(iso, tz)}
             </button>
           );
         })}

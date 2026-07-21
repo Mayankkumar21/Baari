@@ -8,7 +8,6 @@
 
 export const dynamic = "force-dynamic";
 
-import { clinicToday } from "@/lib/time";
 import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
 import { getClientIp } from "@/lib/client-ip";
 import { ERRORS, fail, ok } from "@/lib/api-helpers";
@@ -26,14 +25,18 @@ export async function GET(
 
   const { slug } = await params;
   const url = new URL(req.url);
-  const dateParam = url.searchParams.get("date") ?? clinicToday();
+  const dateParam = url.searchParams.get("date") ?? undefined;
 
-  // Validate date format YYYY-MM-DD to avoid SQL surprises.
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+  // Validate date format YYYY-MM-DD to avoid SQL surprises. When
+  // absent, getPublicSlots resolves the clinic's local today.
+  if (dateParam && !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
     return ERRORS.BAD_REQUEST("date must be YYYY-MM-DD");
   }
 
-  const slots = await getPublicSlots({ slug, date: dateParam });
-  if (slots === null) return ERRORS.NOT_FOUND("Clinic not found or not public.");
-  return ok({ date: dateParam, slots });
+  const result = await getPublicSlots({ slug, date: dateParam });
+  if (result === null) return ERRORS.NOT_FOUND("Clinic not found or not public.");
+  // Return the RESOLVED date (from the clinic's local today when the
+  // caller didn't supply one) so the shape stays stable — the mobile
+  // app has always seen `date` populated.
+  return ok(result);
 }

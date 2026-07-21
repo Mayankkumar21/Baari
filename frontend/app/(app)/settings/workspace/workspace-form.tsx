@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { saveWorkspace, type WorkspaceState } from "../actions";
+import { TimezonePicker } from "./timezone-picker";
 
 const SLOT_OPTIONS = [15, 20, 30, 45, 60] as const;
 const SLOT_MIN = 5;
@@ -34,6 +35,7 @@ export function WorkspaceForm({
     city: string;
     slug: string;
     publicListing: boolean;
+    timezone: string;
   };
 }) {
   const [state, action, pending] = useActionState<WorkspaceState, FormData>(
@@ -115,6 +117,16 @@ export function WorkspaceForm({
             defaultValue={initial.noShow}
           />
         </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label>Timezone</Label>
+        <TimezonePicker name="timezone" initial={initial.timezone} />
+        <p className="text-[11px] text-muted-foreground">
+          Used for slot times, day boundaries, and reports. Change this
+          only if your business has moved — bookings already made stay
+          at their original wall-clock time.
+        </p>
       </div>
 
       <div className="space-y-1.5">

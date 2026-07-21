@@ -32,5 +32,5 @@ export default async function StatusPage({
   const initial = await getStatusFeed(token);
   if (!initial) return <ExpiredScreen lang={lang} clinic={found.clinic} />;
 
-  return <LiveStatus token={token} lang={lang} initial={initial} />;
+  return <LiveStatus token={token} lang={lang} initial={initial} tz={found.clinic.timezone} />;
 }

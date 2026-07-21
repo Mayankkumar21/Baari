@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function BookPage() {
   const sess = await requireSetup();
   const vocab = vocabFor(sess.clinic.tenantType);
-  const today = clinicToday();
+  const today = clinicToday(sess.clinic.timezone);
   const taken = await takenSlots(sess.clinic.id, today);
   const slots = enumerateSlots(sess.clinic, today, taken);
   const freeCount = slots.filter((s) => s.status === "open").length;
@@ -35,6 +35,7 @@ export default async function BookPage() {
             services={services}
             reasonLabel={vocab.reasonLabel}
             entitySingular={vocab.entitySingular}
+            tz={sess.clinic.timezone}
           />
         </CardContent>
       </Card>

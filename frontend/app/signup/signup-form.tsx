@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { Check, Scissors, Stethoscope, Flower, PawPrint, Store } from "lucide-react";
 import { Tooth } from "@/components/icons/tooth";
 import { Button } from "@/components/ui/button";
@@ -79,10 +79,25 @@ export function SignupForm({ initialType }: { initialType?: string }) {
   const [country, setCountry] = useCountry();
   const [national, setNational] = useState("");
 
+  // Browser-autodetected timezone. Stays blank at SSR (deterministic,
+  // hydration-safe) and gets populated in an effect after mount. The
+  // server action falls back to Asia/Kolkata if this is empty or if
+  // the value doesn't look like a real IANA name — safer than
+  // trusting the browser at the point where we're creating the
+  // workspace row.
+  const [timezone, setTimezone] = useState("");
+  useEffect(() => {
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (tz) setTimezone(tz);
+    } catch {}
+  }, []);
+
   return (
     <form action={action} className="space-y-5">
       {/* Honeypots */}
       <input type="text" name="website" autoComplete="off" tabIndex={-1} className="hidden" />
+      <input type="hidden" name="timezone" value={timezone} />
       <input type="text" name="company_name" autoComplete="off" tabIndex={-1} className="hidden" />
 
       <div>

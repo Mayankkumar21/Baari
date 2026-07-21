@@ -25,8 +25,17 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { createContext, useContext, useEffect, useRef, useState, useTransition } from "react";
 import { fmtTime } from "@/lib/time";
+
+// Context so sub-components (NowCard, WaitingRow, DoneRow, reschedule
+// popover…) can format wall-clock strings without every parent having
+// to thread `tz` into every child prop. QueueBoard sets it once at the
+// top from the clinic's timezone.
+const TzContext = createContext<string>("Asia/Kolkata");
+function useTz(): string {
+  return useContext(TzContext);
+}
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -134,6 +143,7 @@ export function QueueBoard({
   isDoctor,
   categories,
   quota,
+  tz,
 }: {
   generatedAtLabel: string;
   waiting: Row[];
@@ -160,9 +170,14 @@ export function QueueBoard({
     isNearCap: boolean;
     monthLabel: string;
   };
+  // Clinic's IANA timezone — used for every wall-clock render on the
+  // board and threaded down to nested components (row cards, walk-in,
+  // book form). Comes from sess.clinic.timezone.
+  tz: string;
 }) {
   const [bookOpen, setBookOpen] = useState(false);
   return (
+    <TzContext.Provider value={tz}>
     <div className="space-y-5">
       {quota.cap !== null && (quota.isNearCap || quota.isOverCap) ? (
         <QuotaBanner
@@ -176,7 +191,7 @@ export function QueueBoard({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="text-xs text-muted-foreground">
-            {generatedAtLabel} · IST
+            {generatedAtLabel} · {tz}
             {isClosed ? <span className="ml-2 text-primary">· closed</span> : null}
           </div>
           <h1 className="mt-1 text-2xl font-bold tracking-tight">Queue</h1>
@@ -274,6 +289,7 @@ export function QueueBoard({
         inputs={bookingInputs}
       />
     </div>
+    </TzContext.Provider>
   );
 }
 
@@ -324,6 +340,7 @@ function BookPanel({
   onClose: () => void;
   inputs: BookingInputs;
 }) {
+  const tz = useTz();
   // Close on Escape and when clicking the backdrop.
   useEffect(() => {
     if (!open) return;
@@ -367,6 +384,7 @@ function BookPanel({
             services={inputs.services}
             reasonLabel={inputs.reasonLabel}
             entitySingular={inputs.entitySingular}
+            tz={tz}
             fromPanel
             onSuccess={onClose}
           />
@@ -620,7 +638,8 @@ function NowCard({
   categories: string[] | null;
 }) {
   const [pending, start] = useTransition();
-  const startedAtLabel = nc.startedAt ? fmtTime(nc.startedAt) : null;
+  const tz = useTz();
+  const startedAtLabel = nc.startedAt ? fmtTime(nc.startedAt, tz) : null;
   const elapsedMin = nc.startedAt
     ? Math.max(0, Math.floor((Date.now() - new Date(nc.startedAt).getTime()) / 60000))
     : null;
@@ -827,6 +846,7 @@ function WaitingRow({
 }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const tz = useTz();
 
   // Status colour system, unified across the app:
   //   waiting (booked/checked_in) → primary tint, the brand colour
@@ -884,7 +904,7 @@ function WaitingRow({
             ) : null}
           </div>
           <div className="truncate text-xs text-muted-foreground">
-            <span>{fmtTime(row.slotTime)}</span>
+            <span>{fmtTime(row.slotTime, tz)}</span>
             {row.reason ? (
               <>
                 {" · "}
@@ -1026,6 +1046,7 @@ function ReschedulePopover({
 }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const tz = useTz();
   const options = availableSlots.filter((iso) => iso !== slotTime);
   return (
     <div
@@ -1063,7 +1084,7 @@ function ReschedulePopover({
                 }}
                 className="rounded-md border border-border bg-card/60 px-2 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:border-primary/40 hover:text-foreground"
               >
-                {fmtTime(iso)}
+                {fmtTime(iso, tz)}
               </button>
             ))}
           </div>
@@ -1130,6 +1151,7 @@ function DoneRow({
   vocab: Vocab;
   readOnly: boolean;
 }) {
+  const tz = useTz();
   // Unified status colour system for the done strip.
   const stateClass =
     row.status === "no_show"
@@ -1155,7 +1177,7 @@ function DoneRow({
             {row.patientName}
           </div>
           <div className="truncate text-[11px] text-muted-foreground">
-            {fmtTime(row.slotTime)} ·{" "}
+            {fmtTime(row.slotTime, tz)} ·{" "}
             <span className="capitalize">{row.status.replace("_", " ")}</span>
           </div>
         </div>

@@ -8,6 +8,7 @@ import { SESSION_COOKIE, issueSession, normalizeEmail, normalizeMobile } from "@
 import { hashPassword, passwordStrength } from "@/lib/password";
 import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
 import { getClientIp } from "@/lib/client-ip";
+import { isValidTimezone } from "@/lib/timezones";
 
 const TENANT_TYPES = ["clinic", "salon", "spa", "dental", "vet", "other"] as const;
 type TenantType = (typeof TENANT_TYPES)[number];
@@ -41,6 +42,13 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
   const tenantType: TenantType = (TENANT_TYPES as readonly string[]).includes(tenantTypeRaw)
     ? (tenantTypeRaw as TenantType)
     : "clinic";
+  // Browser-autodetected timezone. The signup form ships this as a
+  // hidden field populated in a useEffect from Intl.DateTimeFormat.
+  // Validate it's a real IANA name; anything unknown or missing (SSR
+  // fallback, bots) falls back to India — matches the schema default
+  // and the pilot market. Owners can change it in Settings.
+  const timezoneRaw = String(formData.get("timezone") ?? "").trim();
+  const timezone = isValidTimezone(timezoneRaw) ? timezoneRaw : "Asia/Kolkata";
 
   if (businessName.length < 2 || businessName.length > 120) {
     return { error: "Business name is required" };
@@ -99,6 +107,7 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
         name: businessName,
         tenantType,
         mobile,
+        timezone,
         slotLengthMin: 20,
         openingHours: DEFAULT_OPENING_HOURS,
         closedDays: [],

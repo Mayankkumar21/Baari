@@ -8,7 +8,7 @@ import { db, schema } from "@/lib/db/client";
 import { availableSlots, enumerateSlots, takenSlots } from "@/lib/services/booking";
 import { isClosedDay } from "@/lib/services/booking-request";
 import { servicesFor } from "@/lib/services/service-types";
-import { clinicToday } from "@/lib/time";
+import { clinicToday, combineDateTime, noonInTz } from "@/lib/time";
 import { mobileVocabFor } from "@/lib/vocab";
 import type { Clinic } from "@/lib/db/schema";
 
@@ -88,18 +88,23 @@ export type PublicSlot = { iso: string };
 // "Opens [day at time]" on the discover list.
 const LOOKAHEAD_DAYS = 7;
 
-function addIstDays(dateStr: string, n: number): string {
-  // dateStr is "YYYY-MM-DD" in IST. Anchor at noon IST so DST-less +05:30
-  // arithmetic stays inside the same calendar day.
-  const d = new Date(`${dateStr}T12:00:00+05:30`);
+function addLocalDays(dateStr: string, n: number, tz: string): string {
+  // Anchor at noon in the clinic's tz so a DST spring-forward can't
+  // land us on the previous/next day. Then setUTCDate handles rollover.
+  const d = noonInTz(dateStr, tz);
   d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
 }
 
 async function findNextSlot(clinic: Clinic): Promise<string | null> {
-  const today = clinicToday();
+  const today = clinicToday(clinic.timezone);
   for (let i = 0; i < LOOKAHEAD_DAYS; i++) {
-    const dateStr = addIstDays(today, i);
+    const dateStr = addLocalDays(today, i, clinic.timezone);
     if (await isClosedDay(clinic.id, dateStr)) continue;
     const taken = await takenSlots(clinic.id, dateStr);
     const slots = availableSlots(clinic, dateStr, taken);
@@ -266,7 +271,7 @@ export async function getPublicClinicBySlug(
   const base = await summary(row);
   const now = new Date();
   const slotLen = row.slotLengthMin ?? 20;
-  const waitingNow = await getWaitingNow(row.id);
+  const waitingNow = await getWaitingNow(row.id, row.timezone);
   // A patient row is created on the customer's first booking here, so
   // "returning" == the row exists. The confirm sheet uses this to
   // default First visit? off. Cheap: single indexed lookup.
@@ -297,8 +302,8 @@ export async function getPublicClinicBySlug(
   // Upcoming closed dates (workspace-wide only for pilot — user_id
   // rows are ignored). Range matches the mobile picker's lookahead so
   // we don't ship more data than it can display.
-  const todayIso = clinicToday();
-  const horizon = addIstDays(todayIso, LOOKAHEAD_DAYS);
+  const todayIso = clinicToday(row.timezone);
+  const horizon = addLocalDays(todayIso, LOOKAHEAD_DAYS, row.timezone);
   const closedRows = await db
     .select({ date: schema.closedDays.date })
     .from(schema.closedDays)
@@ -333,8 +338,8 @@ export async function getPublicClinicBySlug(
 // (currently being served, not waiting) and the terminal states. This
 // is what the customer-app shows as "N waiting · ~M min" before they
 // decide whether to book.
-async function getWaitingNow(clinicId: number): Promise<number> {
-  const today = clinicToday();
+async function getWaitingNow(clinicId: number, tz: string): Promise<number> {
+  const today = clinicToday(tz);
   const rows = await db
     .select({ id: schema.bookings.id })
     .from(schema.bookings)
@@ -353,51 +358,47 @@ async function getWaitingNow(clinicId: number): Promise<number> {
 // "closes at" (when openNow) or "opens at" (when closed). Logic mirrors
 // isOpenAt — split-shift support, IST anchor, week lookahead.
 
-function dayKeyFor(istDateStr: string): DayKey {
-  const d = new Date(`${istDateStr}T12:00:00+05:30`);
-  return DAY_KEYS[d.getUTCDay()];
-}
-
-function combineIstDateTime(istDateStr: string, hhmm: string): Date {
-  return new Date(`${istDateStr}T${hhmm}:00+05:30`);
+function dayKeyFor(dateStr: string, tz: string): DayKey {
+  return DAY_KEYS[noonInTz(dateStr, tz).getUTCDay()];
 }
 
 // If `now` falls inside one of today's opening blocks, return the close
 // time of THAT block. Otherwise null.
 function getCurrentCloseTime(clinic: Clinic, now: Date): string | null {
-  const istToday = clinicToday();
+  const localToday = clinicToday(clinic.timezone);
   const hours = (clinic.openingHours as Record<DayKey, OpeningBlock>) ?? {};
-  const block = hours[dayKeyFor(istToday)];
+  const block = hours[dayKeyFor(localToday, clinic.timezone)];
   if (!block || block.closed) return null;
   const tryBlock = (open?: string, close?: string): string | null => {
     if (!open || !close) return null;
-    const openDt = combineIstDateTime(istToday, open);
-    const closeDt = combineIstDateTime(istToday, close);
+    const openDt = combineDateTime(localToday, open, clinic.timezone);
+    const closeDt = combineDateTime(localToday, close, clinic.timezone);
     if (now >= openDt && now < closeDt) return closeDt.toISOString();
     return null;
   };
   return tryBlock(block.open, block.close) ?? tryBlock(block.open2, block.close2);
 }
 
-// Walks up to 7 IST days forward looking for the next opening time
-// AFTER `now`. Respects closed_days. Handles split shifts (afternoon
-// block when morning is past). Returns null if no opening found in 7d.
+// Walks up to 7 clinic-local days forward looking for the next opening
+// time AFTER `now`. Respects closed_days. Handles split shifts
+// (afternoon block when morning is past). Returns null if no opening
+// found in 7d.
 async function getNextOpenTime(clinic: Clinic, now: Date): Promise<string | null> {
-  const istToday = clinicToday();
+  const localToday = clinicToday(clinic.timezone);
   for (let i = 0; i < LOOKAHEAD_DAYS; i++) {
-    const istDate = addIstDays(istToday, i);
-    if (await isClosedDay(clinic.id, istDate)) continue;
+    const localDate = addLocalDays(localToday, i, clinic.timezone);
+    if (await isClosedDay(clinic.id, localDate)) continue;
     const hours = (clinic.openingHours as Record<DayKey, OpeningBlock>) ?? {};
-    const block = hours[dayKeyFor(istDate)];
+    const block = hours[dayKeyFor(localDate, clinic.timezone)];
     if (!block || block.closed) continue;
     // First block of the day
     if (block.open) {
-      const openDt = combineIstDateTime(istDate, block.open);
+      const openDt = combineDateTime(localDate, block.open, clinic.timezone);
       if (openDt > now) return openDt.toISOString();
     }
     // Second (afternoon) block — useful when we're between blocks today.
     if (block.open2) {
-      const open2Dt = combineIstDateTime(istDate, block.open2);
+      const open2Dt = combineDateTime(localDate, block.open2, clinic.timezone);
       if (open2Dt > now) return open2Dt.toISOString();
     }
   }
@@ -408,8 +409,8 @@ async function getNextOpenTime(clinic: Clinic, now: Date): Promise<string | null
 // app never sees them.
 export async function getPublicSlots(args: {
   slug: string;
-  date: string;
-}): Promise<PublicSlot[] | null> {
+  date?: string;
+}): Promise<{ date: string; slots: PublicSlot[] } | null> {
   const [clinic] = await db
     .select()
     .from(schema.clinics)
@@ -421,23 +422,39 @@ export async function getPublicSlots(args: {
     )
     .limit(1);
   if (!clinic) return null;
-  if (await isClosedDay(clinic.id, args.date)) return [];
-  const taken = await takenSlots(clinic.id, args.date);
-  return enumerateSlots(clinic, args.date, taken)
+  // Default the date to the clinic's local today — the customer app
+  // opening the picker without a date wants "today at this clinic",
+  // which is only well-defined once we know the clinic's tz.
+  const date = args.date ?? clinicToday(clinic.timezone);
+  if (await isClosedDay(clinic.id, date)) return { date, slots: [] };
+  const taken = await takenSlots(clinic.id, date);
+  const slots = enumerateSlots(clinic, date, taken)
     .filter((s) => s.status === "open")
     .map((s) => ({ iso: s.iso }));
+  return { date, slots };
 }
 
 // True if `now` falls inside one of the clinic's opening windows for
-// today (handles single-shift and split-shift days).
+// today (handles single-shift and split-shift days). All wall-clock
+// math is anchored in the clinic's local timezone.
 function isOpenAt(clinic: Clinic, now: Date): boolean {
   const hours = (clinic.openingHours as Record<DayKey, OpeningBlock>) ?? {};
-  const tz = "Asia/Kolkata";
-  const today = new Date(now.toLocaleString("en-US", { timeZone: tz }));
-  const dayKey = DAY_KEYS[today.getDay()];
-  const block = hours[dayKey];
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: clinic.timezone,
+    hourCycle: "h23",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(now);
+  const wk = parts.find((p) => p.type === "weekday")?.value ?? "Sun";
+  const hh = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+  const mm = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
+  const wkMap: Record<string, DayKey> = {
+    Sun: "sun", Mon: "mon", Tue: "tue", Wed: "wed", Thu: "thu", Fri: "fri", Sat: "sat",
+  };
+  const block = hours[wkMap[wk] ?? "sun"];
   if (!block || block.closed) return false;
-  const minutes = today.getHours() * 60 + today.getMinutes();
+  const minutes = hh * 60 + mm;
   const inside = (open?: string, close?: string) => {
     if (!open || !close) return false;
     const [oh, om] = open.split(":").map(Number);

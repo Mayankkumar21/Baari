@@ -29,13 +29,16 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const today = clinicToday();
   const now = new Date();
 
   // Find clinics with their no_show_threshold_min and sweep stale checked-in/booked rows.
+  // "Today" is resolved per-clinic — a US clinic's Monday can still be
+  // in progress while an Indian clinic's Tuesday has begun, and the
+  // bookings.date column holds each clinic's local YYYY-MM-DD.
   const clinics = await db.select().from(schema.clinics);
   let noShowed = 0;
   for (const clinic of clinics) {
+    const today = clinicToday(clinic.timezone);
     const cutoff = new Date(now.getTime() - clinic.noShowThresholdMin * 60 * 1000);
     const result = await db
       .update(schema.bookings)
@@ -54,17 +57,22 @@ export async function GET(req: Request) {
   // Zombie sweep — any booking on a past date that's still in a live
   // status (booked / checked_in) never got resolved. Convert to
   // no_show so it stops appearing in customer status polls and owner
-  // "waiting" counts. Runs across all clinics in one UPDATE.
-  const zombie = await db
-    .update(schema.bookings)
-    .set({ status: "no_show", noShowAt: now, updatedAt: now })
-    .where(
-      and(
-        lt(schema.bookings.date, today),
-        inArray(schema.bookings.status, ["booked", "checked_in"]),
-      ),
-    );
-  const zombieSwept = (zombie as { rowCount?: number }).rowCount ?? 0;
+  // "waiting" counts. Per-clinic since "today" differs across zones.
+  let zombieSwept = 0;
+  for (const clinic of clinics) {
+    const today = clinicToday(clinic.timezone);
+    const z = await db
+      .update(schema.bookings)
+      .set({ status: "no_show", noShowAt: now, updatedAt: now })
+      .where(
+        and(
+          eq(schema.bookings.clinicId, clinic.id),
+          lt(schema.bookings.date, today),
+          inArray(schema.bookings.status, ["booked", "checked_in"]),
+        ),
+      );
+    zombieSwept += (z as { rowCount?: number }).rowCount ?? 0;
+  }
 
   const gc = await gcOldBuckets();
 

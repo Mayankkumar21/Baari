@@ -144,7 +144,7 @@ export default async function SearchPage({
                           T{r.token} · {r.patientName}
                         </div>
                         <div className="truncate text-xs text-muted-foreground">
-                          {r.patientMobile} · {fmtDateTime(r.slotTime)}
+                          {r.patientMobile} · {fmtDateTime(r.slotTime, sess.clinic.timezone)}
                         </div>
                       </div>
                       <SearchStatusPill status={r.status} />

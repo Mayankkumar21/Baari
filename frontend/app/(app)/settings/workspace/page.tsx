@@ -25,6 +25,7 @@ export default async function WorkspaceSettingsPage() {
               city: sess.clinic.city ?? "",
               slug: sess.clinic.slug ?? "",
               publicListing: sess.clinic.publicListing ?? false,
+              timezone: sess.clinic.timezone,
             }}
           />
         </CardContent>

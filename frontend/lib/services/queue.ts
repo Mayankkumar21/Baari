@@ -346,8 +346,8 @@ export async function undoDone(clinicId: number, bookingId: number): Promise<voi
     .where(eq(schema.bookings.id, bookingId));
 }
 
-export async function buildBoard(clinicId: number): Promise<QueueBoardVM> {
-  const today = clinicToday();
+export async function buildBoard(clinicId: number, tz: string): Promise<QueueBoardVM> {
+  const today = clinicToday(tz);
   const now = nowUtc();
 
   // Order by slot_time first so the owner sees appointments in the

@@ -53,7 +53,7 @@ export default async function CancelPage({
           {lang === "hi" ? "टोकन" : "Token"}
         </div>
         <div className="text-3xl font-extrabold leading-none text-primary">T-{booking.token}</div>
-        <div className="mt-1 text-sm font-semibold">{fmtTime(booking.slotTime)}</div>
+        <div className="mt-1 text-sm font-semibold">{fmtTime(booking.slotTime, clinic.timezone)}</div>
         <div className="mt-2 text-xs text-muted-foreground">{clinic.name}</div>
       </div>
 

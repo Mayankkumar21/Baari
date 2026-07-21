@@ -75,7 +75,7 @@ export async function GET(req: Request) {
   }
 
   const { user: _user, clinic } = auth;
-  const board = await buildBoard(clinic.id);
+  const board = await buildBoard(clinic.id, clinic.timezone);
   const now = board.generatedAt;
   const noShowThresholdMin = clinic.noShowThresholdMin;
 
