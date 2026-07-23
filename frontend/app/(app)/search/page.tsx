@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { fmtDateTime } from "@/lib/time";
 import { getRecentGuests } from "@/lib/services/patients";
 import { AddGuestButton } from "./add-guest-button";
-import { countryFromMobile } from "@/components/country-code-picker";
+import { countryFromMobile } from "@/lib/country";
 
 export const dynamic = "force-dynamic";
 

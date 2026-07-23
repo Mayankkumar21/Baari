@@ -5,7 +5,7 @@ import { enumerateSlots, takenSlots } from "@/lib/services/booking";
 import { servicesFor } from "@/lib/services/service-types";
 import { clinicToday } from "@/lib/time";
 import { BookForm } from "./book-form";
-import { countryFromMobile } from "@/components/country-code-picker";
+import { countryFromMobile } from "@/lib/country";
 
 export const dynamic = "force-dynamic";
 

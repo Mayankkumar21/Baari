@@ -9,7 +9,7 @@ import { clinicToday, fmtDateTime, fmtTime } from "@/lib/time";
 import { QueueBoard } from "@/components/app/queue-board";
 import { AutoRefresh } from "@/components/app/auto-refresh";
 import { OnboardingTour } from "@/components/app/onboarding-tour";
-import { countryFromMobile } from "@/components/country-code-picker";
+import { countryFromMobile } from "@/lib/country";
 
 export const dynamic = "force-dynamic";
 
