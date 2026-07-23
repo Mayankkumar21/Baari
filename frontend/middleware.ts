@@ -13,6 +13,9 @@ const PUBLIC = new Set([
   "/workspace-deleted",
   "/legal/privacy",
   "/legal/terms",
+  // Sentry test page — used to verify the SDK end-to-end. Delete
+  // the app/sentry-example-page/ route AND this entry once verified.
+  "/sentry-example-page",
 ]);
 
 // Path PREFIXES that are public regardless of session:
@@ -21,13 +24,17 @@ const PUBLIC = new Set([
 //   /api/health  — Railway healthcheck + Neon-warm-keep cron; never
 //                  redirect these to /login or the healthcheck fails
 //   /b/          — public missed-call/SMS booking flow (token in URL is the auth)
-const PUBLIC_PREFIXES = ["/api/v1/", "/api/health", "/b/"];
+//   /monitoring  — Sentry browser-tunnel route (POST from the client SDK
+//                  to bypass ad-blockers). Configured in next.config.ts
+//                  via `tunnelRoute: "/monitoring"`. Middleware MUST NOT
+//                  redirect it or every client-side crash report is lost.
+const PUBLIC_PREFIXES = ["/api/v1/", "/api/health", "/b/", "/monitoring"];
 
 // Exclude these from the matcher entirely so they don't even hit this
 // middleware. Belt + braces with PUBLIC_PREFIXES — if Next ever changes
 // matcher semantics, the in-fn check is the fallback.
 export const config = {
-  matcher: ["/((?!_next|api/cron|api/v1|api/health|favicon|.*\\.).*)"],
+  matcher: ["/((?!_next|api/cron|api/v1|api/health|monitoring|favicon|.*\\.).*)"],
 };
 
 export async function middleware(req: NextRequest) {
