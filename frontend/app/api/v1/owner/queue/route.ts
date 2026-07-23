@@ -91,7 +91,10 @@ export async function GET(req: Request) {
         : 0;
     return {
       bookingId: r.booking.id,
-      token: r.booking.token,
+      // Slot-order display token (1..N). Mobile shows this as "T{n}".
+      // DB `booking.token` stays server-side — it tracks creation
+      // order, which is no longer what the number in the UI means.
+      token: r.displayToken,
       label: r.label,
       patientName: r.patient.name,
       partySize: r.booking.partySize,

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireSetup } from "@/lib/session";
 import { createBooking, BookingError } from "@/lib/services/booking";
+import { displayTokenForBooking } from "@/lib/services/queue";
 import { dispatchWhatsapp } from "@/lib/whatsapp";
 import { db, schema } from "@/lib/db/client";
 import { eq } from "drizzle-orm";
@@ -39,12 +40,17 @@ export async function bookAction(_prev: BookState, formData: FormData): Promise<
       .from(schema.patients)
       .where(eq(schema.patients.id, booking.patientId));
     if (patient) {
+      // Slot-order display token — the WhatsApp confirmation should
+      // show the same T{n} the customer will see on the live status
+      // page and hear at the desk.
+      const displayToken =
+        (await displayTokenForBooking(sess.clinic.id, booking.id)) ?? booking.token;
       void dispatchWhatsapp({
         clinicId: sess.clinic.id,
         patient,
         booking,
         trigger: "booking_confirmed",
-        payload: { token: booking.token, slot: booking.slotTime.toISOString() },
+        payload: { token: displayToken, slot: booking.slotTime.toISOString() },
       });
     }
   } catch (err) {

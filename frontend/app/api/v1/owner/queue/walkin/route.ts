@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { BookingError, createWalkIn } from "@/lib/services/booking";
+import { displayTokenForBooking } from "@/lib/services/queue";
 import { ERRORS, fail, ok, readJson, requireOwner } from "@/lib/api-helpers";
 import { checkAndIncrement, LIMITS } from "@/lib/rate-limit";
 
@@ -50,11 +51,16 @@ export async function POST(req: Request) {
         ),
       )
       .limit(1);
+    // Return the slot-order display token — the mobile app renders
+    // this as "T{n}", same numbering the queue board uses. The DB
+    // `booking.token` value (creation-order) stays server-side.
+    const displayToken =
+      (await displayTokenForBooking(auth.clinic.id, booking.id)) ?? booking.token;
     return ok(
       {
         booking: {
           id: booking.id,
-          token: booking.token,
+          token: displayToken,
           patientName: patient?.name ?? body.name,
           slotIso: booking.slotTime.toISOString(),
           status: booking.status,

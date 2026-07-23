@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import {
   checkIn,
+  displayTokenForBooking,
   markDone,
   markNoShowManual,
   reopenBooking,
@@ -148,12 +149,16 @@ export async function sendReminderAction(bookingId: number): Promise<Result> {
       .where(eq(schema.patients.id, booking.patientId))
       .limit(1);
     if (!patient) return { ok: false, error: "Patient not found." };
+    // Use the slot-order display token — matches what the customer
+    // sees on the live status page and hears called out at the desk.
+    const displayToken =
+      (await displayTokenForBooking(sess.clinic.id, booking.id)) ?? booking.token;
     await dispatchWhatsapp({
       clinicId: sess.clinic.id,
       patient,
       booking,
       trigger: "youre_next",
-      payload: { token: booking.token, slot: booking.slotTime.toISOString() },
+      payload: { token: displayToken, slot: booking.slotTime.toISOString() },
     });
     return { ok: true };
   } catch (err) {

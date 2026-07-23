@@ -47,7 +47,10 @@ export async function getStatusFeed(token: string): Promise<StatusFeed | null> {
 
   return {
     bookingId: booking.id,
-    token: booking.token,
+    // Slot-order display token — same 1..N number the queue board and
+    // staff would call out. Falls back to the DB token only for a
+    // cancelled booking (displayToken is null in that state).
+    token: pos?.displayToken ?? booking.token,
     status: booking.status,
     slotIso: new Date(booking.slotTime).toISOString(),
     position: pos?.position ?? 0,

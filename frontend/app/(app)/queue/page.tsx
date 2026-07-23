@@ -28,7 +28,10 @@ function serializeRow(r: QueueRowVM, noShowThresholdMin: number, now: Date) {
     partySize: r.booking.partySize,
     reason: r.booking.reason,
     label: r.label,
-    token: r.booking.token,
+    // Board renders slot-order display tokens (1..N by slot_time);
+    // the DB `token` column tracks creation order and stays out of
+    // client payloads to avoid confusion with the visible number.
+    token: r.displayToken,
     slotTime: r.booking.slotTime.toISOString(),
     status: r.booking.status,
     isLate: minutesLate > 0,

@@ -105,7 +105,10 @@ export async function GET(
   return ok(
     {
       bookingId: booking.id,
-      token: booking.token,
+      // Slot-order display token — same 1..N the queue board shows.
+      // queuePosition already computed it above. Fall back to the DB
+      // token only when the booking is cancelled (displayToken null).
+      token: pos?.displayToken ?? booking.token,
       status: booking.status,
       slotIso: booking.slotIso,
       position: pos?.position ?? 0,

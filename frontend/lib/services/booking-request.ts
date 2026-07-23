@@ -5,6 +5,7 @@ import { and, eq, lt, ne, or, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { db, schema } from "@/lib/db/client";
 import { nowUtc } from "@/lib/time";
+import { computeDisplayTokens } from "@/lib/services/queue";
 import type { Clinic } from "@/lib/db/schema";
 import { normalizeMobile } from "@/lib/auth";
 
@@ -221,6 +222,11 @@ export async function queuePosition(
 ): Promise<{
   position: number;
   totalWaiting: number;
+  // Display token for the queried booking — the slot-order 1..N label
+  // the queue board shows, NOT the DB `token` column (which is
+  // creation-order and drifts from what a customer sees on the board).
+  // Null only if the booking has been cancelled.
+  displayToken: number | null;
   inSession: { token: number; bookingId: number } | null;
 } | null> {
   const [me] = await db
@@ -287,9 +293,27 @@ export async function queuePosition(
     )
     .limit(1);
 
+  // One more query for the whole day's bookings so we can compute
+  // display tokens (slot-order 1..N) for both this booking and the
+  // in-session one. Cheap — same-day, same-clinic, small N.
+  const dayRows = await db
+    .select()
+    .from(schema.bookings)
+    .where(
+      and(
+        eq(schema.bookings.clinicId, clinicId),
+        eq(schema.bookings.date, me.date),
+      ),
+    );
+  const dtMap = computeDisplayTokens(dayRows);
+  const inSessionDt = inSession ? dtMap.get(inSession.id) ?? inSession.token : null;
+
   return {
     position: aheadRow?.n ?? 0,
     totalWaiting: waitingRow?.n ?? 0,
-    inSession: inSession ? { token: inSession.token, bookingId: inSession.id } : null,
+    displayToken: dtMap.get(bookingId) ?? null,
+    inSession: inSession
+      ? { token: inSessionDt ?? inSession.token, bookingId: inSession.id }
+      : null,
   };
 }

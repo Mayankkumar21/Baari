@@ -10,6 +10,7 @@ import {
 import { readLang, t } from "@/lib/i18n-mini";
 import { fmtTime } from "@/lib/time";
 import { vocabFor } from "@/lib/vocab";
+import { displayTokenForBooking } from "@/lib/services/queue";
 import { ExpiredScreen } from "../screens";
 
 export default async function DonePage({
@@ -43,6 +44,12 @@ export default async function DonePage({
 
   const vocab = vocabFor(clinic.tenantType);
   const slotLabel = formatSlotLabel(new Date(booking.slotTime), lang, clinic.timezone);
+  // Slot-order display token — the number the customer will hear
+  // called out at the clinic. Falls back to the DB token if the
+  // booking is somehow missing from today's list (should not happen
+  // on this route since it was just confirmed).
+  const displayToken =
+    (await displayTokenForBooking(clinic.id, booking.id)) ?? booking.token;
   const mapsUrl = clinic.address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${clinic.name} ${clinic.address}`)}`
     : null;
@@ -62,7 +69,7 @@ export default async function DonePage({
           {lang === "hi" ? "टोकन" : "Token"}
         </div>
         <div className="text-4xl font-extrabold leading-none text-primary">
-          T-{booking.token}
+          T-{displayToken}
         </div>
         <div className="mt-2 text-sm font-semibold">{slotLabel}</div>
         <div className="mt-3 border-t border-border pt-3 text-sm">

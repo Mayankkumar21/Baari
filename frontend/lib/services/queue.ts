@@ -36,7 +36,13 @@ async function slotOccupiedByAnother(
 export type QueueRowVM = {
   booking: Booking;
   patient: Patient;
+  // Display token (1..N by slot_time) — what the board actually shows
+  // as "T{n}". Falls back to the DB token string only for cancelled
+  // rows, which no longer appear on the board today.
   label: string;
+  // Bare number form for surfaces that render their own prefix
+  // (mobile app renders "Token 3" not "T3").
+  displayToken: number;
   isLate: boolean;
   isUndoable: boolean;
   // Loyalty snapshot for the queue-board row. Counts prior COMPLETED
@@ -52,6 +58,7 @@ export type QueueRowVM = {
 };
 export type NowConsultingVM = {
   label: string;
+  displayToken: number;
   patientName: string;
   reason: string | null;
   booking: Booking;
@@ -67,6 +74,62 @@ export type QueueBoardVM = {
 };
 
 const fmtLabel = (token: number) => `T${token}`;
+
+// Display tokens = position in the day's slot-time-ordered queue.
+//
+// The DB `token` column tracks CREATION order (nextToken() picks
+// max+1 at insert). But the queue board — and every downstream
+// display — sorts and serves in SLOT_TIME order. Historically the
+// two disagreed: a walk-in for a 4pm slot booked at 8am would be
+// T2 while a 1pm appointment booked at 10am would be T7, giving
+// the board a scrambled column of numbers.
+//
+// This helper walks the day's bookings in the same order the board
+// renders them (slot_time ASC, then DB token as deterministic tie-
+// break for same-slot cases like party-of-2), and hands each row
+// its 1..N display number. Cancelled rows are skipped so the
+// remaining numbering has no gaps.
+//
+// Trade-off: a new booking with an EARLIER slot than existing rows
+// will renumber everyone behind it (the previous T2 becomes T3).
+// That's accepted — the whole point is that the number reflects
+// serving order, and serving order is what changed.
+export function computeDisplayTokens(bookings: Booking[]): Map<number, number> {
+  const active = bookings
+    .filter((b) => b.status !== "cancelled")
+    .slice()
+    .sort((a, b) => {
+      const ta = new Date(a.slotTime).getTime();
+      const tb = new Date(b.slotTime).getTime();
+      if (ta !== tb) return ta - tb;
+      return a.token - b.token;
+    });
+  const out = new Map<number, number>();
+  active.forEach((b, i) => out.set(b.id, i + 1));
+  return out;
+}
+
+// Convenience for single-booking callers (customer status page,
+// /b/done, etc.) that don't already have the day's bookings loaded.
+// Returns null for cancelled bookings (they have no display token
+// under the "no gaps" rule above) — callers should fall back to the
+// DB token or hide the label entirely in that state.
+export async function displayTokenForBooking(
+  clinicId: number,
+  bookingId: number,
+): Promise<number | null> {
+  const [me] = await db
+    .select({ id: schema.bookings.id, date: schema.bookings.date })
+    .from(schema.bookings)
+    .where(and(eq(schema.bookings.id, bookingId), eq(schema.bookings.clinicId, clinicId)))
+    .limit(1);
+  if (!me) return null;
+  const rows = await db
+    .select()
+    .from(schema.bookings)
+    .where(and(eq(schema.bookings.clinicId, clinicId), eq(schema.bookings.date, me.date)));
+  return computeDisplayTokens(rows).get(bookingId) ?? null;
+}
 
 async function loadBooking(bookingId: number, clinicId: number): Promise<Booking> {
   const [b] = await db
@@ -402,6 +465,14 @@ export async function buildBoard(clinicId: number, tz: string): Promise<QueueBoa
     ]),
   );
 
+  // Display-token map for the whole day. Cancelled rows are excluded
+  // (see computeDisplayTokens); they never appear on the board anyway.
+  const displayTokens = computeDisplayTokens(bookings);
+  // Fallback for the label of a cancelled row that somehow surfaces
+  // (currently never rendered — but keeps the type honest).
+  const labelFor = (b: Booking) =>
+    fmtLabel(displayTokens.get(b.id) ?? b.token);
+
   let nowConsulting: NowConsultingVM | null = null;
   const waiting: QueueRowVM[] = [];
   const done: QueueRowVM[] = [];
@@ -419,11 +490,13 @@ export async function buildBoard(clinicId: number, tz: string): Promise<QueueBoa
       b.completedAt != null &&
       (now.getTime() - b.completedAt.getTime()) / 1000 <= UNDO_WINDOW_SEC;
     const loyalty = loyaltyByPatient.get(b.patientId);
+    const dt = displayTokens.get(b.id) ?? b.token;
 
     const vm: QueueRowVM = {
       booking: b,
       patient: p,
-      label: fmtLabel(b.token),
+      label: labelFor(b),
+      displayToken: dt,
       isLate,
       isUndoable,
       pastVisits: loyalty?.visits ?? 0,
@@ -432,7 +505,8 @@ export async function buildBoard(clinicId: number, tz: string): Promise<QueueBoa
 
     if (b.status === "in_consult") {
       nowConsulting = {
-        label: fmtLabel(b.token),
+        label: labelFor(b),
+        displayToken: dt,
         patientName: p.name,
         reason: b.reason,
         booking: b,
