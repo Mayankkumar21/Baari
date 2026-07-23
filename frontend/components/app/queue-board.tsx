@@ -25,7 +25,8 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { createContext, useContext, useEffect, useRef, useState, useTransition } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { fmtTime } from "@/lib/time";
 
 // Context so sub-components (NowCard, WaitingRow, DoneRow, reschedule
@@ -1326,12 +1327,44 @@ function Menu({
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  // Computed screen coordinates for the portal-rendered panel. We can't
+  // just use `absolute right-0 top-full` any more — every queue row has
+  // backdrop-blur, which creates a stacking context that traps an
+  // absolutely-positioned child no matter how high its z-index goes.
+  // The next row's backdrop-blur then paints over the menu.
+  //
+  // Fix: render the menu in a document.body portal (escapes every
+  // parent stacking context) and align it to the button with fixed
+  // coordinates computed on open + on scroll/resize.
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+
+  const reposition = () => {
+    const b = btnRef.current;
+    if (!b) return;
+    const r = b.getBoundingClientRect();
+    setPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+  };
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    reposition();
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t)) return;
+      if (panelRef.current?.contains(t)) return;
+      setOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
@@ -1348,8 +1381,9 @@ function Menu({
   };
 
   return (
-    <div ref={rootRef} className="relative">
+    <div className="relative">
       <Button
+        ref={btnRef}
         size="icon"
         variant="ghost"
         className="size-8"
@@ -1359,27 +1393,38 @@ function Menu({
       >
         {pending ? <Loader2 className="size-3.5 animate-spin" /> : label}
       </Button>
-      {open ? (
-        <div className="absolute right-0 top-full z-30 mt-1 w-56 overflow-hidden rounded-lg border border-border bg-card/95 shadow-xl backdrop-blur">
-          {items.map((it) => (
-            <button
-              key={it.key}
-              type="button"
-              onClick={() => handle(it)}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-secondary"
-              disabled={pending}
+      {open && pos && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              ref={panelRef}
+              // z-50 (above the queue rows AND above the BookPanel's
+              // z-index-40 backdrop, matching the reschedule modal's
+              // z-40 sits below). Portaled to body so backdrop-blur on
+              // ancestors can't clip it.
+              style={{ position: "fixed", top: pos.top, right: pos.right }}
+              className="z-50 w-56 overflow-hidden rounded-lg border border-border bg-card/95 shadow-xl backdrop-blur"
             >
-              <span className="text-muted-foreground">{it.icon}</span>
-              {it.label}
-            </button>
-          ))}
-          {error ? (
-            <div className="border-t border-border px-3 py-2 text-[11px] text-destructive">
-              {error}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+              {items.map((it) => (
+                <button
+                  key={it.key}
+                  type="button"
+                  onClick={() => handle(it)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-secondary"
+                  disabled={pending}
+                >
+                  <span className="text-muted-foreground">{it.icon}</span>
+                  {it.label}
+                </button>
+              ))}
+              {error ? (
+                <div className="border-t border-border px-3 py-2 text-[11px] text-destructive">
+                  {error}
+                </div>
+              ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

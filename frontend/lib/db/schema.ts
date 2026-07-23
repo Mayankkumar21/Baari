@@ -67,7 +67,7 @@ export const clinics = pgTable("clinics", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 120 }).notNull(),
   tenantType: varchar("tenant_type", { length: 20 }).notNull().default("clinic"),
-  mobile: varchar("mobile", { length: 15 }),
+  mobile: varchar("mobile", { length: 20 }),
   address: varchar("address", { length: 300 }),
   slotLengthMin: integer("slot_length_min").notNull().default(20),
   openingHours: jsonb("opening_hours").notNull().default({}),
@@ -90,7 +90,7 @@ export const clinics = pgTable("clinics", {
   // `city` lets us run the "Near you" section without a full geocode.
   slug: varchar("slug", { length: 80 }),
   publicListing: boolean("public_listing").notNull().default(false),
-  phone: varchar("phone", { length: 15 }),
+  phone: varchar("phone", { length: 20 }),
   city: varchar("city", { length: 60 }),
   // App-booking controls. Owners can shut off customer-app bookings
   // entirely (safety valve) or restrict which services are bookable
@@ -132,7 +132,7 @@ export const users = pgTable(
     id: serial("id").primaryKey(),
     clinicId: integer("clinic_id").notNull().references(() => clinics.id),
     role: userRole("role").notNull(),
-    mobile: varchar("mobile", { length: 15 }).notNull(),
+    mobile: varchar("mobile", { length: 20 }).notNull(),
     passwordHash: varchar("password_hash", { length: 255 }).notNull(),
     name: varchar("name", { length: 80 }).notNull(),
     // Owner email. Optional at row-creation to keep manual onboarding cheap,
@@ -220,7 +220,7 @@ export const patients = pgTable(
     id: serial("id").primaryKey(),
     clinicId: integer("clinic_id").notNull().references(() => clinics.id),
     name: varchar("name", { length: 80 }).notNull(),
-    mobile: varchar("mobile", { length: 15 }).notNull(),
+    mobile: varchar("mobile", { length: 20 }).notNull(),
     isNew: boolean("is_new").notNull().default(true),
     whatsappOptOut: boolean("whatsapp_opt_out").notNull().default(false),
     noShowCount: integer("no_show_count").notNull().default(0),
@@ -257,7 +257,7 @@ export const bookings = pgTable(
     // of someone else (grandmother booking for grandson, etc.). Both
     // are nullable — a first-party booking leaves them null.
     guestName: varchar("guest_name", { length: 100 }),
-    guestMobile: varchar("guest_mobile", { length: 15 }),
+    guestMobile: varchar("guest_mobile", { length: 20 }),
     // Where this booking originated. Existing rows backfill to
     // "frontdesk" — dashboard is where all pre-app bookings came from.
     source: bookingSource("source").notNull().default("frontdesk"),
@@ -357,7 +357,7 @@ export const planInterest = pgTable(
     // outreach when we later wire per-market billing.
     region: varchar("region", { length: 10 }), // 'IN' | 'GLOBAL' | null
     contactEmail: varchar("contact_email", { length: 254 }),
-    contactMobile: varchar("contact_mobile", { length: 15 }),
+    contactMobile: varchar("contact_mobile", { length: 20 }),
     note: varchar("note", { length: 500 }),
     // Set when the founder reaches out. Different from `convertedAt`
     // because someone can be contacted and not convert.
@@ -437,7 +437,7 @@ export const customers = pgTable(
     email: varchar("email", { length: 200 }).notNull(),
     name: varchar("name", { length: 80 }).notNull(),
     photoUrl: text("photo_url"),
-    mobile: varchar("mobile", { length: 15 }),
+    mobile: varchar("mobile", { length: 20 }),
     // Tracks the last successful change to mobile so we can enforce a
     // ~30-day cooldown (defends against people reclaiming numbers by
     // flipping repeatedly). Null = never changed (i.e. either never
@@ -477,7 +477,7 @@ export const bookingRequests = pgTable(
   {
     id: serial("id").primaryKey(),
     clinicId: integer("clinic_id").notNull().references(() => clinics.id),
-    mobile: varchar("mobile", { length: 15 }).notNull(),
+    mobile: varchar("mobile", { length: 20 }).notNull(),
     patientId: integer("patient_id").references(() => patients.id),
     linkToken: varchar("link_token", { length: 32 }).notNull(),
     source: bookingRequestSource("source").notNull().default("missed_call"),
