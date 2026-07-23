@@ -28,15 +28,21 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     const hdrs = await headers();
     const ip = getClientIp(hdrs);
 
-    const ipCheck = await checkAndIncrement(LIMITS.login_per_ip, "login_ip", ip);
+    // Fire the two rate-limit checks + user lookup in parallel. The
+    // two limiters and the user select are independent — sequencing
+    // them added a full Neon round-trip of latency for no reason.
+    // Cold Neon compute made this the difference between a snappy
+    // <1s login and the 13-15s "is it frozen?" one users reported.
+    const [ipCheck, mobCheck, rows] = await Promise.all([
+      checkAndIncrement(LIMITS.login_per_ip, "login_ip", ip),
+      checkAndIncrement(LIMITS.login_per_mobile, "login_mob", mobile),
+      db
+        .select()
+        .from(schema.users)
+        .where(and(eq(schema.users.mobile, mobile), eq(schema.users.active, true))),
+    ]);
     if (!ipCheck.ok) return { error: "Too many login attempts. Try again in a few minutes." };
-    const mobCheck = await checkAndIncrement(LIMITS.login_per_mobile, "login_mob", mobile);
     if (!mobCheck.ok) return { error: "Too many login attempts on this number. Try again later." };
-
-    const rows = await db
-      .select()
-      .from(schema.users)
-      .where(and(eq(schema.users.mobile, mobile), eq(schema.users.active, true)));
     if (!rows.length) return { error: "Invalid mobile or password" };
 
     // Multiple clinics could share a mobile (one user-per-clinic) — try each.
@@ -49,10 +55,16 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     }
     if (!match) return { error: "Invalid mobile or password" };
 
-    await db
+    // Fire-and-forget the lastLoginAt bump. It's a nice-to-have (used
+    // by /admin's "last seen" column) but has zero bearing on the
+    // outcome of this login — awaiting it just adds a Neon round-trip
+    // between successful auth and the redirect. Errors are swallowed;
+    // a missed update is preferable to a slower login.
+    void db
       .update(schema.users)
       .set({ lastLoginAt: new Date() })
-      .where(eq(schema.users.id, match.id));
+      .where(eq(schema.users.id, match.id))
+      .catch((e) => console.warn("[login] lastLoginAt update failed:", e));
 
     const { token, maxAge } = await issueSession({
       uid: match.id,

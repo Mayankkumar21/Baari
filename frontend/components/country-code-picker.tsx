@@ -120,9 +120,13 @@ export function defaultCountry(): Country {
 // runs first because `Asia/Kolkata` unambiguously identifies India even
 // when the browser locale is en-US (very common on Indian Macs — the
 // exact bug that made region.ts add its own tz check). Falls back to
-// the browser locale's ISO region, and finally to US so a user in an
-// undetectable state at least sees a real country instead of India-
-// by-default (which would silently mislead US/UK owners).
+// the browser locale's ISO region.
+//
+// Final fallback is India — this is the pilot market and the majority
+// of undetectable visitors are Indians on privacy tools / VPNs /
+// mis-configured browsers. Non-Indian owners (US/UK/etc.) are almost
+// always reliably detected via one of the two signals above, so the
+// fallback rarely fires for them.
 export function detectCountry(): Country {
   if (typeof window === "undefined") return COMMON[0];
   try {
@@ -136,7 +140,7 @@ export function detectCountry(): Country {
   } catch {
     // ignore — some browsers throw on unknown locales
   }
-  return COUNTRIES.find((c) => c.code === "US") ?? COMMON[0];
+  return COMMON[0]; // India
 }
 
 // Parse E.164 (+CC + national digits) into the matching Country. Used

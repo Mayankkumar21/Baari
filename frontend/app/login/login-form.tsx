@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -60,8 +61,23 @@ export function LoginForm({ next }: { next: string }) {
         </div>
       ) : null}
       <Button type="submit" variant="glow" size="lg" className="w-full" disabled={pending}>
-        {pending ? "Signing in…" : "Sign in"}
+        {pending ? (
+          <>
+            <Loader2 className="size-4 animate-spin" /> Signing in…
+          </>
+        ) : (
+          "Sign in"
+        )}
       </Button>
+      {/* Progress hint that appears once submission is in flight.
+          The action is expected to complete in &lt;2s on a warm Neon
+          compute, but a cold pool can push it past 10s and the button
+          text alone doesn't tell the user we're still working. */}
+      {pending ? (
+        <p className="text-center text-[11px] text-muted-foreground">
+          One moment — waking the database…
+        </p>
+      ) : null}
     </form>
   );
 }

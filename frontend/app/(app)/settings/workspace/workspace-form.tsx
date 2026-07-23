@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -178,13 +179,18 @@ export function WorkspaceForm({
           <div className="flex-1">
             <div className="text-sm font-semibold">Show on Baari app</div>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              When enabled, customers using the Baari app can find your
-              business by name or by your Baari code{" "}
+              One switch for the customer app: turn it on and customers
+              can find you by name or by your Baari code{" "}
               <span className="font-mono font-semibold text-foreground">
                 {initial.slug || "(set after first save)"}
-              </span>
-              . They can book a slot directly without calling. You stay
-              in full control — toggle off any time.
+              </span>{" "}
+              AND book a slot without calling. Turn it off and both
+              stop. Your front-desk queue is unaffected either way.
+              Choose which services are bookable in{" "}
+              <Link href="/settings/bookings" className="text-primary hover:underline">
+                Settings → Bookings
+              </Link>
+              .
             </p>
           </div>
           <label className="relative inline-flex shrink-0 cursor-pointer items-center">

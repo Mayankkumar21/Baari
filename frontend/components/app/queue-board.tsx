@@ -216,7 +216,7 @@ export function QueueBoard({
         <div className="flex flex-wrap items-center gap-2">
           {!isClosed && isDoctor ? (
             <div data-tour-id="close-day">
-              <CloseDayButton />
+              <CloseDayButton activeCount={summary.waiting + summary.inSession} />
             </div>
           ) : null}
           {!isClosed ? <WalkInButton /> : null}
@@ -450,7 +450,7 @@ function SummaryStrip({ s, vocab }: { s: Summary; vocab: Vocab }) {
 
 // ─── close day button + closed banner ─────────────────────────────────────
 
-function CloseDayButton() {
+function CloseDayButton({ activeCount }: { activeCount: number }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   return (
@@ -458,12 +458,17 @@ function CloseDayButton() {
       variant="outline"
       disabled={pending}
       onClick={() => {
-        if (
-          !confirm(
-            "Close the day? Active bookings get marked no-show; the board becomes read-only.",
-          )
-        )
-          return;
+        // Two-tier confirmation. If patients are still waiting or in
+        // session, the message names the count so the doctor doesn't
+        // accidentally no-show real people ("Close the day?" was too
+        // abstract — nobody knew they were about to mark 3 patients
+        // as no-shows). A clean day (zero active) still asks, but the
+        // wording is soft since no one is affected.
+        const msg =
+          activeCount > 0
+            ? `${activeCount} ${activeCount === 1 ? "patient is" : "patients are"} still waiting or in session. Closing the day will mark ${activeCount === 1 ? "them" : "all of them"} as NO-SHOW. Consider finishing them first.\n\nClose anyway?`
+            : "Close today's queue? The board becomes read-only for the rest of the day.";
+        if (!confirm(msg)) return;
         setError(null);
         start(async () => {
           const r = await closeDayAction();
@@ -732,7 +737,12 @@ function MarkDoneButton({
 }) {
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState<string | null>(null);
+  // Pre-select the first category so it defaults IN — the revenue
+  // report was staying empty because every "Mark done" left category
+  // null. Owners can still change or clear it via the chip below.
+  const [category, setCategory] = useState<string | null>(
+    categories && categories.length > 0 ? categories[0] : null,
+  );
   const submit = (withAmount: boolean) => {
     const n = withAmount ? Number(amount.trim()) : NaN;
     const clean =
@@ -741,7 +751,8 @@ function MarkDoneButton({
       await markDoneAction(bookingId, clean, category);
       setOpen(false);
       setAmount("");
-      setCategory(null);
+      // Reset to the same pre-selected default for the next booking.
+      setCategory(categories && categories.length > 0 ? categories[0] : null);
     });
   };
   return (
@@ -757,7 +768,7 @@ function MarkDoneButton({
       {open ? (
         <div className="absolute left-0 top-full z-20 mt-2 w-72 rounded-lg border border-border bg-card/95 p-3 shadow-xl backdrop-blur">
           <Label htmlFor="mark-done-amount" className="mb-1 block text-xs">
-            Amount paid <span className="text-muted-foreground">(₹, optional)</span>
+            Amount paid <span className="text-muted-foreground">(₹)</span>
           </Label>
           <div className="flex items-center gap-2">
             <div className="text-sm font-semibold text-muted-foreground">₹</div>
@@ -780,7 +791,7 @@ function MarkDoneButton({
           {categories && categories.length > 0 ? (
             <>
               <div className="mt-2 mb-1 text-xs text-muted-foreground">
-                Category <span className="opacity-60">(optional)</span>
+                Category
               </div>
               <div className="flex flex-wrap gap-1">
                 {categories.map((c) => (
@@ -801,16 +812,22 @@ function MarkDoneButton({
               </div>
             </>
           ) : null}
-          <div className="mt-2 flex items-center justify-end gap-1.5">
-            <Button
+          {/* Small nudge so the receptionist knows why the field is
+              there. Revenue reports were staying empty because
+              "Skip amount" felt like an equal-weight option. */}
+          <p className="mt-2 text-[10px] text-muted-foreground">
+            Fills your revenue report — leave blank only if this
+            visit is free.
+          </p>
+          <div className="mt-2 flex items-center justify-between">
+            <button
               type="button"
-              size="sm"
-              variant="ghost"
               onClick={() => submit(false)}
               disabled={pending}
+              className="text-[11px] text-muted-foreground hover:text-foreground hover:underline disabled:opacity-50"
             >
-              Skip amount
-            </Button>
+              Skip
+            </button>
             <Button
               type="button"
               size="sm"

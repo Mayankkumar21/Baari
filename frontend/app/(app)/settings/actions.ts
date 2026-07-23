@@ -84,10 +84,16 @@ export async function saveWorkspace(
       city: city || null,
       slug,
       publicListing,
+      // Kept in lockstep with publicListing — the "Show on Baari app"
+      // toggle is now the single source of truth for "is this clinic
+      // reachable from the customer app?" Merged from the separate
+      // bookings-form toggle that used to duplicate this control.
+      acceptAppBookings: publicListing,
       timezone,
     })
     .where(eq(schema.clinics.id, sess.clinic.id));
   revalidatePath("/settings/workspace");
+  revalidatePath("/settings/bookings");
   revalidatePath("/queue");
   return { ok: true };
 }
@@ -101,7 +107,6 @@ export async function saveBookingsSettings(
   formData: FormData,
 ): Promise<BookingsState> {
   const sess = await requireDoctor();
-  const acceptAppBookings = formData.get("accept_app_bookings") === "on";
 
   // Build the allowlist from checkbox names "service:<name>". If every
   // service is ticked we store null (== "all bookable"), so a future
@@ -116,9 +121,13 @@ export async function saveBookingsSettings(
   const bookableServices: string[] | null =
     picked.size === catalogue.length ? null : catalogue.filter((s) => picked.has(s));
 
+  // acceptAppBookings is now driven entirely by the "Show on Baari
+  // app" toggle in Settings > Workspace — two switches for essentially
+  // the same thing was confusing owners. The bookings page only
+  // controls which services are bookable when the app is on.
   await db
     .update(schema.clinics)
-    .set({ acceptAppBookings, bookableServices })
+    .set({ bookableServices })
     .where(eq(schema.clinics.id, sess.clinic.id));
   revalidatePath("/settings/bookings");
   revalidatePath("/queue");
@@ -317,43 +326,49 @@ export async function deleteWorkspace(
 
   const cid = sess.clinic.id;
 
-  // Hard delete in FK-reverse order. Tables referencing clinic_id (directly
-  // or via booking_id / user_id) must be drained before the parent. All
-  // wrapped in a transaction so a partial failure leaves the workspace intact.
+  // Hard delete in FK-reverse order. Tables referencing clinic_id
+  // (directly or via booking_id / user_id) must be drained before
+  // the parent.
+  //
+  // NO db.transaction() — the no-transaction law (see architecture
+  // contract §2). The previous version wrapped everything in
+  // db.transaction(async tx => …), which SILENTLY NO-OPS on our
+  // postgres-js + Neon combo (per baari-failure-archaeology). Result:
+  // the redirect fired, the user saw "Workspace deleted," but every
+  // row was still in the DB. Now we run the deletes sequentially —
+  // the trade-off is that a mid-flight failure leaves the workspace
+  // partially drained, which the caller-facing UI treats as "call
+  // support" via the try/catch upstream. In practice: all deletes
+  // are simple WHERE clinic_id = ? statements, so the failure mode
+  // is a network blip that either happens on the first statement or
+  // not at all — a partial delete on a workspace with real traffic
+  // is extremely rare.
   //
   // Order is deliberate:
-  //   booking_requests -> before bookings (FK to bookings.id)
-  //   password_resets, email_verifications -> before users (FK to users.id)
-  //   closed_days -> before clinics (FK to clinics.id, also users.id)
-  //   notifications, audit_log, daily_summaries -> before bookings/users
-  //   bookings -> before patients (FK to patients.id)
+  //   password_resets, email_verifications -> before users (FK users.id)
+  //   booking_requests, notifications, audit_log, daily_summaries,
+  //     closed_days -> before bookings / users (FK clinic_id + users.id)
+  //   bookings -> before patients (FK patients.id)
   //   patients -> before clinics
   //   users -> before clinics
-  await db.transaction(async (tx) => {
-    // Drain sub-user rows first — password_resets and email_verifications
-    // FK to users.id. Owner may have started an OTP flow they never
-    // finished; the delete would 500 with a raw FK-violation.
-    const userIds = await tx
-      .select({ id: schema.users.id })
-      .from(schema.users)
-      .where(eq(schema.users.clinicId, cid));
-    if (userIds.length) {
-      const ids = userIds.map((r) => r.id);
-      await tx.delete(schema.passwordResets).where(inArray(schema.passwordResets.userId, ids));
-      await tx.delete(schema.emailVerifications).where(inArray(schema.emailVerifications.userId, ids));
-    }
-    // booking_requests → bookings (must drain before bookings). Both
-    // reference clinic_id too but we key on the clinic scope directly.
-    await tx.delete(schema.bookingRequests).where(eq(schema.bookingRequests.clinicId, cid));
-    await tx.delete(schema.notifications).where(eq(schema.notifications.clinicId, cid));
-    await tx.delete(schema.auditLog).where(eq(schema.auditLog.clinicId, cid));
-    await tx.delete(schema.dailySummaries).where(eq(schema.dailySummaries.clinicId, cid));
-    await tx.delete(schema.closedDays).where(eq(schema.closedDays.clinicId, cid));
-    await tx.delete(schema.bookings).where(eq(schema.bookings.clinicId, cid));
-    await tx.delete(schema.patients).where(eq(schema.patients.clinicId, cid));
-    await tx.delete(schema.users).where(eq(schema.users.clinicId, cid));
-    await tx.delete(schema.clinics).where(eq(schema.clinics.id, cid));
-  });
+  const userIds = await db
+    .select({ id: schema.users.id })
+    .from(schema.users)
+    .where(eq(schema.users.clinicId, cid));
+  if (userIds.length) {
+    const ids = userIds.map((r) => r.id);
+    await db.delete(schema.passwordResets).where(inArray(schema.passwordResets.userId, ids));
+    await db.delete(schema.emailVerifications).where(inArray(schema.emailVerifications.userId, ids));
+  }
+  await db.delete(schema.bookingRequests).where(eq(schema.bookingRequests.clinicId, cid));
+  await db.delete(schema.notifications).where(eq(schema.notifications.clinicId, cid));
+  await db.delete(schema.auditLog).where(eq(schema.auditLog.clinicId, cid));
+  await db.delete(schema.dailySummaries).where(eq(schema.dailySummaries.clinicId, cid));
+  await db.delete(schema.closedDays).where(eq(schema.closedDays.clinicId, cid));
+  await db.delete(schema.bookings).where(eq(schema.bookings.clinicId, cid));
+  await db.delete(schema.patients).where(eq(schema.patients.clinicId, cid));
+  await db.delete(schema.users).where(eq(schema.users.clinicId, cid));
+  await db.delete(schema.clinics).where(eq(schema.clinics.id, cid));
 
   // Sign the user out and bounce to a friendly confirmation page. Going to
   // /login or /queue here is fragile — those routes re-read the (now-deleted)

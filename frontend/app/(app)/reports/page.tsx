@@ -635,6 +635,23 @@ export default async function ReportsPage({
       : Promise.resolve(null),
   ]);
 
+  // "Reports look broken" — a brand-new clinic sees zeros across every
+  // KPI and empty charts and thinks something is wrong. This banner
+  // tells them (a) the numbers are correct — there just isn't data
+  // yet, (b) roughly when to come back. Two weeks is enough for at
+  // least one cohort of returning customers to have started forming.
+  //
+  // Triggered only when the whole visible range AND the previous
+  // period are both empty AND the clinic is < 14 days old. Older
+  // clinics with a genuine dry spell (holiday shutdown, staff leave)
+  // still get the normal empty-chart view — that's information, not a
+  // "you're new" moment.
+  const clinicAgeMs = Date.now() - new Date(sess.clinic.createdAt).getTime();
+  const clinicAgeDays = Math.floor(clinicAgeMs / 86_400_000);
+  const daysUntilRipe = Math.max(0, 14 - clinicAgeDays);
+  const isBrandNew =
+    bundle.totals.bookings === 0 && prev.bookings === 0 && clinicAgeDays < 14;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -651,6 +668,27 @@ export default async function ReportsPage({
           <RangeSelector current={r.range} />
         </div>
       </div>
+
+      {isBrandNew ? (
+        <div className="rounded-xl border border-primary/30 bg-primary/8 p-5 backdrop-blur">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
+            Building your signal
+          </div>
+          <div className="mt-1 text-base font-semibold">
+            Insights unlock after about two weeks of use.
+          </div>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Your reports look empty because we haven&apos;t seen enough
+            bookings yet — not because anything is broken. Keep running
+            the queue as usual; churn, retention, and category revenue
+            need a couple of weeks of data before they read as anything
+            meaningful.
+            {daysUntilRipe > 0
+              ? ` Check back in about ${daysUntilRipe} ${daysUntilRipe === 1 ? "day" : "days"}.`
+              : ""}
+          </p>
+        </div>
+      ) : null}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">

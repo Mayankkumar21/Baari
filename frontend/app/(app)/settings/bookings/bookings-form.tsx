@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import Link from "next/link";
+import { useActionState } from "react";
 import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -20,34 +21,30 @@ export function BookingsForm({
     saveBookingsSettings,
     {},
   );
-  const [accepting, setAccepting] = useState(initial.acceptAppBookings);
+  // "Accept bookings" was duplicated here and in Settings > Workspace
+  // as "Show on Baari app" — same knob, two labels. Merged into the
+  // workspace toggle; this page now only picks which SERVICES are
+  // bookable when the app is on. When the workspace toggle is off,
+  // the service allowlist grays out but is still editable so an owner
+  // can prep before flipping the workspace switch back on.
+  const accepting = initial.acceptAppBookings;
 
   return (
     <form action={action} className="space-y-6">
-      <div className="flex items-start justify-between gap-4 rounded-md border border-border bg-card/40 p-4">
-        <div className="min-w-0">
-          <Label htmlFor="accept_app_bookings" className="text-sm font-semibold">
-            Accept bookings from the Baari app
-          </Label>
-          <p className="mt-1 text-xs text-muted-foreground">
-            When off, your workspace is hidden from the customer app and
-            the app can&apos;t create bookings here. Your front-desk queue
-            is unaffected.
+      {!accepting ? (
+        <div className="rounded-md border border-primary/30 bg-primary/8 p-4 text-xs text-foreground">
+          <div className="font-semibold">Baari app is off for this workspace.</div>
+          <p className="mt-1 text-muted-foreground">
+            Turn on <strong className="text-foreground">Show on Baari app</strong>{" "}
+            in{" "}
+            <Link href="/settings/workspace" className="text-primary hover:underline">
+              Settings → Workspace
+            </Link>{" "}
+            to accept bookings from the customer app. The service list below
+            takes effect once it&apos;s on.
           </p>
         </div>
-        <label className="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center">
-          <input
-            id="accept_app_bookings"
-            name="accept_app_bookings"
-            type="checkbox"
-            checked={accepting}
-            onChange={(e) => setAccepting(e.target.checked)}
-            className="peer sr-only"
-          />
-          <span className="absolute inset-0 rounded-full bg-muted transition-colors peer-checked:bg-primary" />
-          <span className="absolute left-0.5 top-0.5 size-5 rounded-full bg-background shadow transition-transform peer-checked:translate-x-5" />
-        </label>
-      </div>
+      ) : null}
 
       <div className="space-y-2">
         <div className="flex items-baseline justify-between">
@@ -65,9 +62,8 @@ export function BookingsForm({
         <div
           className={cn(
             "grid gap-2 pt-1 sm:grid-cols-2",
-            !accepting && "pointer-events-none opacity-50",
+            !accepting && "opacity-60",
           )}
-          aria-disabled={!accepting}
         >
           {initial.catalogue.map((s) => {
             const on = initial.allowed.includes(s);
