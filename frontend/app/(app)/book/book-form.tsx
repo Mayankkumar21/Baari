@@ -23,6 +23,7 @@ export function BookForm({
   reasonLabel,
   entitySingular,
   tz,
+  defaultCountryCode,
   fromPanel,
   onSuccess,
 }: {
@@ -33,6 +34,10 @@ export function BookForm({
   reasonLabel: string;
   entitySingular: string;
   tz: string;
+  // ISO code of the owner's country, extracted from their login mobile.
+  // Pre-fills the picker so the receptionist doesn't have to switch
+  // from India every time they book a US/UK patient at a US/UK clinic.
+  defaultCountryCode?: string;
   // When the form is mounted inside the queue's side panel, the action
   // returns without redirecting; the parent panel calls onSuccess so it can
   // close itself. /book route → no parent → no callback → action redirects.
@@ -45,8 +50,10 @@ export function BookForm({
   const [customReason, setCustomReason] = useState(false);
   const [service, setService] = useState<string>(services[0] ?? "");
   // Country + national number for E.164 mobile; combined into a hidden
-  // field the server action reads. SSR India, client swaps to detected.
-  const [country, setCountry] = useCountry();
+  // field the server action reads. Pre-filled with the owner's own
+  // country when known (extracted from their login mobile) so a US
+  // clinic's receptionist isn't fighting the picker on every patient.
+  const [country, setCountry] = useCountry(defaultCountryCode);
   const [national, setNational] = useState("");
   const [customValue, setCustomValue] = useState("");
   const [justSaved, setJustSaved] = useState(false);

@@ -11,7 +11,11 @@ import {
 } from "@/components/country-code-picker";
 import { addGuestAction, type AddGuestState } from "./actions";
 
-export function AddGuestButton() {
+export function AddGuestButton({
+  defaultCountryCode,
+}: {
+  defaultCountryCode?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState<AddGuestState, FormData>(
     addGuestAction,
@@ -19,7 +23,7 @@ export function AddGuestButton() {
   );
   const formRef = useRef<HTMLFormElement>(null);
   const [justAdded, setJustAdded] = useState(false);
-  const [country, setCountry] = useCountry();
+  const [country, setCountry] = useCountry(defaultCountryCode);
   const [national, setNational] = useState("");
 
   useEffect(() => {

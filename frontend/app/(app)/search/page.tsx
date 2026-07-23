@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { fmtDateTime } from "@/lib/time";
 import { getRecentGuests } from "@/lib/services/patients";
 import { AddGuestButton } from "./add-guest-button";
+import { countryFromMobile } from "@/components/country-code-picker";
 
 export const dynamic = "force-dynamic";
 
@@ -110,7 +111,7 @@ export default async function SearchPage({
             Find a {vocab.entitySingular} by name or mobile, or add a new one.
           </p>
         </div>
-        <AddGuestButton />
+        <AddGuestButton defaultCountryCode={countryFromMobile(sess.user.mobile)?.code} />
       </div>
 
       <form className="relative">

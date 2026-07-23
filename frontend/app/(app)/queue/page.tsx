@@ -9,6 +9,7 @@ import { clinicToday, fmtDateTime, fmtTime } from "@/lib/time";
 import { QueueBoard } from "@/components/app/queue-board";
 import { AutoRefresh } from "@/components/app/auto-refresh";
 import { OnboardingTour } from "@/components/app/onboarding-tour";
+import { countryFromMobile } from "@/components/country-code-picker";
 
 export const dynamic = "force-dynamic";
 
@@ -100,6 +101,7 @@ export default async function QueuePage() {
       <QueueBoard
         generatedAtLabel={fmtDateTime(board.generatedAt, tz)}
         tz={tz}
+        defaultCountryCode={countryFromMobile(sess.user.mobile)?.code}
       counters={board.counters}
       summary={summary}
       nowConsulting={

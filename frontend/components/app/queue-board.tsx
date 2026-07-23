@@ -37,6 +37,16 @@ const TzContext = createContext<string>("Asia/Kolkata");
 function useTz(): string {
   return useContext(TzContext);
 }
+
+// Country-picker default for walk-in / new-booking forms rendered
+// inside the queue board. Derived once at the top from the owner's
+// login mobile so a US clinic's picker doesn't stay pinned at +91.
+// Undefined string means "no preference — let the picker auto-detect
+// like on the login page."
+const DefaultCountryContext = createContext<string | undefined>(undefined);
+function useDefaultCountryCode(): string | undefined {
+  return useContext(DefaultCountryContext);
+}
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -145,6 +155,7 @@ export function QueueBoard({
   categories,
   quota,
   tz,
+  defaultCountryCode,
 }: {
   generatedAtLabel: string;
   waiting: Row[];
@@ -175,10 +186,15 @@ export function QueueBoard({
   // board and threaded down to nested components (row cards, walk-in,
   // book form). Comes from sess.clinic.timezone.
   tz: string;
+  // Owner's country code, derived server-side from their login mobile.
+  // Threaded via context into walk-in + book-form pickers so a US
+  // clinic doesn't have to switch from +91 on every patient.
+  defaultCountryCode?: string;
 }) {
   const [bookOpen, setBookOpen] = useState(false);
   return (
     <TzContext.Provider value={tz}>
+    <DefaultCountryContext.Provider value={defaultCountryCode}>
     <div className="space-y-5">
       {quota.cap !== null && (quota.isNearCap || quota.isOverCap) ? (
         <QuotaBanner
@@ -290,6 +306,7 @@ export function QueueBoard({
         inputs={bookingInputs}
       />
     </div>
+    </DefaultCountryContext.Provider>
     </TzContext.Provider>
   );
 }
@@ -342,6 +359,7 @@ function BookPanel({
   inputs: BookingInputs;
 }) {
   const tz = useTz();
+  const defaultCountryCode = useDefaultCountryCode();
   // Close on Escape and when clicking the backdrop.
   useEffect(() => {
     if (!open) return;
@@ -386,6 +404,7 @@ function BookPanel({
             reasonLabel={inputs.reasonLabel}
             entitySingular={inputs.entitySingular}
             tz={tz}
+            defaultCountryCode={defaultCountryCode}
             fromPanel
             onSuccess={onClose}
           />
@@ -504,9 +523,10 @@ function WalkInButton() {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   // Country + national number split like login/signup — combined into
-  // an E.164 hidden field the server action reads. SSR India, client
-  // swaps to detected on mount.
-  const [country, setCountry] = useCountry();
+  // an E.164 hidden field the server action reads. Pre-filled with
+  // the owner's own country (from their login mobile) so a US clinic
+  // isn't fighting a +91 default every walk-in.
+  const [country, setCountry] = useCountry(useDefaultCountryCode());
   const [national, setNational] = useState("");
   return (
     <div className="relative">

@@ -5,6 +5,7 @@ import { enumerateSlots, takenSlots } from "@/lib/services/booking";
 import { servicesFor } from "@/lib/services/service-types";
 import { clinicToday } from "@/lib/time";
 import { BookForm } from "./book-form";
+import { countryFromMobile } from "@/components/country-code-picker";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,7 @@ export default async function BookPage() {
             reasonLabel={vocab.reasonLabel}
             entitySingular={vocab.entitySingular}
             tz={sess.clinic.timezone}
+            defaultCountryCode={countryFromMobile(sess.user.mobile)?.code}
           />
         </CardContent>
       </Card>

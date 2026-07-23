@@ -116,11 +116,18 @@ export function defaultCountry(): Country {
   return COMMON[0]; // India
 }
 
-// Client-only: peek at the browser's Intl locale to pick the
-// closest country in our list. Wrapped by `useCountry()` below.
+// Client-only: guess the user's country from browser signals. Timezone
+// runs first because `Asia/Kolkata` unambiguously identifies India even
+// when the browser locale is en-US (very common on Indian Macs — the
+// exact bug that made region.ts add its own tz check). Falls back to
+// the browser locale's ISO region, and finally to US so a user in an
+// undetectable state at least sees a real country instead of India-
+// by-default (which would silently mislead US/UK owners).
 export function detectCountry(): Country {
   if (typeof window === "undefined") return COMMON[0];
   try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz === "Asia/Kolkata" || tz === "Asia/Calcutta") return COMMON[0]; // India
     const region = new Intl.Locale(navigator.language).region;
     if (region) {
       const match = COUNTRIES.find((c) => c.code === region);
@@ -129,19 +136,48 @@ export function detectCountry(): Country {
   } catch {
     // ignore — some browsers throw on unknown locales
   }
-  return COMMON[0];
+  return COUNTRIES.find((c) => c.code === "US") ?? COMMON[0];
 }
 
-// Country state for a form. SSR renders India (deterministic, so
-// hydration matches) and then swaps to the browser-detected country
-// in a useEffect. Every form that renders a CountryCodePicker uses
-// this — without it, US/UK owners see +91 prefilled forever and
-// can't log in with their own number.
-export function useCountry(): readonly [Country, (c: Country) => void] {
-  const [country, setCountry] = useState<Country>(() => defaultCountry());
+// Parse E.164 (+CC + national digits) into the matching Country. Used
+// after login to pre-fill the picker with the owner's country: an
+// owner who logged in with +1 415… gets +1 pre-selected when they
+// add a walk-in, so they don't have to keep switching from the app-
+// wide India default. Longest-dial-code-first so 971 wins over 9.
+export function countryFromMobile(e164: string | null | undefined): Country | null {
+  if (!e164) return null;
+  const digits = e164.replace(/^\+/, "");
+  const sorted = [...COUNTRIES].sort((a, b) => b.dial.length - a.dial.length);
+  for (const c of sorted) {
+    if (digits.startsWith(c.dial)) return c;
+  }
+  return null;
+}
+
+// Country state for a form.
+//
+// - No preferredCode (login / signup / forgot — no session yet):
+//   SSR renders India (deterministic → hydration-safe), then in a
+//   useEffect swaps to detectCountry() so US/UK visitors don't stay
+//   pinned at +91.
+//
+// - preferredCode passed (walk-in / book form / add-guest — inside
+//   the app):  use the caller's choice, both on SSR and on client.
+//   This is how we default the walk-in picker to the owner's own
+//   country: page.tsx computes countryFromMobile(sess.user.mobile)
+//   and passes the code down. No detection runs — the owner has
+//   already told us, via their login credential, what country the
+//   business is in.
+export function useCountry(
+  preferredCode?: string,
+): readonly [Country, (c: Country) => void] {
+  const [country, setCountry] = useState<Country>(() =>
+    preferredCode ? countryByCode(preferredCode) ?? defaultCountry() : defaultCountry(),
+  );
   useEffect(() => {
+    if (preferredCode) return; // caller-controlled — skip detection.
     setCountry(detectCountry());
-  }, []);
+  }, [preferredCode]);
   return [country, setCountry] as const;
 }
 
